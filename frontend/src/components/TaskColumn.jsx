@@ -10,7 +10,7 @@ const statusConfig = {
   Completada: { title: 'Completada', color: '#2e7d32' }
 };
 
-export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign }) {
+export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign, onSizeChange }) {
   const config = statusConfig[status];
 
   return (
@@ -61,6 +61,7 @@ export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onA
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onAssign={onAssign}
+                onSizeChange={onSizeChange}
               />
             ))}
             {provided.placeholder}

@@ -15,6 +15,7 @@ export async function logTaskChange(taskId, userId, action, previousValue = null
 export const ACTIONS = {
   CREATED: 'CREATED',
   STATUS_CHANGED: 'STATUS_CHANGED',
+  SIZE_CHANGED: 'SIZE_CHANGED',
   TITLE_UPDATED: 'TITLE_UPDATED',
   DESCRIPTION_UPDATED: 'DESCRIPTION_UPDATED',
   ASSIGNED: 'ASSIGNED',
