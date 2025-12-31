@@ -12,12 +12,16 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import Tooltip from '@mui/material/Tooltip';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import TaskBoard from '../components/TaskBoard';
 import TaskDialog from '../components/TaskDialog';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const sizeLegend = [
   { label: 'S', description: '< 1 hora', color: '#4caf50' },
@@ -36,7 +40,22 @@ export default function MainPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [reopenConfirm, setReopenConfirm] = useState(null);
   const [infoAnchor, setInfoAnchor] = useState(null);
+  const [filter, setFilter] = useState('all'); // 'all', 'mine', 'unassigned'
   const socket = useSocket();
+  const { user } = useAuth();
+
+  // Apply filter only to "Nueva" column
+  const getFilteredTasks = () => {
+    const filtered = { ...tasks };
+
+    if (filter === 'mine') {
+      filtered.Nueva = tasks.Nueva.filter(task => task.assignedTo?.id === user?.id);
+    } else if (filter === 'unassigned') {
+      filtered.Nueva = tasks.Nueva.filter(task => !task.assignedTo);
+    }
+
+    return filtered;
+  };
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -207,7 +226,7 @@ export default function MainPage() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={0.5}>
           <Typography variant="h4" component="h1">
             Tareas
@@ -263,6 +282,56 @@ export default function MainPage() {
         </Button>
       </Box>
 
+      <Box display="flex" alignItems="center" gap={1} mb={2}>
+        <FilterListIcon fontSize="small" color="action" />
+        <Typography variant="body2" color="text.secondary">
+          Filtrar nuevas:
+        </Typography>
+        <ToggleButtonGroup
+          value={filter}
+          exclusive
+          onChange={(e, newFilter) => newFilter && setFilter(newFilter)}
+          size="small"
+        >
+          <ToggleButton
+            value="all"
+            sx={{
+              '&.Mui-selected': {
+                backgroundColor: '#e3f2fd',
+                color: '#1976d2',
+                '&:hover': { backgroundColor: '#bbdefb' }
+              }
+            }}
+          >
+            Todas
+          </ToggleButton>
+          <ToggleButton
+            value="mine"
+            sx={{
+              '&.Mui-selected': {
+                backgroundColor: '#e8f5e9',
+                color: '#2e7d32',
+                '&:hover': { backgroundColor: '#c8e6c9' }
+              }
+            }}
+          >
+            Mis tareas
+          </ToggleButton>
+          <ToggleButton
+            value="unassigned"
+            sx={{
+              '&.Mui-selected': {
+                backgroundColor: '#fff3e0',
+                color: '#e65100',
+                '&:hover': { backgroundColor: '#ffe0b2' }
+              }
+            }}
+          >
+            Sin asignar
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -270,7 +339,7 @@ export default function MainPage() {
       )}
 
       <TaskBoard
-        tasks={tasks}
+        tasks={getFilteredTasks()}
         users={users}
         onDragEnd={handleDragEnd}
         onEdit={handleOpenDialog}
