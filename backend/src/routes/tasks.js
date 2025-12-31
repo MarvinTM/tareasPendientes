@@ -1,0 +1,165 @@
+import express from 'express';
+import { prisma } from '../config/passport.js';
+import { authenticateToken } from '../middleware/auth.js';
+import { logTaskChange, ACTIONS } from '../services/taskHistory.js';
+
+const router = express.Router();
+
+// Get all tasks
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const tasks = await prisma.task.findMany({
+      include: {
+        createdBy: {
+          select: { id: true, name: true, picture: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Group by status
+    const grouped = {
+      NEW: tasks.filter(t => t.status === 'NEW'),
+      ONGOING: tasks.filter(t => t.status === 'ONGOING'),
+      BACKLOG: tasks.filter(t => t.status === 'BACKLOG')
+    };
+
+    res.json(grouped);
+  } catch (error) {
+    console.error('Error fetching tasks:', error);
+    res.status(500).json({ error: 'Failed to fetch tasks' });
+  }
+});
+
+// Create task
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    const task = await prisma.task.create({
+      data: {
+        title: title.trim(),
+        description: description?.trim() || null,
+        createdById: req.user.id
+      },
+      include: {
+        createdBy: {
+          select: { id: true, name: true, picture: true }
+        }
+      }
+    });
+
+    // Log creation
+    await logTaskChange(task.id, req.user.id, ACTIONS.CREATED, null, title);
+
+    res.status(201).json(task);
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ error: 'Failed to create task' });
+  }
+});
+
+// Update task
+router.patch('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, status } = req.body;
+
+    const existingTask = await prisma.task.findUnique({ where: { id } });
+
+    if (!existingTask) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const updateData = {};
+
+    // Track changes
+    if (title !== undefined && title.trim() !== existingTask.title) {
+      updateData.title = title.trim();
+      await logTaskChange(id, req.user.id, ACTIONS.TITLE_UPDATED, existingTask.title, title.trim());
+    }
+
+    if (description !== undefined && description !== existingTask.description) {
+      updateData.description = description?.trim() || null;
+      await logTaskChange(id, req.user.id, ACTIONS.DESCRIPTION_UPDATED, existingTask.description, description?.trim() || null);
+    }
+
+    if (status !== undefined && status !== existingTask.status) {
+      if (!['NEW', 'ONGOING', 'BACKLOG'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+      updateData.status = status;
+      await logTaskChange(id, req.user.id, ACTIONS.STATUS_CHANGED, existingTask.status, status);
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.json(existingTask);
+    }
+
+    const task = await prisma.task.update({
+      where: { id },
+      data: updateData,
+      include: {
+        createdBy: {
+          select: { id: true, name: true, picture: true }
+        }
+      }
+    });
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error updating task:', error);
+    res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Delete task
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const existingTask = await prisma.task.findUnique({ where: { id } });
+
+    if (!existingTask) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    // Log deletion before deleting
+    await logTaskChange(id, req.user.id, ACTIONS.DELETED, existingTask.title, null);
+
+    await prisma.task.delete({ where: { id } });
+
+    res.json({ message: 'Task deleted' });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
+
+// Get task history
+router.get('/:id/history', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const history = await prisma.taskHistory.findMany({
+      where: { taskId: id },
+      include: {
+        user: {
+          select: { id: true, name: true, picture: true }
+        }
+      },
+      orderBy: { timestamp: 'desc' }
+    });
+
+    res.json(history);
+  } catch (error) {
+    console.error('Error fetching task history:', error);
+    res.status(500).json({ error: 'Failed to fetch task history' });
+  }
+});
+
+export default router;
