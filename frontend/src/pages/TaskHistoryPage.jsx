@@ -31,6 +31,7 @@ export default function TaskHistoryPage() {
   const { taskId } = useParams();
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
+  const [taskTitle, setTaskTitle] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -41,7 +42,8 @@ export default function TaskHistoryPage() {
   const fetchHistory = async () => {
     try {
       const response = await api.get(`/tasks/${taskId}/history`);
-      setHistory(response.data);
+      setHistory(response.data.history);
+      setTaskTitle(response.data.task?.title || '');
       setError(null);
     } catch (err) {
       setError('Error al cargar el historial de la tarea');
@@ -70,7 +72,7 @@ export default function TaskHistoryPage() {
       </Button>
 
       <Typography variant="h4" component="h1" gutterBottom>
-        Historial de la Tarea
+        Historial de la Tarea: {taskTitle}
       </Typography>
 
       {error && (
