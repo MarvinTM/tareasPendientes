@@ -246,7 +246,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                 <ListItemText>{user.name}</ListItemText>
               </MenuItem>
             ))}
-            {task.assignedTo && (
+            {task.assignedTo && task.status === 'Nueva' && (
               <>
                 <Divider />
                 <MenuItem onClick={() => handleAssign(null)}>
