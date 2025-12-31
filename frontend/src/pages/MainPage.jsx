@@ -32,6 +32,7 @@ const sizeLegend = [
 export default function MainPage() {
   const [tasks, setTasks] = useState({ Nueva: [], EnProgreso: [], Completada: [] });
   const [users, setUsers] = useState([]);
+  const [weeklyScores, setWeeklyScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -70,10 +71,20 @@ export default function MainPage() {
     }
   }, []);
 
+  const fetchWeeklyScores = useCallback(async () => {
+    try {
+      const response = await api.get('/users/scores?period=week');
+      setWeeklyScores(response.data.filter(s => s.totalPoints > 0));
+    } catch (err) {
+      console.error('Error fetching weekly scores:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTasks();
     fetchUsers();
-  }, [fetchTasks]);
+    fetchWeeklyScores();
+  }, [fetchTasks, fetchWeeklyScores]);
 
   // Listen for real-time task updates
   useEffect(() => {
@@ -81,6 +92,7 @@ export default function MainPage() {
 
     const handleTaskUpdate = () => {
       fetchTasks();
+      fetchWeeklyScores();
     };
 
     socket.on('task:created', handleTaskUpdate);
@@ -92,7 +104,7 @@ export default function MainPage() {
       socket.off('task:updated', handleTaskUpdate);
       socket.off('task:deleted', handleTaskUpdate);
     };
-  }, [socket, fetchTasks]);
+  }, [socket, fetchTasks, fetchWeeklyScores]);
 
   const fetchUsers = async () => {
     try {
@@ -352,6 +364,7 @@ export default function MainPage() {
       <TaskBoard
         tasks={getFilteredTasks()}
         users={users}
+        weeklyScores={weeklyScores}
         onDragEnd={handleDragEnd}
         onEdit={handleOpenDialog}
         onDelete={setDeleteConfirm}
