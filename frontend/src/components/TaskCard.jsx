@@ -13,6 +13,8 @@ import MenuItem from '@mui/material/MenuItem';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import HistoryIcon from '@mui/icons-material/History';
@@ -20,7 +22,13 @@ import PersonIcon from '@mui/icons-material/Person';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import { Draggable } from '@hello-pangea/dnd';
 
-export default function TaskCard({ task, index, users, onEdit, onDelete, onAssign }) {
+const sizeConfig = {
+  Pequena: { label: 'S', color: '#4caf50', tooltip: 'Pequeña' },
+  Mediana: { label: 'M', color: '#ff9800', tooltip: 'Mediana' },
+  Grande: { label: 'L', color: '#f44336', tooltip: 'Grande' }
+};
+
+export default function TaskCard({ task, index, users, onEdit, onDelete, onAssign, onSizeChange }) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const isCompleted = task.status === 'Completada';
@@ -38,6 +46,13 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
   const handleAssign = (userId) => {
     onAssign(task.id, userId);
     handleCloseMenu();
+  };
+
+  const handleSizeChange = (event, newSize) => {
+    event.stopPropagation();
+    if (newSize && newSize !== task.size) {
+      onSizeChange(task.id, newSize);
+    }
   };
 
   return (
@@ -61,9 +76,55 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
           }}
         >
           <CardContent sx={{ pb: 1 }}>
-            <Typography variant="subtitle1" component="div" fontWeight="medium">
-              {task.title}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+              <Typography variant="subtitle1" component="div" fontWeight="medium" sx={{ flex: 1 }}>
+                {task.title}
+              </Typography>
+              <Tooltip title={isCompleted ? sizeConfig[task.size || 'Pequena'].tooltip : 'Tamaño de la tarea'}>
+                <ToggleButtonGroup
+                  value={task.size || 'Pequena'}
+                  exclusive
+                  onChange={handleSizeChange}
+                  size="small"
+                  disabled={isCompleted}
+                  sx={{ minHeight: 24 }}
+                >
+                  {Object.entries(sizeConfig).map(([size, config]) => (
+                    <ToggleButton
+                      key={size}
+                      value={size}
+                      sx={{
+                        px: 0.75,
+                        py: 0,
+                        minWidth: 24,
+                        fontSize: '0.7rem',
+                        fontWeight: 'bold',
+                        color: (task.size || 'Pequena') === size ? 'white' : config.color,
+                        borderColor: config.color,
+                        backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
+                        '&:hover': {
+                          backgroundColor: (task.size || 'Pequena') === size ? config.color : `${config.color}20`
+                        },
+                        '&.Mui-selected': {
+                          backgroundColor: config.color,
+                          color: 'white',
+                          '&:hover': {
+                            backgroundColor: config.color
+                          }
+                        },
+                        '&.Mui-disabled': {
+                          color: (task.size || 'Pequena') === size ? 'white' : `${config.color}80`,
+                          backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
+                          borderColor: `${config.color}80`
+                        }
+                      }}
+                    >
+                      {config.label}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Tooltip>
+            </Box>
             {task.description && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {task.description}

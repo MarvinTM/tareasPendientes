@@ -77,7 +77,7 @@ router.post('/', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, status, assignedToId } = req.body;
+    const { title, description, status, size, assignedToId } = req.body;
 
     const existingTask = await prisma.task.findUnique({
       where: { id },
@@ -111,6 +111,14 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       }
       updateData.status = status;
       await logTaskChange(id, req.user.id, ACTIONS.STATUS_CHANGED, existingTask.status, status);
+    }
+
+    if (size !== undefined && size !== existingTask.size) {
+      if (!['Pequena', 'Mediana', 'Grande'].includes(size)) {
+        return res.status(400).json({ error: 'Invalid size' });
+      }
+      updateData.size = size;
+      await logTaskChange(id, req.user.id, ACTIONS.SIZE_CHANGED, existingTask.size, size);
     }
 
     if (assignedToId !== undefined && assignedToId !== existingTask.assignedToId) {

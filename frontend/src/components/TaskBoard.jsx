@@ -4,7 +4,7 @@ import TaskColumn from './TaskColumn';
 
 const STATUSES = ['Nueva', 'EnProgreso', 'Completada'];
 
-export default function TaskBoard({ tasks, users, onDragEnd, onEdit, onDelete, onAssign }) {
+export default function TaskBoard({ tasks, users, onDragEnd, onEdit, onDelete, onAssign, onSizeChange }) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Box
@@ -24,6 +24,7 @@ export default function TaskBoard({ tasks, users, onDragEnd, onEdit, onDelete, o
             onEdit={onEdit}
             onDelete={onDelete}
             onAssign={onAssign}
+            onSizeChange={onSizeChange}
           />
         ))}
       </Box>

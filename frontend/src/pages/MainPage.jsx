@@ -176,6 +176,15 @@ export default function MainPage() {
     }
   };
 
+  const handleSizeChange = async (taskId, size) => {
+    try {
+      await api.patch(`/tasks/${taskId}`, { size });
+      fetchTasks();
+    } catch (err) {
+      setError('Error al cambiar el tamaño de la tarea');
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
@@ -212,6 +221,7 @@ export default function MainPage() {
         onEdit={handleOpenDialog}
         onDelete={setDeleteConfirm}
         onAssign={handleAssignTask}
+        onSizeChange={handleSizeChange}
       />
 
       <TaskDialog

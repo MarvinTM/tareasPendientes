@@ -19,6 +19,7 @@ import api from '../services/api';
 const actionLabels = {
   CREATED: { label: 'Creada', color: 'success' },
   STATUS_CHANGED: { label: 'Estado Cambiado', color: 'info' },
+  SIZE_CHANGED: { label: 'Dificultad Cambiada', color: 'secondary' },
   TITLE_UPDATED: { label: 'Título Actualizado', color: 'warning' },
   DESCRIPTION_UPDATED: { label: 'Descripción Actualizada', color: 'warning' },
   ASSIGNED: { label: 'Asignada', color: 'primary' },
