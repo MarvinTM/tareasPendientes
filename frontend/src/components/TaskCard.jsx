@@ -20,6 +20,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import HistoryIcon from '@mui/icons-material/History';
 import PersonIcon from '@mui/icons-material/Person';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { Draggable } from '@hello-pangea/dnd';
 
 const sizeConfig = {
@@ -32,6 +33,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const isCompleted = task.status === 'Completada';
+  const isUnassignedNew = task.status === 'Nueva' && !task.assignedTo;
 
   const handleOpenMenu = (event) => {
     if (isCompleted) return;
@@ -68,8 +70,14 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
               ? 'action.hover'
               : task.status === 'Completada'
                 ? '#e8f5e9'
-                : 'background.paper',
-            borderLeft: task.status === 'Completada' ? '4px solid #2e7d32' : 'none',
+                : isUnassignedNew
+                  ? '#fce4ec'
+                  : 'background.paper',
+            borderLeft: task.status === 'Completada'
+              ? '4px solid #2e7d32'
+              : isUnassignedNew
+                ? '4px solid #e91e63'
+                : 'none',
             '&:hover': {
               boxShadow: 3
             }
@@ -166,17 +174,26 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                   </IconButton>
                 </Tooltip>
               ) : !isCompleted ? (
-                <Tooltip title="Sin asignar - clic para asignar">
+                <Tooltip title={isUnassignedNew ? "¡Sin asignar! - clic para asignar" : "Sin asignar - clic para asignar"}>
                   <IconButton
                     size="small"
                     onClick={handleOpenMenu}
                     sx={{
                       border: '2px solid',
-                      borderColor: 'grey.300',
-                      p: 0.25
+                      borderColor: isUnassignedNew ? '#e91e63' : 'grey.300',
+                      p: 0.25,
+                      animation: isUnassignedNew ? 'pulse 2s infinite' : 'none',
+                      '@keyframes pulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.6 }
+                      }
                     }}
                   >
-                    <PersonIcon fontSize="small" color="disabled" />
+                    {isUnassignedNew ? (
+                      <PersonAddIcon fontSize="small" sx={{ color: '#e91e63' }} />
+                    ) : (
+                      <PersonIcon fontSize="small" color="disabled" />
+                    )}
                   </IconButton>
                 </Tooltip>
               ) : null}
