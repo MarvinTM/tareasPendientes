@@ -210,6 +210,11 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const task = await prisma.task.findUnique({
+      where: { id },
+      select: { title: true }
+    });
+
     const history = await prisma.taskHistory.findMany({
       where: { taskId: id },
       include: {
@@ -220,7 +225,7 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
       orderBy: { timestamp: 'desc' }
     });
 
-    res.json(history);
+    res.json({ task, history });
   } catch (error) {
     console.error('Error fetching task history:', error);
     res.status(500).json({ error: 'Failed to fetch task history' });
