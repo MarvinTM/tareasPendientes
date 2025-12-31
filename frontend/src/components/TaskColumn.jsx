@@ -5,9 +5,9 @@ import { Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 
 const statusConfig = {
-  NEW: { title: 'Nuevas', color: '#1976d2' },
-  ONGOING: { title: 'En Progreso', color: '#ed6c02' },
-  BACKLOG: { title: 'Pendientes', color: '#9c27b0' }
+  Nueva: { title: 'Nueva', color: '#1976d2' },
+  EnProgreso: { title: 'En Progreso', color: '#ed6c02' },
+  Completada: { title: 'Completada', color: '#2e7d32' }
 };
 
 export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign }) {

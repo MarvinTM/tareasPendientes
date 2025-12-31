@@ -25,7 +25,7 @@ model Task {
   id           String     @id @default(uuid())
   title        String
   description  String?
-  status       TaskStatus @default(NEW)
+  status       TaskStatus @default(Nueva)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   createdById  String
@@ -37,9 +37,9 @@ model Task {
 }
 
 enum TaskStatus {
-  NEW
-  ONGOING
-  BACKLOG
+  Nueva
+  EnProgreso
+  Completada
 }
 
 model TaskHistory {
