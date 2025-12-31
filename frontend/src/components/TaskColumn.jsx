@@ -10,7 +10,7 @@ const statusConfig = {
   BACKLOG: { title: 'Pendientes', color: '#9c27b0' }
 };
 
-export default function TaskColumn({ status, tasks, onEdit, onDelete }) {
+export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign }) {
   const config = statusConfig[status];
 
   return (
@@ -57,8 +57,10 @@ export default function TaskColumn({ status, tasks, onEdit, onDelete }) {
                 key={task.id}
                 task={task}
                 index={index}
+                users={users}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onAssign={onAssign}
               />
             ))}
             {provided.placeholder}

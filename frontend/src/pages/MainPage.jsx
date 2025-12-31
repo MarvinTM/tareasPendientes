@@ -15,6 +15,7 @@ import api from '../services/api';
 
 export default function MainPage() {
   const [tasks, setTasks] = useState({ NEW: [], ONGOING: [], BACKLOG: [] });
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -24,6 +25,7 @@ export default function MainPage() {
 
   useEffect(() => {
     fetchTasks();
+    fetchUsers();
   }, []);
 
   const fetchTasks = async () => {
@@ -36,6 +38,15 @@ export default function MainPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await api.get('/users');
+      setUsers(response.data);
+    } catch (err) {
+      console.error('Error fetching users:', err);
     }
   };
 
@@ -110,6 +121,15 @@ export default function MainPage() {
     }
   };
 
+  const handleAssignTask = async (taskId, userId) => {
+    try {
+      await api.patch(`/tasks/${taskId}`, { assignedToId: userId });
+      fetchTasks();
+    } catch (err) {
+      setError('Error al asignar la tarea');
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
@@ -141,9 +161,11 @@ export default function MainPage() {
 
       <TaskBoard
         tasks={tasks}
+        users={users}
         onDragEnd={handleDragEnd}
         onEdit={handleOpenDialog}
         onDelete={setDeleteConfirm}
+        onAssign={handleAssignTask}
       />
 
       <TaskDialog
