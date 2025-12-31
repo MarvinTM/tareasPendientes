@@ -86,7 +86,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
         >
           <CardContent sx={{ pb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-              <Typography variant="subtitle1" component="div" fontWeight="medium" sx={{ flex: 1 }}>
+              <Typography variant="body1" component="div" fontWeight="bold" sx={{ flex: 1, fontSize: '1.05rem' }}>
                 {task.title}
               </Typography>
               <ToggleButtonGroup

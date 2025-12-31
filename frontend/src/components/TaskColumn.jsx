@@ -7,9 +7,9 @@ import { Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 
 const statusConfig = {
-  Nueva: { title: 'Nueva', color: '#1976d2' },
-  EnProgreso: { title: 'En Progreso', color: '#ed6c02' },
-  Completada: { title: 'Completada', color: '#2e7d32' }
+  Nueva: { title: 'Nueva', color: '#1976d2', headerBg: '#1976d218' },
+  EnProgreso: { title: 'En Progreso', color: '#ed6c02', headerBg: '#ed6c0210' },
+  Completada: { title: 'Completada', color: '#2e7d32', headerBg: '#2e7d3210' }
 };
 
 const getMonthName = () => {
@@ -38,12 +38,13 @@ export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onA
         sx={{
           p: 2,
           borderBottom: 3,
-          borderColor: config.color
+          borderColor: config.color,
+          backgroundColor: config.headerBg
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
-            <Typography variant="h6" fontWeight="bold">
+            <Typography variant="h5" fontWeight="bold">
               {config.title}
             </Typography>
             <Typography variant="caption" color="text.secondary">
