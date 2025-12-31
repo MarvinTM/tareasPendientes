@@ -23,9 +23,9 @@ import PersonOffIcon from '@mui/icons-material/PersonOff';
 import { Draggable } from '@hello-pangea/dnd';
 
 const sizeConfig = {
-  Pequena: { label: 'S', color: '#4caf50', tooltip: 'Pequeña' },
-  Mediana: { label: 'M', color: '#ff9800', tooltip: 'Mediana' },
-  Grande: { label: 'L', color: '#f44336', tooltip: 'Grande' }
+  Pequena: { label: 'S', color: '#4caf50', tooltip: 'Pequeña - menos de 1 hora' },
+  Mediana: { label: 'M', color: '#ff9800', tooltip: 'Mediana - entre 1 y 2 horas' },
+  Grande: { label: 'L', color: '#f44336', tooltip: 'Grande - más de 2 horas' }
 };
 
 export default function TaskCard({ task, index, users, onEdit, onDelete, onAssign, onSizeChange }) {
@@ -80,18 +80,17 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
               <Typography variant="subtitle1" component="div" fontWeight="medium" sx={{ flex: 1 }}>
                 {task.title}
               </Typography>
-              <Tooltip title={isCompleted ? sizeConfig[task.size || 'Pequena'].tooltip : 'Tamaño de la tarea'}>
-                <ToggleButtonGroup
-                  value={task.size || 'Pequena'}
-                  exclusive
-                  onChange={handleSizeChange}
-                  size="small"
-                  disabled={isCompleted}
-                  sx={{ minHeight: 24 }}
-                >
-                  {Object.entries(sizeConfig).map(([size, config]) => (
+              <ToggleButtonGroup
+                value={task.size || 'Pequena'}
+                exclusive
+                onChange={handleSizeChange}
+                size="small"
+                disabled={isCompleted}
+                sx={{ minHeight: 24 }}
+              >
+                {Object.entries(sizeConfig).map(([size, config]) => (
+                  <Tooltip key={size} title={config.tooltip} arrow>
                     <ToggleButton
-                      key={size}
                       value={size}
                       sx={{
                         px: 0.75,
@@ -121,9 +120,9 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                     >
                       {config.label}
                     </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
-              </Tooltip>
+                  </Tooltip>
+                ))}
+              </ToggleButtonGroup>
             </Box>
             {task.description && (
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
