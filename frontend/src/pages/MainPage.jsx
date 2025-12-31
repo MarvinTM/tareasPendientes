@@ -375,6 +375,7 @@ export default function MainPage() {
         task={editingTask}
         onClose={handleCloseDialog}
         onSave={handleSaveTask}
+        users={users}
       />
 
       <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)}>

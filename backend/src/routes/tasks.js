@@ -39,16 +39,31 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create task
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, size, assignedToId } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Title is required' });
+    }
+
+    if (!size || !['Pequena', 'Mediana', 'Grande'].includes(size)) {
+      return res.status(400).json({ error: 'Valid size is required' });
+    }
+
+    // Validate assignee if provided
+    let assignee = null;
+    if (assignedToId) {
+      assignee = await prisma.user.findUnique({ where: { id: assignedToId } });
+      if (!assignee || !assignee.isApproved) {
+        return res.status(400).json({ error: 'Invalid assignee' });
+      }
     }
 
     const task = await prisma.task.create({
       data: {
         title: title.trim(),
         description: description?.trim() || null,
+        size,
+        assignedToId: assignedToId || null,
         createdById: req.user.id
       },
       include: {
@@ -63,6 +78,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Log creation
     await logTaskChange(task.id, req.user.id, ACTIONS.CREATED, null, title);
+
+    // Send email notification if task was assigned
+    if (assignee) {
+      sendTaskAssignmentEmail(assignee.email, assignee.name, task, req.user.name);
+    }
 
     // Emit real-time update
     emitTaskUpdate('task:created', task);
