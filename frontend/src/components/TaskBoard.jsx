@@ -19,7 +19,7 @@ const medalColors = {
   2: '#CD7F32'  // Bronze
 };
 
-export default function TaskBoard({ tasks, users, weeklyScores, onDragEnd, onEdit, onDelete, onAssign, onSizeChange }) {
+export default function TaskBoard({ tasks, users, weeklyScores, onDragEnd, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, completedFilter, onCompletedFilterChange }) {
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       <Box
@@ -40,6 +40,10 @@ export default function TaskBoard({ tasks, users, weeklyScores, onDragEnd, onEdi
             onDelete={onDelete}
             onAssign={onAssign}
             onSizeChange={onSizeChange}
+            newFilter={newFilter}
+            onNewFilterChange={onNewFilterChange}
+            completedFilter={completedFilter}
+            onCompletedFilterChange={onCompletedFilterChange}
           />
         ))}
 
