@@ -138,12 +138,23 @@ export default function MainPage() {
     const newTasks = { ...tasks };
     const [movedTask] = newTasks[sourceStatus].splice(source.index, 1);
     movedTask.status = destStatus;
+
+    // Auto-assign if moving from Nueva and unassigned
+    const shouldAutoAssign = sourceStatus === 'Nueva' && destStatus !== 'Nueva' && !movedTask.assignedTo;
+    if (shouldAutoAssign) {
+      movedTask.assignedTo = user;
+    }
+
     newTasks[destStatus].splice(destination.index, 0, movedTask);
     setTasks(newTasks);
 
     // Update on server
     try {
-      await api.patch(`/tasks/${taskId}`, { status: destStatus });
+      const updateData = { status: destStatus };
+      if (shouldAutoAssign) {
+        updateData.assignedToId = user.id;
+      }
+      await api.patch(`/tasks/${taskId}`, updateData);
     } catch (err) {
       // Revert on error
       fetchTasks();
