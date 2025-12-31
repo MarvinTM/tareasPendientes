@@ -2,6 +2,7 @@ import express from 'express';
 import { prisma } from '../config/passport.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { logTaskChange, ACTIONS } from '../services/taskHistory.js';
+import { emitTaskUpdate } from '../socket.js';
 
 const router = express.Router();
 
@@ -61,6 +62,9 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Log creation
     await logTaskChange(task.id, req.user.id, ACTIONS.CREATED, null, title);
+
+    // Emit real-time update
+    emitTaskUpdate('task:created', task);
 
     res.status(201).json(task);
   } catch (error) {
@@ -141,6 +145,9 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       }
     });
 
+    // Emit real-time update
+    emitTaskUpdate('task:updated', task);
+
     res.json(task);
   } catch (error) {
     console.error('Error updating task:', error);
@@ -163,6 +170,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     await logTaskChange(id, req.user.id, ACTIONS.DELETED, existingTask.title, null);
 
     await prisma.task.delete({ where: { id } });
+
+    // Emit real-time update
+    emitTaskUpdate('task:deleted', { id });
 
     res.json({ message: 'Task deleted' });
   } catch (error) {
