@@ -8,11 +8,22 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import Chip from '@mui/material/Chip';
+import IconButton from '@mui/material/IconButton';
+import Popover from '@mui/material/Popover';
+import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import TaskBoard from '../components/TaskBoard';
 import TaskDialog from '../components/TaskDialog';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+
+const sizeLegend = [
+  { label: 'S', description: '< 1 hora', color: '#4caf50' },
+  { label: 'M', description: '1-2 horas', color: '#ff9800' },
+  { label: 'L', description: '> 2 horas', color: '#f44336' }
+];
 
 export default function MainPage() {
   const [tasks, setTasks] = useState({ Nueva: [], EnProgreso: [], Completada: [] });
@@ -24,6 +35,7 @@ export default function MainPage() {
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [reopenConfirm, setReopenConfirm] = useState(null);
+  const [infoAnchor, setInfoAnchor] = useState(null);
   const socket = useSocket();
 
   const fetchTasks = useCallback(async () => {
@@ -196,9 +208,52 @@ export default function MainPage() {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1">
-          Tareas
-        </Typography>
+        <Box display="flex" alignItems="center" gap={0.5}>
+          <Typography variant="h4" component="h1">
+            Tareas
+          </Typography>
+          <Tooltip title="Ver leyenda de dificultad">
+            <IconButton
+              size="small"
+              onClick={(e) => setInfoAnchor(e.currentTarget)}
+              sx={{ color: 'text.secondary' }}
+            >
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Popover
+            open={Boolean(infoAnchor)}
+            anchorEl={infoAnchor}
+            onClose={() => setInfoAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          >
+            <Box sx={{ p: 2 }}>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                Dificultad de tareas
+              </Typography>
+              {sizeLegend.map((size) => (
+                <Box key={size.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <Chip
+                    label={size.label}
+                    size="small"
+                    sx={{
+                      backgroundColor: size.color,
+                      color: 'white',
+                      fontWeight: 'bold',
+                      minWidth: 28,
+                      height: 22,
+                      fontSize: '0.7rem'
+                    }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {size.description}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Popover>
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
