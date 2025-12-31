@@ -18,7 +18,10 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    const socketUrl = import.meta.env.VITE_API_URL || window.location.origin;
+    // Construct socket URL dynamically based on current hostname
+    const backendPort = 3001;
+    const socketUrl = `${window.location.protocol}//${window.location.hostname}:${backendPort}`;
+
     const newSocket = io(socketUrl, {
       withCredentials: true
     });

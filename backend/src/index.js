@@ -20,12 +20,39 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 3001;
 
+// CORS configuration - allows local network access
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc.)
+    if (!origin) return callback(null, true);
+
+    // Allow localhost, local network IPs, and nip.io domains
+    const allowedPatterns = [
+      /^http:\/\/localhost(:\d+)?$/,
+      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+      /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+      /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+      /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+      /^http:\/\/[\d.]+\.nip\.io(:\d+)?$/  // nip.io wildcard DNS
+    ];
+
+    if (allowedPatterns.some(pattern => pattern.test(origin))) {
+      return callback(null, true);
+    }
+
+    // Also allow if FRONTEND_URL is set and matches
+    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+      return callback(null, true);
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+};
+
 // Set up Socket.io
 const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true
-  }
+  cors: corsOptions
 });
 
 setIO(io);
@@ -39,10 +66,7 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
@@ -68,6 +92,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Local: http://localhost:${PORT}`);
+  console.log(`Network: http://0.0.0.0:${PORT} (use your local IP)`);
 });

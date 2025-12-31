@@ -25,7 +25,12 @@ export function AuthProvider({ children }) {
   };
 
   const login = () => {
-    window.location.href = `${import.meta.env.VITE_API_URL || ''}/api/auth/google`;
+    const redirectOrigin = encodeURIComponent(window.location.origin);
+    // Always construct backend URL dynamically based on current hostname (don't use VITE_API_URL)
+    // This ensures OAuth works correctly from any device on the network
+    const backendPort = 3001;
+    const backendUrl = `${window.location.protocol}//${window.location.hostname}:${backendPort}`;
+    window.location.href = `${backendUrl}/api/auth/google?redirect_origin=${redirectOrigin}`;
   };
 
   const logout = async () => {
