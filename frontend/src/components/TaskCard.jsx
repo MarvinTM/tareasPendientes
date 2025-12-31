@@ -21,6 +21,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import PersonIcon from '@mui/icons-material/Person';
 import PersonOffIcon from '@mui/icons-material/PersonOff';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Draggable } from '@hello-pangea/dnd';
 
 const sizeConfig = {
@@ -150,6 +151,14 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                 <Typography variant="caption" color="text.secondary">
                   {new Date(task.createdAt).toLocaleDateString()}
                 </Typography>
+                {isCompleted && task.completedAt && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <CheckCircleIcon sx={{ fontSize: 14, color: '#2e7d32' }} />
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(task.completedAt).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               {task.assignedTo ? (

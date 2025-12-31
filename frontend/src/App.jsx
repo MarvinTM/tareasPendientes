@@ -6,6 +6,7 @@ import MainPage from './pages/MainPage';
 import TaskHistoryPage from './pages/TaskHistoryPage';
 import AllHistoryPage from './pages/AllHistoryPage';
 import AdminPage from './pages/AdminPage';
+import ScoreboardPage from './pages/ScoreboardPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
@@ -67,6 +68,7 @@ function App() {
         }
       >
         <Route index element={<MainPage />} />
+        <Route path="scoreboard" element={<ScoreboardPage />} />
         <Route path="history" element={<AllHistoryPage />} />
         <Route path="history/:taskId" element={<TaskHistoryPage />} />
         <Route

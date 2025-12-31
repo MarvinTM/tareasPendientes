@@ -110,6 +110,14 @@ router.patch('/:id', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Invalid status' });
       }
       updateData.status = status;
+
+      // Set or clear completedAt based on status
+      if (status === 'Completada') {
+        updateData.completedAt = new Date();
+      } else if (existingTask.status === 'Completada') {
+        updateData.completedAt = null;
+      }
+
       await logTaskChange(id, req.user.id, ACTIONS.STATUS_CHANGED, existingTask.status, status);
     }
 
