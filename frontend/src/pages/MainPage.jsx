@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add';
 import TaskBoard from '../components/TaskBoard';
 import TaskDialog from '../components/TaskDialog';
 import api from '../services/api';
+import { useSocket } from '../contexts/SocketContext';
 
 export default function MainPage() {
   const [tasks, setTasks] = useState({ Nueva: [], EnProgreso: [], Completada: [] });
@@ -23,13 +24,9 @@ export default function MainPage() {
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [reopenConfirm, setReopenConfirm] = useState(null);
+  const socket = useSocket();
 
-  useEffect(() => {
-    fetchTasks();
-    fetchUsers();
-  }, []);
-
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const response = await api.get('/tasks');
       setTasks(response.data);
@@ -40,7 +37,31 @@ export default function MainPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchTasks();
+    fetchUsers();
+  }, [fetchTasks]);
+
+  // Listen for real-time task updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTaskUpdate = () => {
+      fetchTasks();
+    };
+
+    socket.on('task:created', handleTaskUpdate);
+    socket.on('task:updated', handleTaskUpdate);
+    socket.on('task:deleted', handleTaskUpdate);
+
+    return () => {
+      socket.off('task:created', handleTaskUpdate);
+      socket.off('task:updated', handleTaskUpdate);
+      socket.off('task:deleted', handleTaskUpdate);
+    };
+  }, [socket, fetchTasks]);
 
   const fetchUsers = async () => {
     try {
