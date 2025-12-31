@@ -12,6 +12,9 @@ router.get('/', authenticateToken, async (req, res) => {
       include: {
         createdBy: {
           select: { id: true, name: true, picture: true }
+        },
+        assignedTo: {
+          select: { id: true, name: true, picture: true }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -49,6 +52,9 @@ router.post('/', authenticateToken, async (req, res) => {
       include: {
         createdBy: {
           select: { id: true, name: true, picture: true }
+        },
+        assignedTo: {
+          select: { id: true, name: true, picture: true }
         }
       }
     });
@@ -67,9 +73,16 @@ router.post('/', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, status } = req.body;
+    const { title, description, status, assignedToId } = req.body;
 
-    const existingTask = await prisma.task.findUnique({ where: { id } });
+    const existingTask = await prisma.task.findUnique({
+      where: { id },
+      include: {
+        assignedTo: {
+          select: { id: true, name: true }
+        }
+      }
+    });
 
     if (!existingTask) {
       return res.status(404).json({ error: 'Task not found' });
@@ -96,6 +109,21 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       await logTaskChange(id, req.user.id, ACTIONS.STATUS_CHANGED, existingTask.status, status);
     }
 
+    if (assignedToId !== undefined && assignedToId !== existingTask.assignedToId) {
+      if (assignedToId !== null) {
+        // Verify the user exists and is approved
+        const assignee = await prisma.user.findUnique({ where: { id: assignedToId } });
+        if (!assignee || !assignee.isApproved) {
+          return res.status(400).json({ error: 'Invalid assignee' });
+        }
+        updateData.assignedToId = assignedToId;
+        await logTaskChange(id, req.user.id, ACTIONS.ASSIGNED, existingTask.assignedTo?.name || null, assignee.name);
+      } else {
+        updateData.assignedToId = null;
+        await logTaskChange(id, req.user.id, ACTIONS.UNASSIGNED, existingTask.assignedTo?.name || null, null);
+      }
+    }
+
     if (Object.keys(updateData).length === 0) {
       return res.json(existingTask);
     }
@@ -105,6 +133,9 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       data: updateData,
       include: {
         createdBy: {
+          select: { id: true, name: true, picture: true }
+        },
+        assignedTo: {
           select: { id: true, name: true, picture: true }
         }
       }

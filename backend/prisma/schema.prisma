@@ -16,19 +16,22 @@ model User {
   isApproved Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  tasksCreated Task[]
-  taskChanges  TaskHistory[]
+  tasksCreated  Task[]   @relation("TaskCreator")
+  tasksAssigned Task[]   @relation("TaskAssignee")
+  taskChanges   TaskHistory[]
 }
 
 model Task {
-  id          String     @id @default(uuid())
-  title       String
-  description String?
-  status      TaskStatus @default(NEW)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  createdById String
-  createdBy   User       @relation(fields: [createdById], references: [id])
+  id           String     @id @default(uuid())
+  title        String
+  description  String?
+  status       TaskStatus @default(NEW)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  createdById  String
+  createdBy    User       @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo   User?      @relation("TaskAssignee", fields: [assignedToId], references: [id])
 
   history TaskHistory[]
 }

@@ -21,6 +21,8 @@ const actionLabels = {
   STATUS_CHANGED: { label: 'Estado Cambiado', color: 'info' },
   TITLE_UPDATED: { label: 'Título Actualizado', color: 'warning' },
   DESCRIPTION_UPDATED: { label: 'Descripción Actualizada', color: 'warning' },
+  ASSIGNED: { label: 'Asignada', color: 'primary' },
+  UNASSIGNED: { label: 'Desasignada', color: 'default' },
   DELETED: { label: 'Eliminada', color: 'error' }
 };
 
