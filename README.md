@@ -87,6 +87,30 @@ npm run db:push
    - Your production URL callback
 6. Copy the Client ID and Client Secret to your `.env` files
 
+## Updating an Existing Installation
+
+If the application is already running and you need to update to a new version:
+
+```bash
+# 1. Pull the latest code
+git pull
+
+# 2. Install any new dependencies
+cd backend
+npm install
+cd ../frontend
+npm install
+
+# 3. Apply database changes (if schema was modified)
+cd backend
+npm run db:push
+
+# 4. Restart the servers
+# (Stop the running servers and start them again)
+```
+
+**Note:** If there are new environment variables required, check the `.env.example` files and add them to your existing `.env` files.
+
 ## Running the Application
 
 ### Development
