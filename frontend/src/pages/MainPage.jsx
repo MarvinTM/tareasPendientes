@@ -12,11 +12,8 @@ import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import Popover from '@mui/material/Popover';
 import Tooltip from '@mui/material/Tooltip';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import TaskBoard from '../components/TaskBoard';
 import TaskDialog from '../components/TaskDialog';
 import api from '../services/api';
@@ -28,6 +25,34 @@ const sizeLegend = [
   { label: 'M', description: '1-2 horas', color: '#ff9800' },
   { label: 'L', description: '> 2 horas', color: '#f44336' }
 ];
+
+const getMonthName = () => {
+  const months = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  return months[new Date().getMonth()];
+};
+
+const getStartOfWeek = () => {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+  return startOfWeek;
+};
+
+const getStartOfMonth = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+};
+
+const getStartOfYear = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), 0, 1);
+};
 
 export default function MainPage() {
   const [tasks, setTasks] = useState({ Nueva: [], EnProgreso: [], Completada: [] });
@@ -42,17 +67,36 @@ export default function MainPage() {
   const [reopenConfirm, setReopenConfirm] = useState(null);
   const [infoAnchor, setInfoAnchor] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'mine', 'unassigned'
+  const [completedFilter, setCompletedFilter] = useState('week'); // 'week', 'month', 'year'
   const socket = useSocket();
   const { user } = useAuth();
 
-  // Apply filter only to "Nueva" column
+  // Apply filters to columns
   const getFilteredTasks = () => {
     const filtered = { ...tasks };
 
+    // Filter "Nueva" column
     if (filter === 'mine') {
       filtered.Nueva = tasks.Nueva.filter(task => task.assignedTo?.id === user?.id);
     } else if (filter === 'unassigned') {
       filtered.Nueva = tasks.Nueva.filter(task => !task.assignedTo);
+    }
+
+    // Filter "Completada" column by completion date
+    let startDate;
+    if (completedFilter === 'week') {
+      startDate = getStartOfWeek();
+    } else if (completedFilter === 'month') {
+      startDate = getStartOfMonth();
+    } else if (completedFilter === 'year') {
+      startDate = getStartOfYear();
+    }
+
+    if (startDate) {
+      filtered.Completada = tasks.Completada.filter(task => {
+        if (!task.completedAt) return false;
+        return new Date(task.completedAt) >= startDate;
+      });
     }
 
     return filtered;
@@ -305,56 +349,6 @@ export default function MainPage() {
         </Button>
       </Box>
 
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <FilterListIcon fontSize="small" color="action" />
-        <Typography variant="body2" color="text.secondary">
-          Filtrar nuevas:
-        </Typography>
-        <ToggleButtonGroup
-          value={filter}
-          exclusive
-          onChange={(e, newFilter) => newFilter && setFilter(newFilter)}
-          size="small"
-        >
-          <ToggleButton
-            value="all"
-            sx={{
-              '&.Mui-selected': {
-                backgroundColor: '#e3f2fd',
-                color: '#1976d2',
-                '&:hover': { backgroundColor: '#bbdefb' }
-              }
-            }}
-          >
-            Todas
-          </ToggleButton>
-          <ToggleButton
-            value="mine"
-            sx={{
-              '&.Mui-selected': {
-                backgroundColor: '#e8f5e9',
-                color: '#2e7d32',
-                '&:hover': { backgroundColor: '#c8e6c9' }
-              }
-            }}
-          >
-            Mis tareas
-          </ToggleButton>
-          <ToggleButton
-            value="unassigned"
-            sx={{
-              '&.Mui-selected': {
-                backgroundColor: '#fff3e0',
-                color: '#e65100',
-                '&:hover': { backgroundColor: '#ffe0b2' }
-              }
-            }}
-          >
-            Sin asignar
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
@@ -370,6 +364,10 @@ export default function MainPage() {
         onDelete={setDeleteConfirm}
         onAssign={handleAssignTask}
         onSizeChange={handleSizeChange}
+        newFilter={filter}
+        onNewFilterChange={setFilter}
+        completedFilter={completedFilter}
+        onCompletedFilterChange={setCompletedFilter}
       />
 
       <TaskDialog

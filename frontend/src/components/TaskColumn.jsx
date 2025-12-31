@@ -1,6 +1,8 @@
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 
@@ -10,7 +12,15 @@ const statusConfig = {
   Completada: { title: 'Completada', color: '#2e7d32' }
 };
 
-export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign, onSizeChange }) {
+const getMonthName = () => {
+  const months = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+  return months[new Date().getMonth()];
+};
+
+export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, completedFilter, onCompletedFilterChange }) {
   const config = statusConfig[status];
 
   return (
@@ -31,12 +41,124 @@ export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onA
           borderColor: config.color
         }}
       >
-        <Typography variant="h6" fontWeight="bold">
-          {config.title}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {tasks.length} tarea{tasks.length !== 1 ? 's' : ''}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h6" fontWeight="bold">
+              {config.title}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {tasks.length} tarea{tasks.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+          {status === 'Nueva' && newFilter && onNewFilterChange && (
+            <ToggleButtonGroup
+              value={newFilter}
+              exclusive
+              onChange={(e, newValue) => newValue && onNewFilterChange(newValue)}
+              size="small"
+            >
+              <ToggleButton
+                value="all"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: '0.7rem',
+                  '&.Mui-selected': {
+                    backgroundColor: '#e3f2fd',
+                    color: '#1976d2',
+                    '&:hover': { backgroundColor: '#bbdefb' }
+                  }
+                }}
+              >
+                Todas
+              </ToggleButton>
+              <ToggleButton
+                value="mine"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: '0.7rem',
+                  '&.Mui-selected': {
+                    backgroundColor: '#e3f2fd',
+                    color: '#1976d2',
+                    '&:hover': { backgroundColor: '#bbdefb' }
+                  }
+                }}
+              >
+                Mías
+              </ToggleButton>
+              <ToggleButton
+                value="unassigned"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: '0.7rem',
+                  '&.Mui-selected': {
+                    backgroundColor: '#e3f2fd',
+                    color: '#1976d2',
+                    '&:hover': { backgroundColor: '#bbdefb' }
+                  }
+                }}
+              >
+                Sin asignar
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+          {status === 'Completada' && completedFilter && onCompletedFilterChange && (
+            <ToggleButtonGroup
+              value={completedFilter}
+              exclusive
+              onChange={(e, newValue) => newValue && onCompletedFilterChange(newValue)}
+              size="small"
+            >
+              <ToggleButton
+                value="week"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: '0.7rem',
+                  '&.Mui-selected': {
+                    backgroundColor: '#e8f5e9',
+                    color: '#2e7d32',
+                    '&:hover': { backgroundColor: '#c8e6c9' }
+                  }
+                }}
+              >
+                Semana
+              </ToggleButton>
+              <ToggleButton
+                value="month"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: '0.7rem',
+                  '&.Mui-selected': {
+                    backgroundColor: '#e8f5e9',
+                    color: '#2e7d32',
+                    '&:hover': { backgroundColor: '#c8e6c9' }
+                  }
+                }}
+              >
+                {getMonthName()}
+              </ToggleButton>
+              <ToggleButton
+                value="year"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  fontSize: '0.7rem',
+                  '&.Mui-selected': {
+                    backgroundColor: '#e8f5e9',
+                    color: '#2e7d32',
+                    '&:hover': { backgroundColor: '#c8e6c9' }
+                  }
+                }}
+              >
+                {new Date().getFullYear()}
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+        </Box>
       </Box>
 
       <Droppable droppableId={status}>
