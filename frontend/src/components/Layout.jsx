@@ -43,6 +43,10 @@ export default function Layout() {
             Tareas Pendientes
           </Typography>
 
+          <Button color="inherit" onClick={() => navigate('/history')}>
+            Historial
+          </Button>
+
           {user?.isAdmin && (
             <Button color="inherit" onClick={() => navigate('/admin')}>
               Administración
