@@ -111,6 +111,29 @@ npm run db:push
 
 **Note:** If there are new environment variables required, check the `.env.example` files and add them to your existing `.env` files.
 
+## Email Notifications (Optional)
+
+The app can send email notifications when a task is assigned to a user. To enable this:
+
+### 1. Create a Gmail App Password
+
+1. Go to your Google Account settings: https://myaccount.google.com/
+2. Navigate to **Security** > **2-Step Verification** (must be enabled)
+3. At the bottom, click on **App passwords**
+4. Select "Mail" and your device, then click **Generate**
+5. Copy the 16-character password
+
+### 2. Configure environment variables
+
+Add to your `backend/.env`:
+
+```
+EMAIL_USER=your-gmail-account@gmail.com
+EMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+```
+
+**Note:** Email notifications are optional. If these variables are not set, the app will work normally without sending emails.
+
 ## Running the Application
 
 ### Development
@@ -181,7 +204,7 @@ tareasPendientes/
 - Three-column Kanban board (Nueva, En Progreso, Completada)
 - Drag-and-drop task management
 - Task size/difficulty tracking (S, M, L)
-- User assignment
+- User assignment with email notifications
 - Task history logging
 - Scoring system based on completed tasks
 - Real-time updates via WebSocket

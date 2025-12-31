@@ -3,6 +3,7 @@ import { prisma } from '../config/passport.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { logTaskChange, ACTIONS } from '../services/taskHistory.js';
 import { emitTaskUpdate } from '../socket.js';
+import { sendTaskAssignmentEmail } from '../services/email.js';
 
 const router = express.Router();
 
@@ -129,6 +130,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       await logTaskChange(id, req.user.id, ACTIONS.SIZE_CHANGED, existingTask.size, size);
     }
 
+    let newAssignee = null;
     if (assignedToId !== undefined && assignedToId !== existingTask.assignedToId) {
       if (assignedToId !== null) {
         // Verify the user exists and is approved
@@ -137,6 +139,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
           return res.status(400).json({ error: 'Invalid assignee' });
         }
         updateData.assignedToId = assignedToId;
+        newAssignee = assignee;
         await logTaskChange(id, req.user.id, ACTIONS.ASSIGNED, existingTask.assignedTo?.name || null, assignee.name);
       } else {
         updateData.assignedToId = null;
@@ -160,6 +163,11 @@ router.patch('/:id', authenticateToken, async (req, res) => {
         }
       }
     });
+
+    // Send email notification if task was assigned to someone
+    if (newAssignee) {
+      sendTaskAssignmentEmail(newAssignee.email, newAssignee.name, task, req.user.name);
+    }
 
     // Emit real-time update
     emitTaskUpdate('task:updated', task);
