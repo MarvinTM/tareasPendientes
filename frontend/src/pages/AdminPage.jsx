@@ -13,6 +13,10 @@ import TableRow from '@mui/material/TableRow';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import api from '../services/api';
 
 export default function AdminPage() {
@@ -20,6 +24,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -57,6 +62,20 @@ export default function AdminPage() {
       fetchUsers();
     } catch (err) {
       setError(err.response?.data?.error || 'Error al revocar el acceso del usuario');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setActionLoading(deleteConfirm.id);
+    try {
+      await api.delete(`/admin/users/${deleteConfirm.id}`);
+      setDeleteConfirm(null);
+      fetchUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al eliminar el usuario');
     } finally {
       setActionLoading(null);
     }
@@ -114,15 +133,26 @@ export default function AdminPage() {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                     <TableCell align="right">
-                      <Button
-                        variant="contained"
-                        color="success"
-                        size="small"
-                        onClick={() => handleApprove(user.id)}
-                        disabled={actionLoading === user.id}
-                      >
-                        Aprobar
-                      </Button>
+                      <Box display="flex" gap={1} justifyContent="flex-end">
+                        <Button
+                          variant="contained"
+                          color="success"
+                          size="small"
+                          onClick={() => handleApprove(user.id)}
+                          disabled={actionLoading === user.id}
+                        >
+                          Aprobar
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          size="small"
+                          onClick={() => setDeleteConfirm(user)}
+                          disabled={actionLoading === user.id}
+                        >
+                          Eliminar
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -178,6 +208,26 @@ export default function AdminPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)}>
+        <DialogTitle>Eliminar Usuario</DialogTitle>
+        <DialogContent>
+          ¿Estás seguro de que quieres eliminar a "{deleteConfirm?.name}"? Esta acción no se puede deshacer.
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirm(null)} disabled={actionLoading === deleteConfirm?.id}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={actionLoading === deleteConfirm?.id}
+          >
+            {actionLoading === deleteConfirm?.id ? 'Eliminando...' : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
