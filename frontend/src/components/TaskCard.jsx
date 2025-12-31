@@ -23,8 +23,10 @@ import { Draggable } from '@hello-pangea/dnd';
 export default function TaskCard({ task, index, users, onEdit, onDelete, onAssign }) {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
+  const isCompleted = task.status === 'Completada';
 
   const handleOpenMenu = (event) => {
+    if (isCompleted) return;
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
   };
@@ -47,7 +49,12 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
           {...provided.dragHandleProps}
           sx={{
             mb: 1,
-            backgroundColor: snapshot.isDragging ? 'action.hover' : 'background.paper',
+            backgroundColor: snapshot.isDragging
+              ? 'action.hover'
+              : task.status === 'Completada'
+                ? '#e8f5e9'
+                : 'background.paper',
+            borderLeft: task.status === 'Completada' ? '4px solid #2e7d32' : 'none',
             '&:hover': {
               boxShadow: 3
             }
@@ -77,28 +84,42 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                 </Typography>
               </Box>
 
-              <Tooltip title={task.assignedTo ? `Asignado a: ${task.assignedTo.name}` : 'Sin asignar - clic para asignar'}>
-                <IconButton
-                  size="small"
-                  onClick={handleOpenMenu}
-                  sx={{
-                    border: '2px solid',
-                    borderColor: task.assignedTo ? 'primary.main' : 'grey.300',
-                    p: 0.25
-                  }}
-                >
-                  {task.assignedTo ? (
+              {task.assignedTo ? (
+                <Tooltip title={`Asignado a: ${task.assignedTo.name}`}>
+                  <IconButton
+                    size="small"
+                    onClick={handleOpenMenu}
+                    disabled={isCompleted}
+                    sx={{
+                      border: '2px solid',
+                      borderColor: 'primary.main',
+                      p: 0.25,
+                      cursor: isCompleted ? 'default' : 'pointer'
+                    }}
+                  >
                     <Avatar
                       src={task.assignedTo.picture}
                       sx={{ width: 22, height: 22, fontSize: '0.7rem' }}
                     >
                       {task.assignedTo.name?.[0]}
                     </Avatar>
-                  ) : (
+                  </IconButton>
+                </Tooltip>
+              ) : !isCompleted ? (
+                <Tooltip title="Sin asignar - clic para asignar">
+                  <IconButton
+                    size="small"
+                    onClick={handleOpenMenu}
+                    sx={{
+                      border: '2px solid',
+                      borderColor: 'grey.300',
+                      p: 0.25
+                    }}
+                  >
                     <PersonIcon fontSize="small" color="disabled" />
-                  )}
-                </IconButton>
-              </Tooltip>
+                  </IconButton>
+                </Tooltip>
+              ) : null}
             </Box>
           </CardContent>
 
@@ -108,11 +129,13 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                 <HistoryIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Editar">
-              <IconButton size="small" onClick={() => onEdit(task)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {!isCompleted && (
+              <Tooltip title="Editar">
+                <IconButton size="small" onClick={() => onEdit(task)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title="Eliminar">
               <IconButton size="small" onClick={() => onDelete(task)} color="error">
                 <DeleteIcon fontSize="small" />

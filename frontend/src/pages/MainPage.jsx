@@ -14,7 +14,7 @@ import TaskDialog from '../components/TaskDialog';
 import api from '../services/api';
 
 export default function MainPage() {
-  const [tasks, setTasks] = useState({ NEW: [], ONGOING: [], BACKLOG: [] });
+  const [tasks, setTasks] = useState({ Nueva: [], EnProgreso: [], Completada: [] });
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,6 +22,7 @@ export default function MainPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [reopenConfirm, setReopenConfirm] = useState(null);
 
   useEffect(() => {
     fetchTasks();
@@ -65,6 +66,22 @@ export default function MainPage() {
     const sourceStatus = source.droppableId;
     const destStatus = destination.droppableId;
 
+    // If moving OUT of Completada, show confirmation
+    if (sourceStatus === 'Completada' && destStatus !== 'Completada') {
+      setReopenConfirm({
+        taskId: draggableId,
+        source,
+        destination,
+        sourceStatus,
+        destStatus
+      });
+      return;
+    }
+
+    await executeMove(draggableId, source, destination, sourceStatus, destStatus);
+  };
+
+  const executeMove = async (taskId, source, destination, sourceStatus, destStatus) => {
     // Optimistic update
     const newTasks = { ...tasks };
     const [movedTask] = newTasks[sourceStatus].splice(source.index, 1);
@@ -74,12 +91,20 @@ export default function MainPage() {
 
     // Update on server
     try {
-      await api.patch(`/tasks/${draggableId}`, { status: destStatus });
+      await api.patch(`/tasks/${taskId}`, { status: destStatus });
     } catch (err) {
       // Revert on error
       fetchTasks();
       setError('Error al mover la tarea');
     }
+  };
+
+  const handleConfirmReopen = async () => {
+    if (!reopenConfirm) return;
+
+    const { taskId, source, destination, sourceStatus, destStatus } = reopenConfirm;
+    setReopenConfirm(null);
+    await executeMove(taskId, source, destination, sourceStatus, destStatus);
   };
 
   const handleOpenDialog = (task = null) => {
@@ -184,6 +209,19 @@ export default function MainPage() {
           <Button onClick={() => setDeleteConfirm(null)} disabled={deleting}>Cancelar</Button>
           <Button onClick={handleDeleteTask} color="error" variant="contained" disabled={deleting}>
             {deleting ? 'Eliminando...' : 'Eliminar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(reopenConfirm)} onClose={() => setReopenConfirm(null)}>
+        <DialogTitle>Reabrir Tarea</DialogTitle>
+        <DialogContent>
+          ¿Estás seguro de que quieres volver a abrir la tarea?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReopenConfirm(null)}>No</Button>
+          <Button onClick={handleConfirmReopen} variant="contained" color="primary">
+            Sí
           </Button>
         </DialogActions>
       </Dialog>

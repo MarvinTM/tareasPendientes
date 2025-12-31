@@ -2,7 +2,7 @@ import Box from '@mui/material/Box';
 import { DragDropContext } from '@hello-pangea/dnd';
 import TaskColumn from './TaskColumn';
 
-const STATUSES = ['NEW', 'ONGOING', 'BACKLOG'];
+const STATUSES = ['Nueva', 'EnProgreso', 'Completada'];
 
 export default function TaskBoard({ tasks, users, onDragEnd, onEdit, onDelete, onAssign }) {
   return (

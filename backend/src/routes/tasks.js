@@ -22,9 +22,9 @@ router.get('/', authenticateToken, async (req, res) => {
 
     // Group by status
     const grouped = {
-      NEW: tasks.filter(t => t.status === 'NEW'),
-      ONGOING: tasks.filter(t => t.status === 'ONGOING'),
-      BACKLOG: tasks.filter(t => t.status === 'BACKLOG')
+      Nueva: tasks.filter(t => t.status === 'Nueva'),
+      EnProgreso: tasks.filter(t => t.status === 'EnProgreso'),
+      Completada: tasks.filter(t => t.status === 'Completada')
     };
 
     res.json(grouped);
@@ -102,7 +102,7 @@ router.patch('/:id', authenticateToken, async (req, res) => {
     }
 
     if (status !== undefined && status !== existingTask.status) {
-      if (!['NEW', 'ONGOING', 'BACKLOG'].includes(status)) {
+      if (!['Nueva', 'EnProgreso', 'Completada'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status' });
       }
       updateData.status = status;
