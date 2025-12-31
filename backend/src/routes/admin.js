@@ -91,4 +91,34 @@ router.patch('/users/:id/revoke', authenticateToken, requireAdmin, async (req, r
   }
 });
 
+// Delete user (only if not approved)
+router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Can only delete users that are not approved
+    if (targetUser.isApproved) {
+      return res.status(400).json({ error: 'Cannot delete an approved user. Revoke access first.' });
+    }
+
+    // Prevent deleting admin users
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    if (adminEmails.includes(targetUser.email.toLowerCase())) {
+      return res.status(400).json({ error: 'Cannot delete admin user' });
+    }
+
+    await prisma.user.delete({ where: { id } });
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 export default router;
