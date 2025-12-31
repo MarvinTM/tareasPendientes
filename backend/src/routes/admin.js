@@ -1,0 +1,94 @@
+import express from 'express';
+import { prisma } from '../config/passport.js';
+import { authenticateToken } from '../middleware/auth.js';
+import { requireAdmin } from '../middleware/admin.js';
+
+const router = express.Router();
+
+// Get all users
+router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: [
+        { isApproved: 'asc' },
+        { createdAt: 'desc' }
+      ],
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        picture: true,
+        isApproved: true,
+        createdAt: true
+      }
+    });
+
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Approve user
+router.patch('/users/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { isApproved: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        picture: true,
+        isApproved: true,
+        createdAt: true
+      }
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error approving user:', error);
+    res.status(500).json({ error: 'Failed to approve user' });
+  }
+});
+
+// Revoke user access
+router.patch('/users/:id/revoke', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent revoking admin users
+    const targetUser = await prisma.user.findUnique({ where: { id } });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    if (adminEmails.includes(targetUser.email.toLowerCase())) {
+      return res.status(400).json({ error: 'Cannot revoke admin user access' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: { isApproved: false },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        picture: true,
+        isApproved: true,
+        createdAt: true
+      }
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error revoking user access:', error);
+    res.status(500).json({ error: 'Failed to revoke user access' });
+  }
+});
+
+export default router;
