@@ -25,7 +25,13 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
       }
     });
 
-    res.json(users);
+    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    const usersWithAdmin = users.map(user => ({
+      ...user,
+      isAdmin: adminEmails.includes(user.email.toLowerCase())
+    }));
+
+    res.json(usersWithAdmin);
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
