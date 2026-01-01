@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Background: Deep Blue Rounded Square -->
+  <rect x="2" y="2" width="20" height="20" rx="5" fill="#1565C0"/>
+  
+  <!-- Inner: Lighter Blue Squared Box (Checkbox style) -->
+  <rect x="7" y="7" width="10" height="10" rx="1" fill="#90CAF9"/>
+  
+  <!-- Checkmark: Deep Blue (Matching background) -->
+  <path d="M10.5 14.5L8.5 12.5L9.2 11.8L10.5 13.1L14.8 8.8L15.5 9.5L10.5 14.5Z" fill="#1565C0" stroke="#1565C0" stroke-width="0.5"/>
+</svg>
