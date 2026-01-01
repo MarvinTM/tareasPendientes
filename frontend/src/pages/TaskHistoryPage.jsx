@@ -15,6 +15,7 @@ import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import api from '../services/api';
+import UserAvatar from '../components/UserAvatar';
 
 const actionLabels = {
   CREATED: { label: 'Creada', color: 'success' },
@@ -96,9 +97,7 @@ export default function TaskHistoryPage() {
                   {index > 0 && <Divider />}
                   <ListItem alignItems="flex-start">
                     <ListItemAvatar>
-                      <Avatar src={entry.user?.picture}>
-                        {entry.user?.name?.[0]}
-                      </Avatar>
+                      <UserAvatar user={entry.user} showTooltip={false} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={

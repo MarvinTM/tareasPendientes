@@ -17,6 +17,7 @@ import DateRangeIcon from '@mui/icons-material/DateRange';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+import UserAvatar from '../components/UserAvatar';
 
 const medalColors = {
   0: '#FFD700', // Gold
@@ -154,9 +155,7 @@ export default function ScoreboardPage() {
                   )}
                 </Box>
                 <ListItemAvatar sx={{ minWidth: 40 }}>
-                  <Avatar src={user.picture} sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
-                    {user.name?.[0]}
-                  </Avatar>
+                  <UserAvatar user={user} sx={{ width: 32, height: 32, fontSize: '0.875rem' }} showTooltip={false} />
                 </ListItemAvatar>
                 <ListItemText
                   primary={

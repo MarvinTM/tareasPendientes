@@ -13,10 +13,10 @@ router.get('/', authenticateToken, async (req, res) => {
     const tasks = await prisma.task.findMany({
       include: {
         createdBy: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         },
         assignedTo: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         },
         category: {
           select: { id: true, name: true, emoji: true }
@@ -82,10 +82,10 @@ router.post('/', authenticateToken, async (req, res) => {
       },
       include: {
         createdBy: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         },
         assignedTo: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         },
         category: {
           select: { id: true, name: true, emoji: true }
@@ -206,10 +206,10 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       data: updateData,
       include: {
         createdBy: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         },
         assignedTo: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         },
         category: {
           select: { id: true, name: true, emoji: true }
@@ -272,7 +272,7 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
       where: { taskId: id },
       include: {
         user: {
-          select: { id: true, name: true, picture: true }
+          select: { id: true, name: true, shortName: true, color: true, picture: true }
         }
       },
       orderBy: { timestamp: 'desc' }

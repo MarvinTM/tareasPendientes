@@ -5,7 +5,6 @@ import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
-import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
 import Menu from '@mui/material/Menu';
@@ -23,6 +22,7 @@ import PersonOffIcon from '@mui/icons-material/PersonOff';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Draggable } from '@hello-pangea/dnd';
+import UserAvatar from './UserAvatar';
 
 const sizeConfig = {
   Pequena: { label: 'S', color: '#4caf50', tooltip: 'Pequeña - menos de 1 hora' },
@@ -148,12 +148,14 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Tooltip title={`Creado por: ${task.createdBy?.name || 'Desconocido'}`}>
-                  <Avatar
-                    src={task.createdBy?.picture}
-                    sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
-                  >
-                    {task.createdBy?.name?.[0]}
-                  </Avatar>
+                  {/* div wrapper needed for Tooltip if UserAvatar returns null, but it handles it */}
+                  <Box component="span"> 
+                    <UserAvatar
+                      user={task.createdBy}
+                      sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
+                      showTooltip={false}
+                    />
+                  </Box>
                 </Tooltip>
                 <Typography variant="caption" color="text.secondary">
                   {new Date(task.createdAt).toLocaleDateString()}
@@ -181,12 +183,11 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                       cursor: isCompleted ? 'default' : 'pointer'
                     }}
                   >
-                    <Avatar
-                      src={task.assignedTo.picture}
+                    <UserAvatar
+                      user={task.assignedTo}
                       sx={{ width: 22, height: 22, fontSize: '0.7rem' }}
-                    >
-                      {task.assignedTo.name?.[0]}
-                    </Avatar>
+                      showTooltip={false}
+                    />
                   </IconButton>
                 </Tooltip>
               ) : !isCompleted ? (
@@ -255,9 +256,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                 selected={task.assignedTo?.id === user.id}
               >
                 <ListItemIcon>
-                  <Avatar src={user.picture} sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                    {user.name?.[0]}
-                  </Avatar>
+                  <UserAvatar user={user} sx={{ width: 24, height: 24, fontSize: '0.75rem' }} showTooltip={false} />
                 </ListItemIcon>
                 <ListItemText>{user.name}</ListItemText>
               </MenuItem>

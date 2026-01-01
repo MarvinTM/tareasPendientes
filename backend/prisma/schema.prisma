@@ -12,6 +12,8 @@ model User {
   googleId   String   @unique
   email      String   @unique
   name       String
+  shortName  String?
+  color      String?
   picture    String?
   isApproved Boolean  @default(false)
   createdAt  DateTime @default(now())
