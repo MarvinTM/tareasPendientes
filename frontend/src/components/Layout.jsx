@@ -52,9 +52,14 @@ export default function Layout() {
           </Button>
 
           {user?.isAdmin && (
-            <Button color="inherit" onClick={() => navigate('/admin')}>
-              Administración
-            </Button>
+            <>
+              <Button color="inherit" onClick={() => navigate('/admin/categories')}>
+                Categorías
+              </Button>
+              <Button color="inherit" onClick={() => navigate('/admin')}>
+                Usuarios
+              </Button>
+            </>
           )}
 
           <IconButton onClick={handleMenu} sx={{ ml: 2 }}>
