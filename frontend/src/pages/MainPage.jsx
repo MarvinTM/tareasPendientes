@@ -78,16 +78,23 @@ export default function MainPage() {
   const getFilteredTasks = () => {
     const filtered = { ...tasks };
 
-    // Filter "Nueva" column
-    if (filter === 'mine') {
-      filtered.Nueva = filtered.Nueva.filter(task => task.assignedTo?.id === user?.id);
-    } else if (filter === 'unassigned') {
-      filtered.Nueva = filtered.Nueva.filter(task => !task.assignedTo);
-    }
+    // Helper to filter pending lists
+    const filterList = (list) => {
+      let result = list;
+      if (filter === 'mine') {
+        result = result.filter(task => task.assignedTo?.id === user?.id);
+      } else if (filter === 'unassigned') {
+        result = result.filter(task => !task.assignedTo);
+      }
 
-    if (categoryFilter !== 'all') {
-      filtered.Nueva = filtered.Nueva.filter(task => task.categoryId === categoryFilter);
-    }
+      if (categoryFilter !== 'all') {
+        result = result.filter(task => task.categoryId === categoryFilter);
+      }
+      return result;
+    };
+
+    filtered.Pendientes_0 = filterList(tasks.Pendientes_0);
+    filtered.Pendientes_1 = filterList(tasks.Pendientes_1);
 
     // Filter "Completada" column by completion date
     let startDate;
@@ -112,7 +119,27 @@ export default function MainPage() {
   const fetchTasks = useCallback(async () => {
     try {
       const response = await api.get('/tasks');
-      setTasks(response.data);
+      const data = response.data;
+      
+      // Merge 'EnProgreso' tasks into 'Nueva' and split into two columns
+      const allPending = [...(data.Nueva || []), ...(data.EnProgreso || [])];
+      
+      const col0 = [];
+      const col1 = [];
+      
+      allPending.forEach((task, index) => {
+        if (index % 2 === 0) {
+          col0.push(task);
+        } else {
+          col1.push(task);
+        }
+      });
+
+      setTasks({
+        Pendientes_0: col0,
+        Pendientes_1: col1,
+        Completada: data.Completada || []
+      });
       setError(null);
     } catch (err) {
       setError('Error al cargar las tareas');
@@ -210,10 +237,19 @@ export default function MainPage() {
     // Optimistic update
     const newTasks = { ...tasks };
     const [movedTask] = newTasks[sourceStatus].splice(source.index, 1);
-    movedTask.status = destStatus;
+    
+    // Determine the actual API status based on column
+    const isPending = destStatus.startsWith('Pendientes');
+    const apiStatus = isPending ? 'Nueva' : 'Completada';
+    
+    // Update local object status for consistency
+    movedTask.status = apiStatus;
 
-    // Auto-assign if moving from Nueva and unassigned
-    const shouldAutoAssign = sourceStatus === 'Nueva' && destStatus !== 'Nueva' && !movedTask.assignedTo;
+    // Auto-assign if moving from a pending col to another pending col (or unassigned logic)
+    // Actually, simple logic: if moving TO pending from anywhere and unassigned, auto-assign.
+    const wasPending = sourceStatus.startsWith('Pendientes');
+    const shouldAutoAssign = !wasPending && isPending && !movedTask.assignedTo;
+    
     if (shouldAutoAssign) {
       movedTask.assignedTo = user;
     }
@@ -222,16 +258,26 @@ export default function MainPage() {
     setTasks(newTasks);
 
     // Update on server
-    try {
-      const updateData = { status: destStatus };
-      if (shouldAutoAssign) {
-        updateData.assignedToId = user.id;
+    // If moving between pending columns, we don't need to call API unless auto-assign happened
+    // because backend doesn't track column 0 vs 1.
+    if (sourceStatus !== destStatus || shouldAutoAssign) {
+      try {
+        const updateData = { status: apiStatus };
+        if (shouldAutoAssign) {
+          updateData.assignedToId = user.id;
+        }
+        
+        // Only call API if status changed or assigned changed
+        // Moving between Pendientes_0 and Pendientes_1 without assign change = no API call needed?
+        // Wait, if we don't call API, a refresh will reset positions. That's expected for this layout.
+        if (!wasPending || !isPending || shouldAutoAssign) {
+             await api.patch(`/tasks/${taskId}`, updateData);
+        }
+      } catch (err) {
+        // Revert on error
+        fetchTasks();
+        setError('Error al mover la tarea');
       }
-      await api.patch(`/tasks/${taskId}`, updateData);
-    } catch (err) {
-      // Revert on error
-      fetchTasks();
-      setError('Error al mover la tarea');
     }
   };
 

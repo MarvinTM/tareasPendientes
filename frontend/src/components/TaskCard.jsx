@@ -67,6 +67,10 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
           {...provided.dragHandleProps}
           sx={{
             mb: 1,
+            height: 170, // Fixed height for consistency
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
             backgroundColor: snapshot.isDragging
               ? 'action.hover'
               : task.status === 'Completada'
@@ -84,68 +88,100 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
             }
           }}
         >
-          <CardContent sx={{ pb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, flex: 1 }}>
+          <CardContent sx={{ pb: 1, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, flexShrink: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, flex: 1, minWidth: 0 }}>
                 <Tooltip title={task.category?.name || 'Sin categoría'}>
                   <span style={{ fontSize: '1.1rem', lineHeight: 1.4 }}>
                     {task.category?.emoji || '📋'}
                   </span>
                 </Tooltip>
-                <Typography variant="body1" component="div" fontWeight="bold" sx={{ fontSize: '1.05rem' }}>
+                <Typography 
+                  variant="body1" 
+                  component="div" 
+                  fontWeight="bold" 
+                  sx={{ 
+                    fontSize: '1.05rem', 
+                    lineHeight: 1.2,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}
+                >
                   {task.title}
                 </Typography>
               </Box>
-              <ToggleButtonGroup
-                value={task.size || 'Pequena'}
-                exclusive
-                onChange={handleSizeChange}
-                size="small"
-                disabled={isCompleted}
-                sx={{ minHeight: 24 }}
-              >
-                {Object.entries(sizeConfig).map(([size, config]) => (
-                  <Tooltip key={size} title={config.tooltip} arrow>
-                    <ToggleButton
-                      value={size}
-                      sx={{
-                        px: 0.75,
-                        py: 0,
-                        minWidth: 24,
-                        fontSize: '0.7rem',
-                        fontWeight: 'bold',
-                        color: (task.size || 'Pequena') === size ? 'white' : config.color,
-                        borderColor: config.color,
-                        backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
-                        '&:hover': {
-                          backgroundColor: (task.size || 'Pequena') === size ? config.color : `${config.color}20`
-                        },
-                        '&.Mui-selected': {
-                          backgroundColor: config.color,
-                          color: 'white',
-                          '&:hover': {
-                            backgroundColor: config.color
-                          }
-                        },
-                        '&.Mui-disabled': {
-                          color: (task.size || 'Pequena') === size ? 'white' : `${config.color}80`,
+              <Box sx={{ flexShrink: 0 }}>
+                <ToggleButtonGroup
+                  value={task.size || 'Pequena'}
+                  exclusive
+                  onChange={handleSizeChange}
+                  size="small"
+                  disabled={isCompleted}
+                  sx={{ minHeight: 24 }}
+                >
+                  {Object.entries(sizeConfig).map(([size, config]) => (
+                    <Tooltip key={size} title={config.tooltip} arrow>
+                      <ToggleButton
+                        value={size}
+                        sx={{
+                          px: 0.75,
+                          py: 0,
+                          minWidth: 24,
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          color: (task.size || 'Pequena') === size ? 'white' : config.color,
+                          borderColor: config.color,
                           backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
-                          borderColor: `${config.color}80`
-                        }
-                      }}
-                    >
-                      {config.label}
-                    </ToggleButton>
-                  </Tooltip>
-                ))}
-              </ToggleButtonGroup>
+                          '&:hover': {
+                            backgroundColor: (task.size || 'Pequena') === size ? config.color : `${config.color}20`
+                          },
+                          '&.Mui-selected': {
+                            backgroundColor: config.color,
+                            color: 'white',
+                            '&:hover': {
+                              backgroundColor: config.color
+                            }
+                          },
+                          '&.Mui-disabled': {
+                            color: (task.size || 'Pequena') === size ? 'white' : `${config.color}80`,
+                            backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
+                            borderColor: `${config.color}80`
+                          }
+                        }}
+                      >
+                        {config.label}
+                      </ToggleButton>
+                    </Tooltip>
+                  ))}
+                </ToggleButtonGroup>
+              </Box>
             </Box>
-            {task.description && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                {task.description}
+            
+            <Box sx={{ mt: 1, mb: 1, flexGrow: 1, overflow: 'hidden' }}>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  fontSize: '0.85rem'
+                }}
+              >
+                {task.description || (
+                  <Box component="span" sx={{ fontStyle: 'italic', opacity: 0.4 }}>
+                    Sin descripción
+                  </Box>
+                )}
               </Typography>
-            )}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+            </Box>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto', flexShrink: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Tooltip title={`Creado por: ${task.createdBy?.name || 'Desconocido'}`}>
                   {/* div wrapper needed for Tooltip if UserAvatar returns null, but it handles it */}

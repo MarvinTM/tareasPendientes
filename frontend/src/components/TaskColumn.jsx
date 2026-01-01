@@ -22,91 +22,50 @@ const getMonthName = () => {
   return months[new Date().getMonth()];
 };
 
-export default function TaskColumn({ status, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange }) {
-  const config = statusConfig[status];
+export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false }) {
+  const config = status.startsWith('Pendientes') ? statusConfig['Nueva'] : statusConfig[status];
+  const displayTitle = title || config.title;
 
   return (
     <Paper
       sx={{
         flex: 1,
-        minWidth: 300,
-        maxWidth: 400,
+        minWidth: isGrid ? 0 : 300,
+        maxWidth: isGrid ? '100%' : 400,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#fafafa'
+        backgroundColor: '#fafafa',
+        height: '100%',
+        overflow: 'hidden'
       }}
     >
+      {!hideHeader && (
       <Box
         sx={{
           p: 2,
+          height: 160, // Increased fixed height for alignment and spacing
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
           borderBottom: 3,
           borderColor: config.color,
-          backgroundColor: config.headerBg
+          backgroundColor: config.headerBg,
+          flexShrink: 0
         }}
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
             <Typography variant="h5" fontWeight="bold">
-              {config.title}
+              {displayTitle}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {tasks.length} tarea{tasks.length !== 1 ? 's' : ''}
             </Typography>
           </Box>
-          {status === 'Nueva' && newFilter && onNewFilterChange && (
-            <ToggleButtonGroup
-              value={newFilter}
-              exclusive
-              onChange={(e, newValue) => newValue && onNewFilterChange(newValue)}
-              size="small"
-            >
-              <ToggleButton
-                value="all"
-                sx={{
-                  px: 1,
-                  py: 0.25,
-                  fontSize: '0.7rem',
-                  '&.Mui-selected': {
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    '&:hover': { backgroundColor: '#bbdefb' }
-                  }
-                }}
-              >
-                Todas
-              </ToggleButton>
-              <ToggleButton
-                value="mine"
-                sx={{
-                  px: 1,
-                  py: 0.25,
-                  fontSize: '0.7rem',
-                  '&.Mui-selected': {
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    '&:hover': { backgroundColor: '#bbdefb' }
-                  }
-                }}
-              >
-                Mías
-              </ToggleButton>
-              <ToggleButton
-                value="unassigned"
-                sx={{
-                  px: 1,
-                  py: 0.25,
-                  fontSize: '0.7rem',
-                  '&.Mui-selected': {
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    '&:hover': { backgroundColor: '#bbdefb' }
-                  }
-                }}
-              >
-                Sin asignar
-              </ToggleButton>
-            </ToggleButtonGroup>
-          )}
+        </Box>
+
+        {/* Filters Area */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
           {status === 'Completada' && completedFilter && onCompletedFilterChange && (
             <ToggleButtonGroup
               value={completedFilter}
@@ -161,47 +120,21 @@ export default function TaskColumn({ status, tasks, users, categories, onEdit, o
               </ToggleButton>
             </ToggleButtonGroup>
           )}
-        </Box>
 
-        {status === 'Nueva' && categories && categories.length > 0 && categoryFilter && onCategoryFilterChange && (
-          <Box sx={{ mt: 1.5, display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Tooltip title="Todas las categorías">
-              <ToggleButton
-                value="all"
-                selected={categoryFilter === 'all'}
-                onClick={() => onCategoryFilterChange('all')}
-                size="small"
-                sx={{
-                  px: 1,
-                  py: 0.25,
-                  minWidth: 32,
-                  height: 32,
-                  border: '1px solid rgba(0, 0, 0, 0.12)',
-                  borderRadius: 1,
-                  '&.Mui-selected': {
-                    backgroundColor: '#e3f2fd',
-                    color: '#1976d2',
-                    '&:hover': { backgroundColor: '#bbdefb' }
-                  }
-                }}
-              >
-                <AssignmentIcon sx={{ fontSize: 18 }} />
-              </ToggleButton>
-            </Tooltip>
-            
-            {categories.map((cat) => (
-              <Tooltip key={cat.id} title={cat.name}>
+          {/* Secondary Category Filter for "Nueva" column - This part is usually hidden by hideHeader but kept for consistency if needed elsewhere */}
+          {status.startsWith('Pendientes') && categories && categories.length > 0 && categoryFilter && onCategoryFilterChange && (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <Tooltip title="Todas las categorías">
                 <ToggleButton
-                  value={cat.id}
-                  selected={categoryFilter === cat.id}
-                  onClick={() => onCategoryFilterChange(categoryFilter === cat.id ? 'all' : cat.id)}
+                  value="all"
+                  selected={categoryFilter === 'all'}
+                  onClick={() => onCategoryFilterChange('all')}
                   size="small"
                   sx={{
                     px: 1,
                     py: 0.25,
                     minWidth: 32,
                     height: 32,
-                    fontSize: '1.2rem',
                     border: '1px solid rgba(0, 0, 0, 0.12)',
                     borderRadius: 1,
                     '&.Mui-selected': {
@@ -211,15 +144,43 @@ export default function TaskColumn({ status, tasks, users, categories, onEdit, o
                     }
                   }}
                 >
-                  {cat.emoji}
+                  <AssignmentIcon sx={{ fontSize: 18 }} />
                 </ToggleButton>
               </Tooltip>
-            ))}
-          </Box>
-        )}
+              
+              {categories.map((cat) => (
+                <Tooltip key={cat.id} title={cat.name}>
+                  <ToggleButton
+                    value={cat.id}
+                    selected={categoryFilter === cat.id}
+                    onClick={() => onCategoryFilterChange(categoryFilter === cat.id ? 'all' : cat.id)}
+                    size="small"
+                    sx={{
+                      px: 1,
+                      py: 0.25,
+                      minWidth: 32,
+                      height: 32,
+                      fontSize: '1.2rem',
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      borderRadius: 1,
+                      '&.Mui-selected': {
+                        backgroundColor: '#e3f2fd',
+                        color: '#1976d2',
+                        '&:hover': { backgroundColor: '#bbdefb' }
+                      }
+                    }}
+                  >
+                    {cat.emoji}
+                  </ToggleButton>
+                </Tooltip>
+              ))}
+            </Box>
+          )}
+        </Box>
       </Box>
+      )}
 
-      <Droppable droppableId={status}>
+      <Droppable droppableId={status} direction="vertical">
         {(provided, snapshot) => (
           <Box
             ref={provided.innerRef}
@@ -227,9 +188,12 @@ export default function TaskColumn({ status, tasks, users, categories, onEdit, o
             sx={{
               flex: 1,
               p: 1,
-              minHeight: 200,
               backgroundColor: snapshot.isDraggingOver ? 'action.hover' : 'transparent',
-              transition: 'background-color 0.2s ease'
+              transition: 'background-color 0.2s ease',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1
             }}
           >
             {tasks.map((task, index) => (
