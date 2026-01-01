@@ -19,6 +19,7 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
+import PeopleIcon from '@mui/icons-material/People';
 import api from '../services/api';
 import UserAvatar from '../components/UserAvatar';
 
@@ -126,8 +127,8 @@ export default function AdminPage() {
 
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Gestión de Usuarios
+      <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <PeopleIcon fontSize="large" color="primary" /> Gestión de Usuarios
       </Typography>
 
       {error && (

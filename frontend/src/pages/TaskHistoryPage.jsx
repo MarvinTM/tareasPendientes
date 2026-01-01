@@ -14,6 +14,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import HistoryIcon from '@mui/icons-material/History';
 import api from '../services/api';
 import UserAvatar from '../components/UserAvatar';
 
@@ -72,8 +73,8 @@ export default function TaskHistoryPage() {
         Volver a Tareas
       </Button>
 
-      <Typography variant="h4" component="h1" gutterBottom>
-        Historial de la Tarea: {taskTitle}
+      <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <HistoryIcon fontSize="large" color="primary" /> Historial de la Tarea: {taskTitle}
       </Typography>
 
       {error && (

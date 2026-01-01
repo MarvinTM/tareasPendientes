@@ -14,6 +14,7 @@ import Popover from '@mui/material/Popover';
 import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import TaskBoard from '../components/TaskBoard';
 import TaskDialog from '../components/TaskDialog';
 import api from '../services/api';
@@ -311,8 +312,8 @@ export default function MainPage() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={0.5}>
-          <Typography variant="h4" component="h1">
-            Tareas
+          <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AssignmentIcon fontSize="large" color="primary" /> Tareas
           </Typography>
           <Tooltip title="Ver leyenda de dificultad">
             <IconButton

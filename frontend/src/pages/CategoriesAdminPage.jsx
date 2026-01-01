@@ -19,6 +19,7 @@ import DialogActions from '@mui/material/DialogActions';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import CategoryIcon from '@mui/icons-material/Category';
 import api from '../services/api';
 import CategoryDialog from '../components/CategoryDialog';
 
@@ -97,8 +98,8 @@ export default function CategoriesAdminPage() {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1">
-          Gestión de Categorías
+        <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CategoryIcon fontSize="large" color="primary" /> Gestión de Categorías
         </Typography>
         <Button
           variant="contained"
