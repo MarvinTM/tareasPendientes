@@ -17,6 +17,8 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
         id: true,
         email: true,
         name: true,
+        shortName: true,
+        color: true,
         picture: true,
         isApproved: true,
         createdAt: true
@@ -27,6 +29,37 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Update user details
+router.patch('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shortName, color } = req.body;
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        shortName,
+        color
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        shortName: true,
+        color: true,
+        picture: true,
+        isApproved: true,
+        createdAt: true
+      }
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
 

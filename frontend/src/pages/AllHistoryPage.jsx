@@ -14,6 +14,7 @@ import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import api from '../services/api';
+import UserAvatar from '../components/UserAvatar';
 
 const actionLabels = {
   CREATED: { label: 'Creada', color: 'success' },
@@ -96,9 +97,7 @@ export default function AllHistoryPage() {
                       onClick={() => entry.task && navigate(`/history/${entry.taskId}`)}
                     >
                       <ListItemAvatar>
-                        <Avatar src={entry.user?.picture}>
-                          {entry.user?.name?.[0]}
-                        </Avatar>
+                        <UserAvatar user={entry.user} showTooltip={false} />
                       </ListItemAvatar>
                       <ListItemText
                         primary={

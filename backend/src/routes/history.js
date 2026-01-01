@@ -15,7 +15,7 @@ router.get('/', authenticateToken, async (req, res) => {
       prisma.taskHistory.findMany({
         include: {
           user: {
-            select: { id: true, name: true, picture: true }
+            select: { id: true, name: true, shortName: true, color: true, picture: true }
           },
           task: {
             select: { id: true, title: true }

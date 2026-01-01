@@ -10,14 +10,17 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import EditIcon from '@mui/icons-material/Edit';
 import api from '../services/api';
+import UserAvatar from '../components/UserAvatar';
 
 export default function AdminPage() {
   const [users, setUsers] = useState([]);
@@ -25,6 +28,8 @@ export default function AdminPage() {
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [editUser, setEditUser] = useState(null);
+  const [editForm, setEditForm] = useState({ shortName: '', color: '#000000' });
 
   useEffect(() => {
     fetchUsers();
@@ -81,6 +86,33 @@ export default function AdminPage() {
     }
   };
 
+  const handleEditOpen = (user) => {
+    setEditUser(user);
+    setEditForm({
+      shortName: user.shortName || '',
+      color: user.color || '#1976d2'
+    });
+  };
+
+  const handleEditClose = () => {
+    setEditUser(null);
+    setEditForm({ shortName: '', color: '#000000' });
+  };
+
+  const handleUpdate = async () => {
+    if (!editUser) return;
+    setActionLoading(editUser.id);
+    try {
+      await api.patch(`/admin/users/${editUser.id}`, editForm);
+      handleEditClose();
+      fetchUsers();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al actualizar el usuario');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
@@ -124,9 +156,7 @@ export default function AdminPage() {
                   <TableRow key={user.id}>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <Avatar src={user.picture} sx={{ width: 32, height: 32 }}>
-                          {user.name?.[0]}
-                        </Avatar>
+                        <UserAvatar user={user} sx={{ width: 32, height: 32 }} showTooltip={false} />
                         {user.name}
                       </Box>
                     </TableCell>
@@ -181,9 +211,7 @@ export default function AdminPage() {
               <TableRow key={user.id}>
                 <TableCell>
                   <Box display="flex" alignItems="center" gap={1}>
-                    <Avatar src={user.picture} sx={{ width: 32, height: 32 }}>
-                      {user.name?.[0]}
-                    </Avatar>
+                    <UserAvatar user={user} sx={{ width: 32, height: 32 }} showTooltip={false} />
                     {user.name}
                   </Box>
                 </TableCell>
@@ -193,15 +221,24 @@ export default function AdminPage() {
                 </TableCell>
                 <TableCell>{new Date(user.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell align="right">
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    size="small"
-                    onClick={() => handleRevoke(user.id)}
-                    disabled={actionLoading === user.id}
-                  >
-                    Revocar
-                  </Button>
+                  <Box display="flex" gap={1} justifyContent="flex-end" alignItems="center">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleEditOpen(user)}
+                      disabled={actionLoading === user.id}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => handleRevoke(user.id)}
+                      disabled={actionLoading === user.id}
+                    >
+                      Revocar
+                    </Button>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
@@ -209,6 +246,55 @@ export default function AdminPage() {
         </Table>
       </TableContainer>
 
+      {/* Edit User Dialog */}
+      <Dialog open={Boolean(editUser)} onClose={handleEditClose}>
+        <DialogTitle>Editar Usuario</DialogTitle>
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1, minWidth: 300 }}>
+            <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <UserAvatar 
+                user={{ ...editUser, ...editForm }} 
+                sx={{ width: 64, height: 64 }} 
+                showTooltip={false}
+              />
+              <Typography variant="body2" color="text.secondary">
+                Previsualización
+              </Typography>
+            </Box>
+
+            <TextField
+              label="Nombre Corto"
+              value={editForm.shortName}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase().slice(0, 3);
+                setEditForm({ ...editForm, shortName: val });
+              }}
+              helperText="Máximo 3 letras, mayúsculas"
+              fullWidth
+            />
+            
+            <Box>
+              <Typography gutterBottom variant="caption" color="text.secondary">
+                Color de Fondo
+              </Typography>
+              <input
+                type="color"
+                value={editForm.color}
+                onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                style={{ width: '100%', height: 40, cursor: 'pointer' }}
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleEditClose}>Cancelar</Button>
+          <Button onClick={handleUpdate} variant="contained">
+            Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
       <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)}>
         <DialogTitle>Eliminar Usuario</DialogTitle>
         <DialogContent>

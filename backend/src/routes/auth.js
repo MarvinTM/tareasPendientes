@@ -72,6 +72,8 @@ router.get('/me', authenticateToken, (req, res) => {
     id: req.user.id,
     email: req.user.email,
     name: req.user.name,
+    shortName: req.user.shortName,
+    color: req.user.color,
     picture: req.user.picture,
     isApproved: req.user.isApproved,
     isAdmin
@@ -105,6 +107,8 @@ router.get('/status', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
+        shortName: user.shortName,
+        color: user.color,
         picture: user.picture,
         isApproved: user.isApproved,
         isAdmin

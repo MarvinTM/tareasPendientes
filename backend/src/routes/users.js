@@ -12,6 +12,8 @@ router.get('/', authenticateToken, async (req, res) => {
       select: {
         id: true,
         name: true,
+        shortName: true,
+        color: true,
         email: true,
         picture: true
       },
@@ -97,6 +99,8 @@ router.get('/scores', authenticateToken, async (req, res) => {
       select: {
         id: true,
         name: true,
+        shortName: true,
+        color: true,
         picture: true
       }
     });
@@ -114,6 +118,8 @@ router.get('/scores', authenticateToken, async (req, res) => {
       return {
         id: user.id,
         name: user.name,
+        shortName: user.shortName,
+        color: user.color,
         picture: user.picture,
         taskCount,
         totalPoints
