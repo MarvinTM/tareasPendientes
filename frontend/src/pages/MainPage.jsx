@@ -68,6 +68,7 @@ export default function MainPage() {
   const [reopenConfirm, setReopenConfirm] = useState(null);
   const [infoAnchor, setInfoAnchor] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all', 'mine', 'unassigned'
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' or categoryId
   const [completedFilter, setCompletedFilter] = useState('week'); // 'week', 'month', 'year'
   const socket = useSocket();
   const { user } = useAuth();
@@ -78,9 +79,13 @@ export default function MainPage() {
 
     // Filter "Nueva" column
     if (filter === 'mine') {
-      filtered.Nueva = tasks.Nueva.filter(task => task.assignedTo?.id === user?.id);
+      filtered.Nueva = filtered.Nueva.filter(task => task.assignedTo?.id === user?.id);
     } else if (filter === 'unassigned') {
-      filtered.Nueva = tasks.Nueva.filter(task => !task.assignedTo);
+      filtered.Nueva = filtered.Nueva.filter(task => !task.assignedTo);
+    }
+
+    if (categoryFilter !== 'all') {
+      filtered.Nueva = filtered.Nueva.filter(task => task.categoryId === categoryFilter);
     }
 
     // Filter "Completada" column by completion date
@@ -369,6 +374,7 @@ export default function MainPage() {
       <TaskBoard
         tasks={getFilteredTasks()}
         users={users}
+        categories={categories}
         weeklyScores={weeklyScores}
         onDragEnd={handleDragEnd}
         onEdit={handleOpenDialog}
@@ -377,6 +383,8 @@ export default function MainPage() {
         onSizeChange={handleSizeChange}
         newFilter={filter}
         onNewFilterChange={setFilter}
+        categoryFilter={categoryFilter}
+        onCategoryFilterChange={setCategoryFilter}
         completedFilter={completedFilter}
         onCompletedFilterChange={setCompletedFilter}
       />

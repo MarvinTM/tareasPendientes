@@ -3,6 +3,8 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Tooltip from '@mui/material/Tooltip';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { Droppable } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 
@@ -20,7 +22,7 @@ const getMonthName = () => {
   return months[new Date().getMonth()];
 };
 
-export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, completedFilter, onCompletedFilterChange }) {
+export default function TaskColumn({ status, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange }) {
   const config = statusConfig[status];
 
   return (
@@ -160,6 +162,61 @@ export default function TaskColumn({ status, tasks, users, onEdit, onDelete, onA
             </ToggleButtonGroup>
           )}
         </Box>
+
+        {status === 'Nueva' && categories && categories.length > 0 && categoryFilter && onCategoryFilterChange && (
+          <Box sx={{ mt: 1.5, display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Tooltip title="Todas las categorías">
+              <ToggleButton
+                value="all"
+                selected={categoryFilter === 'all'}
+                onClick={() => onCategoryFilterChange('all')}
+                size="small"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  minWidth: 32,
+                  height: 32,
+                  border: '1px solid rgba(0, 0, 0, 0.12)',
+                  borderRadius: 1,
+                  '&.Mui-selected': {
+                    backgroundColor: '#e3f2fd',
+                    color: '#1976d2',
+                    '&:hover': { backgroundColor: '#bbdefb' }
+                  }
+                }}
+              >
+                <AssignmentIcon sx={{ fontSize: 18 }} />
+              </ToggleButton>
+            </Tooltip>
+            
+            {categories.map((cat) => (
+              <Tooltip key={cat.id} title={cat.name}>
+                <ToggleButton
+                  value={cat.id}
+                  selected={categoryFilter === cat.id}
+                  onClick={() => onCategoryFilterChange(categoryFilter === cat.id ? 'all' : cat.id)}
+                  size="small"
+                  sx={{
+                    px: 1,
+                    py: 0.25,
+                    minWidth: 32,
+                    height: 32,
+                    fontSize: '1.2rem',
+                    border: '1px solid rgba(0, 0, 0, 0.12)',
+                    borderRadius: 1,
+                    '&.Mui-selected': {
+                      backgroundColor: '#e3f2fd',
+                      color: '#1976d2',
+                      '&:hover': { backgroundColor: '#bbdefb' }
+                    }
+                  }}
+                >
+                  {cat.emoji}
+                </ToggleButton>
+              </Tooltip>
+            ))}
+          </Box>
+        )}
       </Box>
 
       <Droppable droppableId={status}>
