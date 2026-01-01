@@ -10,7 +10,7 @@ import { SocketProvider } from './contexts/SocketContext';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
+      main: '#1e88e5',
     },
     secondary: {
       main: '#dc004e',

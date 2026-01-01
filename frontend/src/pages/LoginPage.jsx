@@ -6,6 +6,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import GoogleIcon from '@mui/icons-material/Google';
+import AppLogo from '../components/AppLogo';
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -28,6 +29,9 @@ export default function LoginPage() {
       }}
     >
       <Paper elevation={3} sx={{ p: 4, maxWidth: 400, textAlign: 'center' }}>
+        <Box display="flex" justifyContent="center" mb={2}>
+          <AppLogo sx={{ fontSize: 80 }} />
+        </Box>
         <Typography variant="h4" component="h1" gutterBottom>
           Tareas Pendientes
         </Typography>
