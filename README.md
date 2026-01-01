@@ -154,16 +154,174 @@ The application will be available at:
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:3001
 
-### Production
+### Production Deployment (with Nginx + HTTPS)
+
+This guide covers deploying the application on a Linux server with Nginx, HTTPS (Let's Encrypt), and PM2.
+
+#### Prerequisites
+
+- A Linux server (Ubuntu/Debian recommended)
+- A domain name pointing to your server
+- Node.js v18+ installed
+- PostgreSQL installed and configured
+- Nginx installed
+
+#### 1. Clone and set up the application
 
 ```bash
-# Build frontend
+# Clone to /var/www
+cd /var/www
+git clone <repository-url> tareas-pendientes
+cd tareas-pendientes
+
+# Install dependencies
+cd backend && npm install
+cd ../frontend && npm install
+```
+
+#### 2. Configure environment variables
+
+```bash
+# Backend
+cp backend/.env.example backend/.env
+nano backend/.env
+```
+
+Update `backend/.env` for production:
+```
+DATABASE_URL=postgresql://user:password@localhost:5432/family_tasks
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+JWT_SECRET=generate-a-strong-random-secret
+ADMIN_EMAILS=admin@example.com
+FRONTEND_URL=https://yourdomain.com
+PORT=3001
+
+# Optional: Email notifications
+EMAIL_USER=your-gmail@gmail.com
+EMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+```
+
+```bash
+# Frontend
+cp frontend/.env.example frontend/.env
+nano frontend/.env
+```
+
+Update `frontend/.env` for production:
+```
+VITE_API_URL=https://yourdomain.com
+VITE_GOOGLE_CLIENT_ID=your-google-client-id
+```
+
+#### 3. Set up the database
+
+```bash
+cd backend
+npm run db:generate
+npm run db:push
+```
+
+#### 4. Build the frontend
+
+```bash
 cd frontend
 npm run build
+```
 
-# Start backend
-cd backend
-npm start
+This creates a `dist/` folder with static files.
+
+#### 5. Install and configure PM2
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start the backend
+cd /var/www/tareas-pendientes
+pm2 start ecosystem.config.cjs
+
+# Save PM2 configuration and set up auto-start on reboot
+pm2 save
+pm2 startup
+```
+
+#### 6. Configure Nginx
+
+```bash
+# Copy the example config
+sudo cp nginx.example.conf /etc/nginx/sites-available/tareas-pendientes
+
+# Edit with your domain
+sudo nano /etc/nginx/sites-available/tareas-pendientes
+# Replace "yourdomain.com" with your actual domain
+# Replace "/var/www/tareas-pendientes" if using a different path
+
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/tareas-pendientes /etc/nginx/sites-enabled/
+
+# Test configuration
+sudo nginx -t
+
+# Reload Nginx
+sudo systemctl reload nginx
+```
+
+#### 7. Set up HTTPS with Let's Encrypt
+
+```bash
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx
+
+# Obtain certificate (follow the prompts)
+sudo certbot --nginx -d yourdomain.com
+
+# Certbot will automatically configure Nginx for HTTPS
+# and set up auto-renewal
+```
+
+#### 8. Update Google OAuth
+
+In Google Cloud Console, add the production redirect URI:
+```
+https://yourdomain.com/api/auth/google/callback
+```
+
+#### 9. Verify the deployment
+
+- Visit `https://yourdomain.com`
+- Test Google login
+- Create a task and verify real-time updates
+
+#### Useful PM2 commands
+
+```bash
+pm2 status              # Check status
+pm2 logs tareas-backend # View logs
+pm2 restart all         # Restart
+pm2 stop all            # Stop
+```
+
+#### Updating in production
+
+```bash
+cd /var/www/tareas-pendientes
+
+# Pull latest code
+git pull
+
+# Install dependencies (if changed)
+cd backend && npm install
+cd ../frontend && npm install
+
+# Apply database changes (if schema changed)
+cd backend && npm run db:push
+
+# Rebuild frontend
+cd ../frontend && npm run build
+
+# Restart backend
+pm2 restart all
 ```
 
 ## Local Network Access
