@@ -17,6 +17,9 @@ router.get('/', authenticateToken, async (req, res) => {
         },
         assignedTo: {
           select: { id: true, name: true, picture: true }
+        },
+        category: {
+          select: { id: true, name: true, emoji: true }
         }
       },
       orderBy: { createdAt: 'desc' }
@@ -39,7 +42,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create task
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { title, description, size, assignedToId } = req.body;
+    const { title, description, size, assignedToId, categoryId } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Title is required' });
@@ -47,6 +50,16 @@ router.post('/', authenticateToken, async (req, res) => {
 
     if (!size || !['Pequena', 'Mediana', 'Grande'].includes(size)) {
       return res.status(400).json({ error: 'Valid size is required' });
+    }
+
+    if (!categoryId) {
+      return res.status(400).json({ error: 'Category is required' });
+    }
+
+    // Validate category
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      return res.status(400).json({ error: 'Invalid category' });
     }
 
     // Validate assignee if provided
@@ -64,6 +77,7 @@ router.post('/', authenticateToken, async (req, res) => {
         description: description?.trim() || null,
         size,
         assignedToId: assignedToId || null,
+        categoryId,
         createdById: req.user.id
       },
       include: {
@@ -72,6 +86,9 @@ router.post('/', authenticateToken, async (req, res) => {
         },
         assignedTo: {
           select: { id: true, name: true, picture: true }
+        },
+        category: {
+          select: { id: true, name: true, emoji: true }
         }
       }
     });
@@ -98,12 +115,15 @@ router.post('/', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, status, size, assignedToId } = req.body;
+    const { title, description, status, size, assignedToId, categoryId } = req.body;
 
     const existingTask = await prisma.task.findUnique({
       where: { id },
       include: {
         assignedTo: {
+          select: { id: true, name: true }
+        },
+        category: {
           select: { id: true, name: true }
         }
       }
@@ -167,6 +187,16 @@ router.patch('/:id', authenticateToken, async (req, res) => {
       }
     }
 
+    if (categoryId !== undefined && categoryId !== existingTask.categoryId) {
+      // Validate category
+      const newCategory = await prisma.category.findUnique({ where: { id: categoryId } });
+      if (!newCategory) {
+        return res.status(400).json({ error: 'Invalid category' });
+      }
+      updateData.categoryId = categoryId;
+      await logTaskChange(id, req.user.id, ACTIONS.CATEGORY_CHANGED, existingTask.category?.name || null, newCategory.name);
+    }
+
     if (Object.keys(updateData).length === 0) {
       return res.json(existingTask);
     }
@@ -180,6 +210,9 @@ router.patch('/:id', authenticateToken, async (req, res) => {
         },
         assignedTo: {
           select: { id: true, name: true, picture: true }
+        },
+        category: {
+          select: { id: true, name: true, emoji: true }
         }
       }
     });

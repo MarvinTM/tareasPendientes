@@ -86,9 +86,16 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
         >
           <CardContent sx={{ pb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-              <Typography variant="body1" component="div" fontWeight="bold" sx={{ flex: 1, fontSize: '1.05rem' }}>
-                {task.title}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, flex: 1 }}>
+                <Tooltip title={task.category?.name || 'Sin categoría'}>
+                  <span style={{ fontSize: '1.1rem', lineHeight: 1.4 }}>
+                    {task.category?.emoji || '📋'}
+                  </span>
+                </Tooltip>
+                <Typography variant="body1" component="div" fontWeight="bold" sx={{ fontSize: '1.05rem' }}>
+                  {task.title}
+                </Typography>
+              </Box>
               <ToggleButtonGroup
                 value={task.size || 'Pequena'}
                 exclusive

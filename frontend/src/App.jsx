@@ -6,6 +6,7 @@ import MainPage from './pages/MainPage';
 import TaskHistoryPage from './pages/TaskHistoryPage';
 import AllHistoryPage from './pages/AllHistoryPage';
 import AdminPage from './pages/AdminPage';
+import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import ScoreboardPage from './pages/ScoreboardPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
@@ -76,6 +77,14 @@ function App() {
           element={
             <AdminRoute>
               <AdminPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="admin/categories"
+          element={
+            <AdminRoute>
+              <CategoriesAdminPage />
             </AdminRoute>
           }
         />

@@ -21,11 +21,12 @@ const sizeConfig = {
   Grande: { label: 'L', color: '#f44336', tooltip: 'Grande - más de 2 horas' }
 };
 
-export default function TaskDialog({ open, task, onClose, onSave, users = [] }) {
+export default function TaskDialog({ open, task, onClose, onSave, users = [], categories = [] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [size, setSize] = useState('');
   const [assignedToId, setAssignedToId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -34,20 +35,22 @@ export default function TaskDialog({ open, task, onClose, onSave, users = [] }) 
       setDescription(task.description || '');
       setSize(task.size || '');
       setAssignedToId(task.assignedTo?.id || '');
+      setCategoryId(task.category?.id || '');
     } else {
       setTitle('');
       setDescription('');
       setSize('');
       setAssignedToId('');
+      setCategoryId('');
     }
   }, [task, open]);
 
   const handleSave = async () => {
-    if (!title.trim() || !size) return;
+    if (!title.trim() || !size || !categoryId) return;
 
     setSaving(true);
     try {
-      const data = { title, description, size };
+      const data = { title, description, size, categoryId };
       if (!task?.id) {
         // Only include assignedToId for new tasks
         data.assignedToId = assignedToId || null;
@@ -83,6 +86,24 @@ export default function TaskDialog({ open, task, onClose, onSave, users = [] }) 
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+
+        <FormControl fullWidth sx={{ mt: 2 }} required>
+          <InputLabel>Categoría</InputLabel>
+          <Select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            label="Categoría"
+          >
+            {categories.map((cat) => (
+              <MenuItem key={cat.id} value={cat.id}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <span style={{ fontSize: 20 }}>{cat.emoji}</span>
+                  {cat.name}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         <Box sx={{ mt: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -149,7 +170,7 @@ export default function TaskDialog({ open, task, onClose, onSave, users = [] }) 
         <Button
           onClick={handleSave}
           variant="contained"
-          disabled={!title.trim() || !size || saving}
+          disabled={!title.trim() || !size || !categoryId || saving}
         >
           {saving ? 'Guardando...' : isEdit ? 'Guardar' : 'Crear'}
         </Button>

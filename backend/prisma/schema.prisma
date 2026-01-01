@@ -34,8 +34,18 @@ model Task {
   createdBy    User       @relation("TaskCreator", fields: [createdById], references: [id])
   assignedToId String?
   assignedTo   User?      @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  categoryId   String?
+  category     Category?  @relation(fields: [categoryId], references: [id])
 
   history TaskHistory[]
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  emoji     String
+  createdAt DateTime @default(now())
+  tasks     Task[]
 }
 
 enum TaskStatus {

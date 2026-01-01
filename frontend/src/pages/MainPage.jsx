@@ -57,6 +57,7 @@ const getStartOfYear = () => {
 export default function MainPage() {
   const [tasks, setTasks] = useState({ Nueva: [], EnProgreso: [], Completada: [] });
   const [users, setUsers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [weeklyScores, setWeeklyScores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -127,6 +128,7 @@ export default function MainPage() {
   useEffect(() => {
     fetchTasks();
     fetchUsers();
+    fetchCategories();
     fetchWeeklyScores();
   }, [fetchTasks, fetchWeeklyScores]);
 
@@ -156,6 +158,15 @@ export default function MainPage() {
       setUsers(response.data);
     } catch (err) {
       console.error('Error fetching users:', err);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories');
+      setCategories(response.data);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
     }
   };
 
@@ -376,6 +387,7 @@ export default function MainPage() {
         onClose={handleCloseDialog}
         onSave={handleSaveTask}
         users={users}
+        categories={categories}
       />
 
       <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)}>
