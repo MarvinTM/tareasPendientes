@@ -20,6 +20,7 @@ import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import EditIcon from '@mui/icons-material/Edit';
 import PeopleIcon from '@mui/icons-material/People';
+import SecurityIcon from '@mui/icons-material/Security';
 import api from '../services/api';
 import UserAvatar from '../components/UserAvatar';
 
@@ -216,6 +217,16 @@ export default function AdminPage() {
                   <Box display="flex" alignItems="center" gap={1}>
                     <UserAvatar user={user} sx={{ width: 40, height: 40 }} showTooltip={false} />
                     {user.name}
+                    {user.isAdmin && (
+                      <Chip
+                        icon={<SecurityIcon style={{ fontSize: 16, color: 'inherit' }} />}
+                        label="Admin"
+                        size="small"
+                        color="secondary"
+                        variant="outlined"
+                        sx={{ ml: 1, height: 20, fontSize: '0.65rem', fontWeight: 'bold' }}
+                      />
+                    )}
                   </Box>
                 </TableCell>
                 <TableCell>{user.shortName || '-'}</TableCell>
