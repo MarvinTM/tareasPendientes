@@ -200,6 +200,8 @@ export default function AdminPage() {
           <TableHead>
             <TableRow>
               <TableCell>Usuario</TableCell>
+              <TableCell>Nombre Corto</TableCell>
+              <TableCell>Color</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Estado</TableCell>
               <TableCell>Registrado</TableCell>
@@ -214,6 +216,19 @@ export default function AdminPage() {
                     <UserAvatar user={user} sx={{ width: 40, height: 40 }} showTooltip={false} />
                     {user.name}
                   </Box>
+                </TableCell>
+                <TableCell>{user.shortName || '-'}</TableCell>
+                <TableCell>
+                  <Box
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 1,
+                      bgcolor: user.color || 'transparent',
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }}
+                  />
                 </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
