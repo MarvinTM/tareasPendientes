@@ -90,7 +90,7 @@ export default function AdminPage() {
     setEditUser(user);
     setEditForm({
       shortName: user.shortName || '',
-      color: user.color || '#1976d2'
+      color: user.color || '#1e88e5'
     });
   };
 

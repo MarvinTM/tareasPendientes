@@ -11,6 +11,7 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
 import UserAvatar from './UserAvatar';
+import AppLogo from './AppLogo';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -35,14 +36,15 @@ export default function Layout() {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
-          <Typography
-            variant="h6"
-            component="div"
-            sx={{ flexGrow: 1, cursor: 'pointer' }}
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1, cursor: 'pointer' }}
             onClick={() => navigate('/')}
           >
-            Tareas Pendientes
-          </Typography>
+            <AppLogo sx={{ fontSize: 32 }} />
+            <Typography variant="h6" component="div">
+              Tareas Pendientes
+            </Typography>
+          </Box>
 
           <Button color="inherit" onClick={() => navigate('/scoreboard')}>
             Puntuación
