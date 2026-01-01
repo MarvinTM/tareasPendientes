@@ -46,6 +46,10 @@ export default function Layout() {
             </Typography>
           </Box>
 
+          <Button color="inherit" onClick={() => navigate('/periodic')}>
+            Tareas recurrentes
+          </Button>
+
           <Button color="inherit" onClick={() => navigate('/scoreboard')}>
             Puntuación
           </Button>
