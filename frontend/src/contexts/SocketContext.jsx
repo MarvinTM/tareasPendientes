@@ -18,9 +18,17 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    // Construct socket URL dynamically based on current hostname
-    const backendPort = 3001;
-    const socketUrl = `${window.location.protocol}//${window.location.hostname}:${backendPort}`;
+    // Construct socket URL based on environment
+    let socketUrl;
+    if (import.meta.env.VITE_API_URL) {
+      socketUrl = import.meta.env.VITE_API_URL;
+    } else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      socketUrl = '';
+    } else {
+      // nip.io development
+      const backendPort = 3001;
+      socketUrl = `${window.location.protocol}//${window.location.hostname}:${backendPort}`;
+    }
 
     const newSocket = io(socketUrl, {
       withCredentials: true
