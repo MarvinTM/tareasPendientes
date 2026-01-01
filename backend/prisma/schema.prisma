@@ -18,9 +18,10 @@ model User {
   isApproved Boolean  @default(false)
   createdAt  DateTime @default(now())
 
-  tasksCreated  Task[]   @relation("TaskCreator")
-  tasksAssigned Task[]   @relation("TaskAssignee")
+  tasksCreated  Task[]         @relation("TaskCreator")
+  tasksAssigned Task[]         @relation("TaskAssignee")
   taskChanges   TaskHistory[]
+  periodicTasks PeriodicTask[] @relation("PeriodicTaskAssignee")
 }
 
 model Task {
@@ -38,16 +39,37 @@ model Task {
   assignedTo   User?      @relation("TaskAssignee", fields: [assignedToId], references: [id])
   categoryId   String?
   category     Category?  @relation(fields: [categoryId], references: [id])
+  periodicTaskId String?
+  periodicTask PeriodicTask? @relation(fields: [periodicTaskId], references: [id], onDelete: SetNull)
 
   history TaskHistory[]
 }
 
+model PeriodicTask {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  size         TaskSize  @default(Pequena)
+  frequency    Frequency
+  dayOfWeek    Int? // 0-6 (Sunday-Saturday)
+  monthOfYear  Int? // 0-11 (Jan-Dec)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  categoryId   String
+  category     Category  @relation(fields: [categoryId], references: [id])
+  assignedToId String?
+  assignedTo   User?     @relation("PeriodicTaskAssignee", fields: [assignedToId], references: [id])
+  lastGeneratedAt DateTime?
+  generatedTasks Task[]
+}
+
 model Category {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  emoji     String
-  createdAt DateTime @default(now())
-  tasks     Task[]
+  id            String         @id @default(uuid())
+  name          String         @unique
+  emoji         String
+  createdAt     DateTime       @default(now())
+  tasks         Task[]
+  periodicTasks PeriodicTask[]
 }
 
 enum TaskStatus {
@@ -62,6 +84,11 @@ enum TaskSize {
   Grande
 }
 
+enum Frequency {
+  WEEKLY
+  MONTHLY
+}
+
 model TaskHistory {
   id            String   @id @default(uuid())
   taskId        String
@@ -72,4 +99,10 @@ model TaskHistory {
   previousValue String?
   newValue      String?
   timestamp     DateTime @default(now())
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  timestamp DateTime @default(now())
 }

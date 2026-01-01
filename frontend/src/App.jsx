@@ -8,6 +8,7 @@ import AllHistoryPage from './pages/AllHistoryPage';
 import AdminPage from './pages/AdminPage';
 import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import ScoreboardPage from './pages/ScoreboardPage';
+import PeriodicTasksPage from './pages/PeriodicTasksPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
@@ -69,6 +70,7 @@ function App() {
         }
       >
         <Route index element={<MainPage />} />
+        <Route path="periodic" element={<PeriodicTasksPage />} />
         <Route path="scoreboard" element={<ScoreboardPage />} />
         <Route path="history" element={<AllHistoryPage />} />
         <Route path="history/:taskId" element={<TaskHistoryPage />} />

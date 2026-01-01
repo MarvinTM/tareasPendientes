@@ -4,12 +4,16 @@ import { authenticateToken } from '../middleware/auth.js';
 import { logTaskChange, ACTIONS } from '../services/taskHistory.js';
 import { emitTaskUpdate } from '../socket.js';
 import { sendTaskAssignmentEmail } from '../services/email.js';
+import { generatePeriodicTasks } from '../services/taskGenerator.js';
 
 const router = express.Router();
 
 // Get all tasks
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    // Trigger lazy generation of periodic tasks
+    await generatePeriodicTasks(req.user);
+
     const tasks = await prisma.task.findMany({
       include: {
         createdBy: {
