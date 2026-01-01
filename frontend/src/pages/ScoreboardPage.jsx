@@ -154,8 +154,8 @@ export default function ScoreboardPage() {
                     </Typography>
                   )}
                 </Box>
-                <ListItemAvatar sx={{ minWidth: 40 }}>
-                  <UserAvatar user={user} sx={{ width: 32, height: 32, fontSize: '0.875rem' }} showTooltip={false} />
+                <ListItemAvatar sx={{ minWidth: 50 }}>
+                  <UserAvatar user={user} sx={{ width: 40, height: 40, fontSize: '0.875rem' }} showTooltip={false} />
                 </ListItemAvatar>
                 <ListItemText
                   primary={

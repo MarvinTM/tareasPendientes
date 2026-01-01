@@ -33,7 +33,9 @@ export default function UserAvatar({ user, showTooltip = true, sx = {}, ...props
       sx={{
         bgcolor: backgroundColor,
         color: textColor,
-        fontSize: hasShortName ? '0.75rem' : undefined,
+        fontSize: hasShortName 
+          ? (user.shortName.length > 4 ? '0.55rem' : user.shortName.length > 2 ? '0.65rem' : '0.8rem') 
+          : undefined,
         fontWeight: hasShortName ? 'bold' : undefined,
         ...sx
       }}

@@ -152,7 +152,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                   <Box component="span"> 
                     <UserAvatar
                       user={task.createdBy}
-                      sx={{ width: 24, height: 24, fontSize: '0.75rem' }}
+                      sx={{ width: 32, height: 32 }}
                       showTooltip={false}
                     />
                   </Box>
@@ -185,7 +185,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                   >
                     <UserAvatar
                       user={task.assignedTo}
-                      sx={{ width: 22, height: 22, fontSize: '0.7rem' }}
+                      sx={{ width: 30, height: 30 }}
                       showTooltip={false}
                     />
                   </IconButton>
@@ -256,7 +256,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                 selected={task.assignedTo?.id === user.id}
               >
                 <ListItemIcon>
-                  <UserAvatar user={user} sx={{ width: 24, height: 24, fontSize: '0.75rem' }} showTooltip={false} />
+                  <UserAvatar user={user} sx={{ width: 32, height: 32 }} showTooltip={false} />
                 </ListItemIcon>
                 <ListItemText>{user.name}</ListItemText>
               </MenuItem>

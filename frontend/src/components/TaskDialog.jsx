@@ -14,6 +14,7 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Tooltip from '@mui/material/Tooltip';
+import UserAvatar from './UserAvatar';
 
 const sizeConfig = {
   Pequena: { label: 'S', color: '#4caf50', tooltip: 'Pequeña - menos de 1 hora' },
@@ -156,7 +157,10 @@ export default function TaskDialog({ open, task, onClose, onSave, users = [], ca
               </MenuItem>
               {users.map((user) => (
                 <MenuItem key={user.id} value={user.id}>
-                  {user.name}
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <UserAvatar user={user} sx={{ width: 24, height: 24, fontSize: '0.7rem' }} showTooltip={false} />
+                    {user.name}
+                  </Box>
                 </MenuItem>
               ))}
             </Select>

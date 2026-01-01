@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { DragDropContext } from '@hello-pangea/dnd';
 import TaskColumn from './TaskColumn';
+import UserAvatar from './UserAvatar';
 
 const STATUSES = ['Nueva', 'EnProgreso', 'Completada'];
 
@@ -104,10 +105,8 @@ export default function TaskBoard({ tasks, users, weeklyScores, onDragEnd, onEdi
                       </Typography>
                     )}
                   </Box>
-                  <ListItemAvatar sx={{ minWidth: 32 }}>
-                    <Avatar src={user.picture} sx={{ width: 24, height: 24, fontSize: '0.7rem' }}>
-                      {user.name?.[0]}
-                    </Avatar>
+                  <ListItemAvatar sx={{ minWidth: 38 }}>
+                    <UserAvatar user={user} sx={{ width: 30, height: 30 }} showTooltip={false} />
                   </ListItemAvatar>
                   <ListItemText
                     primary={
