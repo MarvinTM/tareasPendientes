@@ -156,7 +156,7 @@ export default function AdminPage() {
                   <TableRow key={user.id}>
                     <TableCell>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <UserAvatar user={user} sx={{ width: 32, height: 32 }} showTooltip={false} />
+                        <UserAvatar user={user} sx={{ width: 40, height: 40 }} showTooltip={false} />
                         {user.name}
                       </Box>
                     </TableCell>
@@ -211,7 +211,7 @@ export default function AdminPage() {
               <TableRow key={user.id}>
                 <TableCell>
                   <Box display="flex" alignItems="center" gap={1}>
-                    <UserAvatar user={user} sx={{ width: 32, height: 32 }} showTooltip={false} />
+                    <UserAvatar user={user} sx={{ width: 40, height: 40 }} showTooltip={false} />
                     {user.name}
                   </Box>
                 </TableCell>
@@ -266,10 +266,10 @@ export default function AdminPage() {
               label="Nombre Corto"
               value={editForm.shortName}
               onChange={(e) => {
-                const val = e.target.value.toUpperCase().slice(0, 3);
+                const val = e.target.value.toUpperCase().slice(0, 5);
                 setEditForm({ ...editForm, shortName: val });
               }}
-              helperText="Máximo 3 letras, mayúsculas"
+              helperText="Máximo 5 letras, mayúsculas"
               fullWidth
             />
             

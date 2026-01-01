@@ -10,6 +10,7 @@ import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useState } from 'react';
+import UserAvatar from './UserAvatar';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -62,10 +63,8 @@ export default function Layout() {
             </>
           )}
 
-          <IconButton onClick={handleMenu} sx={{ ml: 2 }}>
-            <Avatar src={user?.picture} alt={user?.name}>
-              {user?.name?.[0]}
-            </Avatar>
+          <IconButton onClick={handleMenu} sx={{ ml: 2, p: 0 }}>
+            <UserAvatar user={user} sx={{ width: 44, height: 44 }} showTooltip={false} />
           </IconButton>
 
           <Menu

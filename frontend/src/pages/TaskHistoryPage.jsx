@@ -97,7 +97,7 @@ export default function TaskHistoryPage() {
                   {index > 0 && <Divider />}
                   <ListItem alignItems="flex-start">
                     <ListItemAvatar>
-                      <UserAvatar user={entry.user} showTooltip={false} />
+                      <UserAvatar user={entry.user} sx={{ width: 40, height: 40 }} showTooltip={false} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={
