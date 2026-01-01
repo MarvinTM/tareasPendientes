@@ -302,7 +302,9 @@ pm2 restart all         # Restart
 pm2 stop all            # Stop
 ```
 
-#### Updating in production
+#### Updating in production (on server)
+
+If your server has enough memory to build:
 
 ```bash
 cd /var/www/tareas-pendientes
@@ -324,6 +326,30 @@ cd ../frontend && npm run build
 pm2 restart all
 ```
 
+#### Updating in production (local build + deploy)
+
+For low-memory servers (like AWS nano instances), use the deployment script to build locally and deploy:
+
+1. **First time setup** - Edit `deploy.sh` and update the configuration:
+   ```bash
+   REMOTE_USER="ubuntu"                    # Your SSH user
+   REMOTE_HOST="your-server-ip-or-domain"  # Your server address
+   REMOTE_PATH="/var/www/tareas-pendientes"
+   SSH_KEY="~/.ssh/your-key.pem"           # Optional: SSH key path
+   ```
+
+2. **Deploy**:
+   ```bash
+   ./deploy.sh
+   ```
+
+The script will:
+- Build the frontend locally
+- Transfer frontend dist and backend code via rsync
+- Install backend dependencies on the server
+- Run database migrations
+- Restart the backend with PM2
+
 ## Local Network Access
 
 To access the application from other devices on your local network:
@@ -342,7 +368,7 @@ tareasPendientes/
 │   │   ├── config/       # Passport configuration
 │   │   ├── middleware/   # Auth middleware
 │   │   ├── routes/       # API routes
-│   │   ├── services/     # Business logic
+│   │   ├── services/     # Business logic & email
 │   │   └── index.js      # Entry point
 │   └── prisma/
 │       └── schema.prisma # Database schema
@@ -353,6 +379,9 @@ tareasPendientes/
 │   │   ├── pages/        # Page components
 │   │   └── services/     # API service
 │   └── index.html
+├── deploy.sh             # Deployment script (local build + deploy)
+├── ecosystem.config.cjs  # PM2 configuration
+├── nginx.example.conf    # Nginx configuration template
 └── README.md
 ```
 
