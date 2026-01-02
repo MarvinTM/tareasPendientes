@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -25,6 +26,21 @@ const medalColors = {
 };
 
 export default function TaskBoard({ tasks, users, categories, weeklyScores, onDragEnd, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, numColumns = 1 }) {
+  // Track which tasks are expanded (for compact mode)
+  const [expandedTaskIds, setExpandedTaskIds] = useState(new Set());
+
+  const handleToggleExpanded = useCallback((taskId) => {
+    setExpandedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  }, []);
+
   // Calculate total pending tasks across all dynamic columns
   const pendingCount = Array.from({ length: numColumns }).reduce((acc, _, idx) => {
     return acc + (tasks[`Pendientes_${idx}`]?.length || 0);
@@ -208,6 +224,9 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
                 onSizeChange={onSizeChange}
                 hideHeader={true}
                 fluidWidth={true}
+                compactMode={numColumns <= 2}
+                expandedTaskIds={expandedTaskIds}
+                onToggleExpanded={handleToggleExpanded}
               />
             ))}
           </Box>

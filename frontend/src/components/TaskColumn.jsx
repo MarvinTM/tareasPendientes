@@ -22,7 +22,7 @@ const getMonthName = () => {
   return months[new Date().getMonth()];
 };
 
-export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false, fluidWidth = false }) {
+export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false, fluidWidth = false, compactMode = false, expandedTaskIds, onToggleExpanded }) {
   const config = status.startsWith('Pendientes') ? statusConfig['Nueva'] : statusConfig[status];
   const displayTitle = title || config.title;
 
@@ -207,6 +207,9 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
                 onDelete={onDelete}
                 onAssign={onAssign}
                 onSizeChange={onSizeChange}
+                compactMode={compactMode}
+                isExpanded={expandedTaskIds?.has(task.id)}
+                onToggleExpanded={onToggleExpanded}
               />
             ))}
             {provided.placeholder}
