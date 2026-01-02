@@ -36,7 +36,7 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: hideHeader ? 'transparent' : '#fafafa',
-        height: '100%',
+        minHeight: 0,
         overflow: 'hidden'
       }}
     >

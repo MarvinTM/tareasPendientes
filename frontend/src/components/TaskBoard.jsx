@@ -64,6 +64,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           sx={{
             flex: 1,
             minWidth: 0,
+            minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#fafafa',
@@ -212,7 +213,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           </Box>
 
           {/* Split Columns Content */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0, overflow: 'hidden', gap: 0.0, p: 0.2 }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0, minHeight: 0, overflow: 'hidden', gap: 0.0, p: 0.2 }}>
             {Array.from({ length: numColumns }).map((_, index) => (
               <TaskColumn
                 key={`Pendientes_${index}`}
@@ -241,8 +242,8 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           flexDirection: 'column',
           gap: 2,
           flexShrink: 0,
-          minHeight: numColumns === 1 ? 200 : 200, // Increased on mobile due to compact header
-          flexBasis: '40%',
+          minHeight: 0, // Allow shrinking on small screens
+          flexBasis: numColumns === 1 ? '40%' : 'auto',
           '@media (min-width: 700px)': {
             width: 320,
             flexBasis: 'auto',
@@ -253,7 +254,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           {/* Completed Column - Set to flex: 1 to fill available space */}
           <Box sx={{
             flex: 1,
-            minHeight: numColumns === 1 ? 180 : 150, // Increased on mobile due to compact header
+            minHeight: 0, // Allow shrinking
             display: 'flex',
             flexDirection: 'column'
           }}>
