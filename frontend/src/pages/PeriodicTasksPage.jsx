@@ -379,9 +379,9 @@ export default function PeriodicTasksPage() {
         </Tabs>
       </Paper>
 
-      {/* Weekly View */}
+      {/* Weekly View - Scrollable */}
       {tab === 0 && (
-        <Box>
+        <Box sx={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', pr: 1, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
           {[1, 2, 3, 4, 5, 6, 0].map((dayIndex) => {
             const dayTasks = getFilteredTasks(tasks.filter(t => t.frequency === 'WEEKLY' && t.dayOfWeek === dayIndex));
             
