@@ -194,7 +194,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           </Box>
 
           {/* Split Columns Content */}
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0, overflow: 'hidden', gap: 2, p: 1 }}>
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0, overflow: 'hidden', gap: 0.0, p: 0.2 }}>
             {Array.from({ length: numColumns }).map((_, index) => (
               <TaskColumn
                 key={`Pendientes_${index}`}
