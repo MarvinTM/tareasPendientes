@@ -53,8 +53,9 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           display: 'flex',
           gap: 2,
           flexDirection: 'column',
-          '@media (min-width: 500px)': { flexDirection: 'row' },
-          height: 'calc(100vh - 140px)', // Adjust based on header height
+          '@media (min-width: 700px)': { flexDirection: 'row' },
+          flex: 1,
+          minHeight: 0, // Critical for flex child to respect parent height
           overflow: 'hidden'
         }}
       >
@@ -233,22 +234,28 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
         </Paper>
 
         {/* Sidebar Area - Completadas & Weekly Score */}
-        <Box sx={{ 
+        <Box sx={{
           width: '100%',
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 2, 
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
           flexShrink: 0,
-          minHeight: 0, // Allow shrinking
+          minHeight: 200, // Minimum height for mobile view
           flexBasis: '40%',
-          '@media (min-width: 500px)': { 
+          '@media (min-width: 700px)': {
             width: 320,
-            flexBasis: 'auto'
-          } 
+            flexBasis: 'auto',
+            minHeight: 0
+          }
         }}>
           
           {/* Completed Column - Set to flex: 1 to fill available space */}
-          <Box sx={{ flex: 1, minHeight: 0, display: 'flex' }}>
+          <Box sx={{
+            flex: 1,
+            minHeight: 150, // Safari needs explicit min-height for flex children
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
             <TaskColumn
               key="Completada"
               status="Completada"

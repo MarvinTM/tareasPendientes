@@ -78,8 +78,10 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
           onClick={handleCardClick}
           sx={{
             mb: 1,
-            height: showCompact ? 56 : 170,
-            transition: 'height 0.2s ease-in-out',
+            minHeight: showCompact ? 56 : 170, // Use minHeight for Safari compatibility
+            height: 'auto',
+            flexShrink: 0, // Prevent Safari from collapsing cards
+            transition: 'min-height 0.2s ease-in-out',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: showCompact ? 'center' : 'space-between',
@@ -218,36 +220,38 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
                   >
                     {Object.entries(sizeConfig).map(([size, config]) => (
                       <Tooltip key={size} title={config.tooltip} arrow>
-                        <ToggleButton
-                          value={size}
-                          sx={{
-                            px: 0.75,
-                            py: 0,
-                            minWidth: 24,
-                            fontSize: '0.7rem',
-                            fontWeight: 'bold',
-                            color: (task.size || 'Pequena') === size ? 'white' : config.color,
-                            borderColor: config.color,
-                            backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
-                            '&:hover': {
-                              backgroundColor: (task.size || 'Pequena') === size ? config.color : `${config.color}20`
-                            },
-                            '&.Mui-selected': {
-                              backgroundColor: config.color,
-                              color: 'white',
-                              '&:hover': {
-                                backgroundColor: config.color
-                              }
-                            },
-                            '&.Mui-disabled': {
-                              color: (task.size || 'Pequena') === size ? 'white' : `${config.color}80`,
+                        <span>
+                          <ToggleButton
+                            value={size}
+                            sx={{
+                              px: 0.75,
+                              py: 0,
+                              minWidth: 24,
+                              fontSize: '0.7rem',
+                              fontWeight: 'bold',
+                              color: (task.size || 'Pequena') === size ? 'white' : config.color,
+                              borderColor: config.color,
                               backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
-                              borderColor: `${config.color}80`
-                            }
-                          }}
-                        >
-                          {config.label}
-                        </ToggleButton>
+                              '&:hover': {
+                                backgroundColor: (task.size || 'Pequena') === size ? config.color : `${config.color}20`
+                              },
+                              '&.Mui-selected': {
+                                backgroundColor: config.color,
+                                color: 'white',
+                                '&:hover': {
+                                  backgroundColor: config.color
+                                }
+                              },
+                              '&.Mui-disabled': {
+                                color: (task.size || 'Pequena') === size ? 'white' : `${config.color}80`,
+                                backgroundColor: (task.size || 'Pequena') === size ? config.color : 'transparent',
+                                borderColor: `${config.color}80`
+                              }
+                            }}
+                          >
+                            {config.label}
+                          </ToggleButton>
+                        </span>
                       </Tooltip>
                     ))}
                   </ToggleButtonGroup>
