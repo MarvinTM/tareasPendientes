@@ -265,15 +265,14 @@ export default function MainPage() {
     // Determine the actual API status based on column
     const isPending = destStatus.startsWith('Pendientes');
     const apiStatus = isPending ? 'Nueva' : 'Completada';
-    
+
     // Update local object status for consistency
     movedTask.status = apiStatus;
 
-    // Auto-assign if moving from a pending col to another pending col (or unassigned logic)
-    // Actually, simple logic: if moving TO pending from anywhere and unassigned, auto-assign.
-    const wasPending = sourceStatus.startsWith('Pendientes');
-    const shouldAutoAssign = !wasPending && isPending && !movedTask.assignedTo;
-    
+    // Auto-assign if completing an unassigned task
+    const isCompletingTask = apiStatus === 'Completada';
+    const shouldAutoAssign = isCompletingTask && !movedTask.assignedTo;
+
     if (shouldAutoAssign) {
       movedTask.assignedTo = user;
     }
@@ -282,21 +281,15 @@ export default function MainPage() {
     setTasks(newTasks);
 
     // Update on server
-    // If moving between pending columns, we don't need to call API unless auto-assign happened
-    // because backend doesn't track column 0 vs 1.
+    // Call API if status changed OR if auto-assigned (completing unassigned task)
     if (sourceStatus !== destStatus || shouldAutoAssign) {
       try {
         const updateData = { status: apiStatus };
         if (shouldAutoAssign) {
           updateData.assignedToId = user.id;
         }
-        
-        // Only call API if status changed or assigned changed
-        // Moving between Pendientes_0 and Pendientes_1 without assign change = no API call needed?
-        // Wait, if we don't call API, a refresh will reset positions. That's expected for this layout.
-        if (!wasPending || !isPending || shouldAutoAssign) {
-             await api.patch(`/tasks/${taskId}`, updateData);
-        }
+
+        await api.patch(`/tasks/${taskId}`, updateData);
       } catch (err) {
         // Revert on error
         fetchTasks();
