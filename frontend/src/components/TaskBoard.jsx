@@ -74,30 +74,31 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           {/* Unified Header */}
           <Box
             sx={{
-              p: 2,
-              height: 160, // Match TaskColumn height
+              p: numColumns === 1 ? 1.5 : 2,
+              height: numColumns === 1 ? 70 : 160, // Compact on mobile
               display: 'flex',
-              flexDirection: 'column',
+              flexDirection: numColumns === 1 ? 'row' : 'column', // Single row on mobile
               justifyContent: 'space-between',
+              alignItems: numColumns === 1 ? 'center' : 'flex-start',
               borderBottom: 3,
               borderColor: '#1976d2',
               backgroundColor: '#1976d218',
-              flexShrink: 0
+              flexShrink: 0,
+              gap: numColumns === 1 ? 1 : 0
             }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="h5" fontWeight="bold">
-                  Pendientes
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {pendingCount} tarea{pendingCount !== 1 ? 's' : ''}
-                </Typography>
-              </Box>
+            {/* Title and count */}
+            <Box>
+              <Typography variant={numColumns === 1 ? 'h6' : 'h5'} fontWeight="bold">
+                Pendientes
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {pendingCount} tarea{pendingCount !== 1 ? 's' : ''}
+              </Typography>
             </Box>
 
             {/* Filters Area */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', alignSelf: numColumns === 1 ? 'auto' : 'flex-end' }}>
               {/* Main Filter */}
               <ToggleButtonGroup
                 value={newFilter}
@@ -152,8 +153,8 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
                 </ToggleButton>
               </ToggleButtonGroup>
 
-              {/* Category Filter */}
-              {categories && categories.length > 0 && categoryFilter && onCategoryFilterChange && (
+              {/* Category Filter - Hide on mobile (single column) */}
+              {categories && categories.length > 0 && categoryFilter && onCategoryFilterChange && numColumns > 1 && (
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   <Tooltip title="Todas las categorías">
                     <ToggleButton
@@ -240,7 +241,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           flexDirection: 'column',
           gap: 2,
           flexShrink: 0,
-          minHeight: 200, // Minimum height for mobile view
+          minHeight: numColumns === 1 ? 200 : 200, // Increased on mobile due to compact header
           flexBasis: '40%',
           '@media (min-width: 700px)': {
             width: 320,
@@ -252,7 +253,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           {/* Completed Column - Set to flex: 1 to fill available space */}
           <Box sx={{
             flex: 1,
-            minHeight: 150, // Safari needs explicit min-height for flex children
+            minHeight: numColumns === 1 ? 180 : 150, // Increased on mobile due to compact header
             display: 'flex',
             flexDirection: 'column'
           }}>
@@ -269,16 +270,22 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
               completedFilter={completedFilter}
               onCompletedFilterChange={onCompletedFilterChange}
               isGrid={false}
+              fluidWidth={numColumns === 1}
+              numColumns={numColumns}
+              compactMode={numColumns <= 2}
+              expandedTaskIds={expandedTaskIds}
+              onToggleExpanded={handleToggleExpanded}
             />
           </Box>
 
-          {/* Weekly Scoreboard */}
-          <Paper
-            sx={{
-              backgroundColor: '#fff8e1',
-              flexShrink: 0
-            }}
-          >
+          {/* Weekly Scoreboard - Hide on mobile (single column) to save space */}
+          {numColumns > 1 && (
+            <Paper
+              sx={{
+                backgroundColor: '#fff8e1',
+                flexShrink: 0
+              }}
+            >
             <Box
               sx={{
                 p: 1.5,
@@ -354,6 +361,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
               </List>
             )}
           </Paper>
+          )}
         </Box>
       </Box>
     </DragDropContext>
