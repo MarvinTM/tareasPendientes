@@ -214,24 +214,25 @@ export default function PeriodicTasksPage() {
                 <LoopIcon sx={{ fontSize: 14, color: 'text.secondary', opacity: 0.7 }} />
               </Box>
             }
+            secondaryTypographyProps={{ component: 'div' }}
             secondary={
-              <Box component="span" display="flex" flexDirection="column" gap={0.5}>
+              <Box display="flex" flexDirection="column" gap={0.5}>
                 {task.description && (
                   <Typography variant="caption" color="text.secondary" noWrap>
                     {task.description}
                   </Typography>
                 )}
                 <Box display="flex" alignItems="center" gap={1}>
-                  <Chip 
-                    label={sizeConfig[task.size].label} 
-                    size="small" 
-                    sx={{ 
-                      height: 20, 
-                      fontSize: '0.65rem', 
-                      bgcolor: sizeConfig[task.size].color, 
+                  <Chip
+                    label={sizeConfig[task.size].label}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.65rem',
+                      bgcolor: sizeConfig[task.size].color,
                       color: 'white',
                       fontWeight: 'bold'
-                    }} 
+                    }}
                   />
                   {task.assignedTo && (
                     <Box display="flex" alignItems="center" gap={0.5}>
