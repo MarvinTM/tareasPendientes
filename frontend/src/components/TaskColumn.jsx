@@ -28,13 +28,14 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
 
   return (
     <Paper
+      elevation={hideHeader ? 0 : 1}
       sx={{
         flex: 1,
         minWidth: isGrid || fluidWidth ? 0 : 300,
         maxWidth: isGrid || fluidWidth ? '100%' : 400,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#fafafa',
+        backgroundColor: hideHeader ? 'transparent' : '#fafafa',
         height: '100%',
         overflow: 'hidden'
       }}
