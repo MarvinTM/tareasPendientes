@@ -30,7 +30,7 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
     <Paper
       sx={{
         flex: 1,
-        minWidth: isGrid ? 0 : 300,
+        minWidth: isGrid || fluidWidth ? 0 : 300,
         maxWidth: isGrid || fluidWidth ? '100%' : 400,
         display: 'flex',
         flexDirection: 'column',
