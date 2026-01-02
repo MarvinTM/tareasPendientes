@@ -306,23 +306,25 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
 
                 {task.assignedTo ? (
                   <Tooltip title={`Asignado a: ${task.assignedTo.name}`}>
-                    <IconButton
-                      size="small"
-                      onClick={handleOpenMenu}
-                      disabled={isCompleted}
-                      sx={{
-                        border: '2px solid',
-                        borderColor: 'primary.main',
-                        p: 0.25,
-                        cursor: isCompleted ? 'default' : 'pointer'
-                      }}
-                    >
-                      <UserAvatar
-                        user={task.assignedTo}
-                        sx={{ width: 30, height: 30 }}
-                        showTooltip={false}
-                      />
-                    </IconButton>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={handleOpenMenu}
+                        disabled={isCompleted}
+                        sx={{
+                          border: '2px solid',
+                          borderColor: 'primary.main',
+                          p: 0.25,
+                          cursor: isCompleted ? 'default' : 'pointer'
+                        }}
+                      >
+                        <UserAvatar
+                          user={task.assignedTo}
+                          sx={{ width: 30, height: 30 }}
+                          showTooltip={false}
+                        />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 ) : !isCompleted ? (
                   <Tooltip title={isUnassignedNew ? "¡Sin asignar! - clic para asignar" : "Sin asignar - clic para asignar"}>

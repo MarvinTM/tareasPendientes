@@ -22,7 +22,7 @@ const getMonthName = () => {
   return months[new Date().getMonth()];
 };
 
-export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false, fluidWidth = false, compactMode = false, expandedTaskIds, onToggleExpanded }) {
+export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false, fluidWidth = false, compactMode = false, expandedTaskIds, onToggleExpanded, numColumns = 1 }) {
   const config = status.startsWith('Pendientes') ? statusConfig['Nueva'] : statusConfig[status];
   const displayTitle = title || config.title;
 
@@ -43,30 +43,31 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
       {!hideHeader && (
       <Box
         sx={{
-          p: 2,
-          height: 160, // Increased fixed height for alignment and spacing
+          p: numColumns === 1 ? 1.5 : 2,
+          height: numColumns === 1 ? 70 : 160, // Compact on mobile
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: numColumns === 1 ? 'row' : 'column', // Single row on mobile
           justifyContent: 'space-between',
+          alignItems: numColumns === 1 ? 'center' : 'flex-start',
           borderBottom: 3,
           borderColor: config.color,
           backgroundColor: config.headerBg,
-          flexShrink: 0
+          flexShrink: 0,
+          gap: numColumns === 1 ? 1 : 0
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              {displayTitle}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {tasks.length} tarea{tasks.length !== 1 ? 's' : ''}
-            </Typography>
-          </Box>
+        {/* Title and count */}
+        <Box>
+          <Typography variant={numColumns === 1 ? 'h6' : 'h5'} fontWeight="bold">
+            {displayTitle}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {tasks.length} tarea{tasks.length !== 1 ? 's' : ''}
+          </Typography>
         </Box>
 
         {/* Filters Area */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end', alignSelf: numColumns === 1 ? 'auto' : 'flex-end' }}>
           {status === 'Completada' && completedFilter && onCompletedFilterChange && (
             <ToggleButtonGroup
               value={completedFilter}
