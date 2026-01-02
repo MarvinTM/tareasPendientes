@@ -36,7 +36,8 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
         sx={{
           display: 'flex',
           gap: 2,
-          flexDirection: { xs: 'column', md: 'row' },
+          flexDirection: 'column',
+          '@media (min-width: 500px)': { flexDirection: 'row' },
           height: 'calc(100vh - 140px)', // Adjust based on header height
           overflow: 'hidden'
         }}
@@ -52,6 +53,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
             overflow: 'hidden'
           }}
         >
+          {/* ... (Header and columns logic) ... */}
           {/* Unified Header */}
           <Box
             sx={{
@@ -213,12 +215,17 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
 
         {/* Sidebar Area - Completadas & Weekly Score */}
         <Box sx={{ 
-          width: { xs: '100%', md: 320 }, 
+          width: '100%',
           display: 'flex', 
           flexDirection: 'column', 
           gap: 2, 
           flexShrink: 0,
-          height: '100%' // Match parent height
+          minHeight: 0, // Allow shrinking
+          flexBasis: '40%',
+          '@media (min-width: 500px)': { 
+            width: 320,
+            flexBasis: 'auto'
+          } 
         }}>
           
           {/* Completed Column - Set to flex: 1 to fill available space */}
