@@ -48,6 +48,7 @@ docs/
 | [Architecture](technical/architecture.md) | System design and patterns |
 | [API Reference](technical/api-reference.md) | REST API endpoints |
 | [Dependencies](technical/dependencies.md) | Libraries and packages |
+| [Testing](technical/testing.md) | Test suite documentation |
 
 ### Diagrams
 
