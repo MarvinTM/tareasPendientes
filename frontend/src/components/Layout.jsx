@@ -70,7 +70,16 @@ export default function Layout() {
   ];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      // Safari mobile fix: prevent address bar from causing scroll
+      '@supports (-webkit-touch-callout: none)': {
+        height: '-webkit-fill-available'
+      },
+      overflow: 'hidden'
+    }}>
       <AppBar position="static" sx={{ flexShrink: 0 }}>
         <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, px: { xs: 1, sm: 2 } }}>
           <Box
