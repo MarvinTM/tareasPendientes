@@ -38,6 +38,8 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import api from '../services/api';
 import UserAvatar from '../components/UserAvatar';
+import { useAuth } from '../contexts/AuthContext';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 
 const DAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -49,12 +51,17 @@ const sizeConfig = {
 };
 
 export default function PeriodicTasksPage() {
+  const { user } = useAuth();
   const [tab, setTab] = useState(0); // 0 = Weekly, 1 = Monthly
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
   const [users, setUsers] = useState([]);
+
+  // Filter state
+  const [userFilter, setUserFilter] = useState('all'); // 'all', 'mine', 'unassigned'
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' or categoryId
   
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -96,6 +103,19 @@ export default function PeriodicTasksPage() {
     }
   };
 
+  const getFilteredTasks = (taskList) => {
+    return taskList.filter(task => {
+      // User filter
+      if (userFilter === 'mine' && task.assignedTo?.id !== user?.id) return false;
+      if (userFilter === 'unassigned' && task.assignedTo) return false;
+
+      // Category filter
+      if (categoryFilter !== 'all' && task.categoryId !== categoryFilter) return false;
+
+      return true;
+    });
+  };
+
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
     // Reset form frequency when switching tabs
@@ -124,7 +144,7 @@ export default function PeriodicTasksPage() {
         title: '',
         description: '',
         size: 'Pequena',
-        categoryId: categories[0]?.id || '',
+        categoryId: '', // Start empty to force user selection
         assignedToId: '',
         frequency: tab === 0 ? 'WEEKLY' : 'MONTHLY',
         dayOfWeek: tab === 0 ? (defaultDayOrMonth ?? 1) : 1,
@@ -266,6 +286,92 @@ export default function PeriodicTasksPage() {
         </Alert>
       )}
 
+      {/* Filters */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box display="flex" flexWrap="wrap" gap={2} alignItems="center">
+          <Box>
+            <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+              Filtrar por usuario
+            </Typography>
+            <ToggleButtonGroup
+              value={userFilter}
+              exclusive
+              onChange={(e, val) => val && setUserFilter(val)}
+              size="small"
+            >
+              <ToggleButton value="all" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                Todas
+              </ToggleButton>
+              <ToggleButton value="mine" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                Mías
+              </ToggleButton>
+              <ToggleButton value="unassigned" sx={{ px: 1, py: 0.25, fontSize: '0.7rem' }}>
+                Sin asignar
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          {categories.length > 0 && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Filtrar por categoría
+              </Typography>
+              <Box display="flex" gap={0.5} flexWrap="wrap">
+                <Tooltip title="Todas las categorías">
+                  <ToggleButton
+                    value="all"
+                    selected={categoryFilter === 'all'}
+                    onClick={() => setCategoryFilter('all')}
+                    size="small"
+                    sx={{
+                      px: 1,
+                      py: 0.25,
+                      minWidth: 32,
+                      height: 32,
+                      border: '1px solid rgba(0, 0, 0, 0.12)',
+                      borderRadius: 1,
+                      '&.Mui-selected': {
+                        backgroundColor: '#e3f2fd',
+                        color: '#1976d2',
+                        '&:hover': { backgroundColor: '#bbdefb' }
+                      }
+                    }}
+                  >
+                    <AssignmentIcon sx={{ fontSize: 18 }} />
+                  </ToggleButton>
+                </Tooltip>
+                {categories.map((cat) => (
+                  <Tooltip key={cat.id} title={cat.name}>
+                    <ToggleButton
+                      value={cat.id}
+                      selected={categoryFilter === cat.id}
+                      onClick={() => setCategoryFilter(categoryFilter === cat.id ? 'all' : cat.id)}
+                      size="small"
+                      sx={{
+                        px: 1,
+                        py: 0.25,
+                        minWidth: 32,
+                        height: 32,
+                        fontSize: '1.2rem',
+                        border: '1px solid rgba(0, 0, 0, 0.12)',
+                        borderRadius: 1,
+                        '&.Mui-selected': {
+                          backgroundColor: '#e3f2fd',
+                          color: '#1976d2',
+                          '&:hover': { backgroundColor: '#bbdefb' }
+                        }
+                      }}
+                    >
+                      {cat.emoji}
+                    </ToggleButton>
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </Box>
+      </Paper>
+
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tab} onChange={handleTabChange} variant="fullWidth">
           <Tab label="Semanales" />
@@ -277,7 +383,7 @@ export default function PeriodicTasksPage() {
       {tab === 0 && (
         <Box>
           {[1, 2, 3, 4, 5, 6, 0].map((dayIndex) => {
-            const dayTasks = tasks.filter(t => t.frequency === 'WEEKLY' && t.dayOfWeek === dayIndex);
+            const dayTasks = getFilteredTasks(tasks.filter(t => t.frequency === 'WEEKLY' && t.dayOfWeek === dayIndex));
             
             return (
               <Accordion key={dayIndex} defaultExpanded={dayTasks.length > 0}>
@@ -308,11 +414,12 @@ export default function PeriodicTasksPage() {
         </Box>
       )}
 
-      {/* Monthly View */}
+      {/* Monthly View - Scrollable */}
       {tab === 1 && (
-        <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={2}>
-          {MONTHS.map((monthName, index) => {
-            const monthTasks = tasks.filter(t => t.frequency === 'MONTHLY' && t.monthOfYear === index);
+        <Box sx={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', pr: 1 }}>
+          <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={2}>
+            {MONTHS.map((monthName, index) => {
+              const monthTasks = getFilteredTasks(tasks.filter(t => t.frequency === 'MONTHLY' && t.monthOfYear === index));
             
             return (
               <Paper key={index} variant="outlined" sx={{ p: 2 }}>
@@ -342,6 +449,7 @@ export default function PeriodicTasksPage() {
               </Paper>
             );
           })}
+          </Box>
         </Box>
       )}
 
