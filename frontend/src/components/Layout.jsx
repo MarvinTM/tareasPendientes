@@ -176,7 +176,7 @@ export default function Layout() {
         </Toolbar>
       </AppBar>
 
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 1.5, sm: 3 }, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Box component="main" sx={{ flexGrow: 1, p: { xs: 1.5, sm: 3 }, overflow: 'hidden', display: 'flex', flexDirection: 'column', overscrollBehavior: 'none' }}>
         <Outlet />
       </Box>
     </Box>

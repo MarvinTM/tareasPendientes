@@ -416,7 +416,7 @@ export default function PeriodicTasksPage() {
 
       {/* Monthly View - Scrollable */}
       {tab === 1 && (
-        <Box sx={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', pr: 1 }}>
+        <Box sx={{ maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', pr: 1, overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
           <Box display="grid" gridTemplateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={2}>
             {MONTHS.map((monthName, index) => {
               const monthTasks = getFilteredTasks(tasks.filter(t => t.frequency === 'MONTHLY' && t.monthOfYear === index));
