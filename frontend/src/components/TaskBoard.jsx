@@ -24,9 +24,11 @@ const medalColors = {
   2: '#CD7F32'  // Bronze
 };
 
-export default function TaskBoard({ tasks, users, categories, weeklyScores, onDragEnd, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange }) {
-  // Calculate total pending tasks
-  const pendingCount = (tasks['Pendientes_0']?.length || 0) + (tasks['Pendientes_1']?.length || 0);
+export default function TaskBoard({ tasks, users, categories, weeklyScores, onDragEnd, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, numColumns = 1 }) {
+  // Calculate total pending tasks across all dynamic columns
+  const pendingCount = Array.from({ length: numColumns }).reduce((acc, _, idx) => {
+    return acc + (tasks[`Pendientes_${idx}`]?.length || 0);
+  }, 0);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -191,30 +193,21 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
 
           {/* Split Columns Content */}
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'row', minWidth: 0, overflow: 'hidden', gap: 2, p: 1 }}>
-            <TaskColumn
-              key="Pendientes_0"
-              status="Pendientes_0"
-              tasks={tasks['Pendientes_0'] || []}
-              users={users}
-              categories={categories}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onAssign={onAssign}
-              onSizeChange={onSizeChange}
-              hideHeader={true}
-            />
-            <TaskColumn
-              key="Pendientes_1"
-              status="Pendientes_1"
-              tasks={tasks['Pendientes_1'] || []}
-              users={users}
-              categories={categories}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onAssign={onAssign}
-              onSizeChange={onSizeChange}
-              hideHeader={true}
-            />
+            {Array.from({ length: numColumns }).map((_, index) => (
+              <TaskColumn
+                key={`Pendientes_${index}`}
+                status={`Pendientes_${index}`}
+                tasks={tasks[`Pendientes_${index}`] || []}
+                users={users}
+                categories={categories}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onAssign={onAssign}
+                onSizeChange={onSizeChange}
+                hideHeader={true}
+                fluidWidth={true}
+              />
+            ))}
           </Box>
         </Paper>
 

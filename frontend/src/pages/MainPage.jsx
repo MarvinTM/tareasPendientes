@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -73,6 +75,24 @@ export default function MainPage() {
   const [completedFilter, setCompletedFilter] = useState('week'); // 'week', 'month', 'year'
   const socket = useSocket();
   const { user } = useAuth();
+  
+  const theme = useTheme();
+  
+  // Custom aggressive breakpoints to maximize space usage (Sidebar is ~320px)
+  const is920 = useMediaQuery('(min-width:920px)');
+  const is1220 = useMediaQuery('(min-width:1220px)');
+  const is1520 = useMediaQuery('(min-width:1520px)');
+  const is1820 = useMediaQuery('(min-width:1820px)');
+  const is2120 = useMediaQuery('(min-width:2120px)');
+  
+  const numColumns = (() => {
+    if (is2120) return 5; 
+    if (is1820) return 4;
+    if (is1520) return 3;
+    if (is1220) return 3; // 3 columns fit well at 1220px (900px available)
+    if (is920) return 2;  // 2 columns fit well at 920px (600px available)
+    return 1;             // Mobile or very small screens
+  })();
 
   // Apply filters to columns
   const getFilteredTasks = () => {
@@ -93,8 +113,13 @@ export default function MainPage() {
       return result;
     };
 
-    filtered.Pendientes_0 = filterList(tasks.Pendientes_0);
-    filtered.Pendientes_1 = filterList(tasks.Pendientes_1);
+    // Dynamic filtering for all pending columns
+    for (let i = 0; i < numColumns; i++) {
+      const key = `Pendientes_${i}`;
+      if (tasks[key]) {
+        filtered[key] = filterList(tasks[key]);
+      }
+    }
 
     // Filter "Completada" column by completion date
     let startDate;
@@ -121,25 +146,24 @@ export default function MainPage() {
       const response = await api.get('/tasks');
       const data = response.data;
       
-      // Merge 'EnProgreso' tasks into 'Nueva' and split into two columns
+      // Merge 'EnProgreso' tasks into 'Nueva' and split into dynamic columns
       const allPending = [...(data.Nueva || []), ...(data.EnProgreso || [])];
       
-      const col0 = [];
-      const col1 = [];
+      const cols = Array.from({ length: numColumns }, () => []);
       
       allPending.forEach((task, index) => {
-        if (index % 2 === 0) {
-          col0.push(task);
-        } else {
-          col1.push(task);
-        }
+        cols[index % numColumns].push(task);
       });
 
-      setTasks({
-        Pendientes_0: col0,
-        Pendientes_1: col1,
+      const newTasks = {
         Completada: data.Completada || []
+      };
+      
+      cols.forEach((col, idx) => {
+        newTasks[`Pendientes_${idx}`] = col;
       });
+
+      setTasks(newTasks);
       setError(null);
     } catch (err) {
       setError('Error al cargar las tareas');
@@ -147,7 +171,7 @@ export default function MainPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [numColumns]);
 
   const fetchWeeklyScores = useCallback(async () => {
     try {
@@ -434,6 +458,7 @@ export default function MainPage() {
         onCategoryFilterChange={setCategoryFilter}
         completedFilter={completedFilter}
         onCompletedFilterChange={setCompletedFilter}
+        numColumns={numColumns}
       />
 
       <TaskDialog

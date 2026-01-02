@@ -22,7 +22,7 @@ const getMonthName = () => {
   return months[new Date().getMonth()];
 };
 
-export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false }) {
+export default function TaskColumn({ status, title, tasks, users, categories, onEdit, onDelete, onAssign, onSizeChange, newFilter, onNewFilterChange, categoryFilter, onCategoryFilterChange, completedFilter, onCompletedFilterChange, isGrid = false, hideHeader = false, fluidWidth = false }) {
   const config = status.startsWith('Pendientes') ? statusConfig['Nueva'] : statusConfig[status];
   const displayTitle = title || config.title;
 
@@ -31,7 +31,7 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
       sx={{
         flex: 1,
         minWidth: isGrid ? 0 : 300,
-        maxWidth: isGrid ? '100%' : 400,
+        maxWidth: isGrid || fluidWidth ? '100%' : 400,
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#fafafa',
