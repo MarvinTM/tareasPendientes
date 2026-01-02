@@ -121,19 +121,19 @@ export default function AllHistoryPage() {
                           </Box>
                         }
                         secondary={
-                          <Box component="span">
+                          <Box component="span" sx={{ display: 'block' }}>
                             <Typography variant="body2" color="text.secondary" component="span">
                               {new Date(entry.timestamp).toLocaleString()}
                             </Typography>
                             {(entry.previousValue || entry.newValue) && (
-                              <Box sx={{ mt: 1 }}>
+                              <Box component="span" sx={{ display: 'block', mt: 1 }}>
                                 {entry.previousValue && (
-                                  <Typography variant="body2" component="div">
+                                  <Typography variant="body2" component="span" sx={{ display: 'block' }}>
                                     <strong>De:</strong> {entry.previousValue}
                                   </Typography>
                                 )}
                                 {entry.newValue && (
-                                  <Typography variant="body2" component="div">
+                                  <Typography variant="body2" component="span" sx={{ display: 'block' }}>
                                     <strong>A:</strong> {entry.newValue}
                                   </Typography>
                                 )}

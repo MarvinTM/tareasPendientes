@@ -379,11 +379,11 @@ export default function MainPage() {
   }
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={{ xs: 1, sm: 2 }} sx={{ flexShrink: 0 }}>
         <Box display="flex" alignItems="center" gap={0.5}>
-          <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AssignmentIcon fontSize="large" color="primary" /> Tareas
+          <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: '1.5rem', sm: '2.125rem' } }}>
+            <AssignmentIcon sx={{ fontSize: { xs: 'large', sm: 'inherit' } }} color="primary" /> Tareas
           </Typography>
           <Tooltip title="Ver leyenda de dificultad">
             <IconButton
@@ -431,13 +431,14 @@ export default function MainPage() {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
+          sx={{ whiteSpace: 'nowrap', px: { xs: 1.5, sm: 2 }, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
         >
           Nueva Tarea
         </Button>
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 1, flexShrink: 0 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
