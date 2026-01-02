@@ -197,8 +197,9 @@ export default function TaskColumn({ status, title, tasks, users, categories, on
               flexDirection: 'column',
               gap: 1,
               minHeight: 0, // Allow flex shrinking
-              // Safari fix: ensure proper rendering of flex children
-              WebkitOverflowScrolling: 'touch'
+              // Safari/iOS fixes
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain' // Prevent bounce within column
             }}
           >
             {tasks.map((task, index) => (
