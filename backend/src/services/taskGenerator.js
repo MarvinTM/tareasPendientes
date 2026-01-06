@@ -4,6 +4,31 @@ import { emitTaskUpdate } from '../socket.js';
 import { sendTaskAssignmentEmail } from './email.js';
 
 /**
+ * Checks if a month is within an active range.
+ * Handles year wrap-around (e.g., Nov-Feb for winter tasks).
+ * @param {number} currentMonth - Current month (0-11)
+ * @param {number|null} fromMonth - Start of active range (0-11), null = all year
+ * @param {number|null} toMonth - End of active range (0-11), null = all year
+ * @returns {boolean} - True if the current month is within the active range
+ */
+function isMonthInActiveRange(currentMonth, fromMonth, toMonth) {
+  // If both are null, task is active all year
+  if (fromMonth === null && toMonth === null) return true;
+
+  // If only one is set, treat as single month or open-ended range
+  if (fromMonth === null) fromMonth = 0;
+  if (toMonth === null) toMonth = 11;
+
+  if (fromMonth <= toMonth) {
+    // Normal range (e.g., Mar-Oct: 2 to 9)
+    return currentMonth >= fromMonth && currentMonth <= toMonth;
+  } else {
+    // Wraps around year (e.g., Nov-Feb: 10 to 1)
+    return currentMonth >= fromMonth || currentMonth <= toMonth;
+  }
+}
+
+/**
  * Checks if tasks need to be generated for the current day/month
  * and generates them if necessary.
  * This should be called when fetching the task list.
@@ -23,7 +48,7 @@ export async function generatePeriodicTasks(systemUser = null) {
 
   // Find Weekly tasks that need generation
   // Logic: Matches day of week AND (never generated OR generated before today)
-  const weeklyTasksToGenerate = await prisma.periodicTask.findMany({
+  const weeklyTasksCandidates = await prisma.periodicTask.findMany({
     where: {
       frequency: 'WEEKLY',
       dayOfWeek: dayOfWeek,
@@ -37,6 +62,11 @@ export async function generatePeriodicTasks(systemUser = null) {
       assignedTo: true
     }
   });
+
+  // Filter by active month range (for seasonal tasks)
+  const weeklyTasksToGenerate = weeklyTasksCandidates.filter(task =>
+    isMonthInActiveRange(monthOfYear, task.activeFromMonth, task.activeToMonth)
+  );
 
   // Find Monthly tasks that need generation
   // Logic: Matches month AND (never generated OR generated before this month)

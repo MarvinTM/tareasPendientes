@@ -53,6 +53,8 @@ model PeriodicTask {
   frequency    Frequency
   dayOfWeek    Int? // 0-6 (Sunday-Saturday)
   monthOfYear  Int? // 0-11 (Jan-Dec)
+  activeFromMonth Int? // 0-11 (Jan-Dec), null = all year
+  activeToMonth   Int? // 0-11 (Jan-Dec), null = all year
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   categoryId   String

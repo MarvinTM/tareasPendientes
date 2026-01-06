@@ -74,7 +74,9 @@ export default function PeriodicTasksPage() {
     assignedToId: '',
     frequency: 'WEEKLY',
     dayOfWeek: 1, // Default Monday
-    monthOfYear: 0 // Default January
+    monthOfYear: 0, // Default January
+    activeFromMonth: '', // '' means all year (null)
+    activeToMonth: '' // '' means all year (null)
   });
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -136,7 +138,9 @@ export default function PeriodicTasksPage() {
         assignedToId: task.assignedToId || '',
         frequency: task.frequency,
         dayOfWeek: task.dayOfWeek ?? 1,
-        monthOfYear: task.monthOfYear ?? 0
+        monthOfYear: task.monthOfYear ?? 0,
+        activeFromMonth: task.activeFromMonth ?? '',
+        activeToMonth: task.activeToMonth ?? ''
       });
     } else {
       setEditingTask(null);
@@ -148,7 +152,9 @@ export default function PeriodicTasksPage() {
         assignedToId: '',
         frequency: tab === 0 ? 'WEEKLY' : 'MONTHLY',
         dayOfWeek: tab === 0 ? (defaultDayOrMonth ?? 1) : 1,
-        monthOfYear: tab === 1 ? (defaultDayOrMonth ?? 0) : 0
+        monthOfYear: tab === 1 ? (defaultDayOrMonth ?? 0) : 0,
+        activeFromMonth: '',
+        activeToMonth: ''
       });
     }
     setOpenDialog(true);
@@ -159,10 +165,17 @@ export default function PeriodicTasksPage() {
 
     setSaving(true);
     try {
+      // Convert empty strings to null for month fields
+      const payload = {
+        ...dialogForm,
+        activeFromMonth: dialogForm.activeFromMonth === '' ? null : dialogForm.activeFromMonth,
+        activeToMonth: dialogForm.activeToMonth === '' ? null : dialogForm.activeToMonth
+      };
+
       if (editingTask) {
-        await api.patch(`/periodic-tasks/${editingTask.id}`, dialogForm);
+        await api.patch(`/periodic-tasks/${editingTask.id}`, payload);
       } else {
-        await api.post('/periodic-tasks', dialogForm);
+        await api.post('/periodic-tasks', payload);
       }
       setOpenDialog(false);
       fetchData();
@@ -222,7 +235,7 @@ export default function PeriodicTasksPage() {
                     {task.description}
                   </Typography>
                 )}
-                <Box display="flex" alignItems="center" gap={1}>
+                <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                   <Chip
                     label={sizeConfig[task.size].label}
                     size="small"
@@ -234,6 +247,19 @@ export default function PeriodicTasksPage() {
                       fontWeight: 'bold'
                     }}
                   />
+                  {task.frequency === 'WEEKLY' && (task.activeFromMonth !== null || task.activeToMonth !== null) && (
+                    <Chip
+                      label={`${MONTHS[task.activeFromMonth ?? 0].substring(0, 3)} - ${MONTHS[task.activeToMonth ?? 11].substring(0, 3)}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        height: 20,
+                        fontSize: '0.65rem',
+                        borderColor: 'info.main',
+                        color: 'info.main'
+                      }}
+                    />
+                  )}
                   {task.assignedTo && (
                     <Box display="flex" alignItems="center" gap={0.5}>
                       <Typography variant="caption" color="text.secondary">Asignada a:</Typography>
@@ -556,18 +582,54 @@ export default function PeriodicTasksPage() {
             </FormControl>
 
             {dialogForm.frequency === 'WEEKLY' ? (
-              <FormControl fullWidth>
-                <InputLabel>Día de la Semana</InputLabel>
-                <Select
-                  value={dialogForm.dayOfWeek}
-                  onChange={(e) => setDialogForm({ ...dialogForm, dayOfWeek: e.target.value })}
-                  label="Día de la Semana"
-                >
-                  {DAYS.map((day, idx) => (
-                    <MenuItem key={idx} value={idx}>{day}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <>
+                <FormControl fullWidth>
+                  <InputLabel>Día de la Semana</InputLabel>
+                  <Select
+                    value={dialogForm.dayOfWeek}
+                    onChange={(e) => setDialogForm({ ...dialogForm, dayOfWeek: e.target.value })}
+                    label="Día de la Semana"
+                  >
+                    {DAYS.map((day, idx) => (
+                      <MenuItem key={idx} value={idx}>{day}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <Box>
+                  <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                    Meses activos (opcional)
+                  </Typography>
+                  <Box display="flex" gap={2}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Desde</InputLabel>
+                      <Select
+                        value={dialogForm.activeFromMonth}
+                        onChange={(e) => setDialogForm({ ...dialogForm, activeFromMonth: e.target.value })}
+                        label="Desde"
+                      >
+                        <MenuItem value=""><em>Todo el año</em></MenuItem>
+                        {MONTHS.map((month, idx) => (
+                          <MenuItem key={idx} value={idx}>{month}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Hasta</InputLabel>
+                      <Select
+                        value={dialogForm.activeToMonth}
+                        onChange={(e) => setDialogForm({ ...dialogForm, activeToMonth: e.target.value })}
+                        label="Hasta"
+                      >
+                        <MenuItem value=""><em>Todo el año</em></MenuItem>
+                        {MONTHS.map((month, idx) => (
+                          <MenuItem key={idx} value={idx}>{month}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                </Box>
+              </>
             ) : (
               <FormControl fullWidth>
                 <InputLabel>Mes</InputLabel>

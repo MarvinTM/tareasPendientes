@@ -29,15 +29,17 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create periodic task
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { 
-      title, 
-      description, 
-      size, 
-      frequency, 
-      dayOfWeek, 
-      monthOfYear, 
-      categoryId, 
-      assignedToId 
+    const {
+      title,
+      description,
+      size,
+      frequency,
+      dayOfWeek,
+      monthOfYear,
+      categoryId,
+      assignedToId,
+      activeFromMonth,
+      activeToMonth
     } = req.body;
 
     if (!title || !title.trim()) {
@@ -56,6 +58,16 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Valid month (0-11) is required for monthly tasks' });
     }
 
+    // Validate activeFromMonth and activeToMonth (only for WEEKLY tasks)
+    if (frequency === 'WEEKLY') {
+      if (activeFromMonth !== undefined && activeFromMonth !== null && (activeFromMonth < 0 || activeFromMonth > 11)) {
+        return res.status(400).json({ error: 'Valid activeFromMonth (0-11) is required' });
+      }
+      if (activeToMonth !== undefined && activeToMonth !== null && (activeToMonth < 0 || activeToMonth > 11)) {
+        return res.status(400).json({ error: 'Valid activeToMonth (0-11) is required' });
+      }
+    }
+
     // Validate category
     const category = await prisma.category.findUnique({ where: { id: categoryId } });
     if (!category) {
@@ -70,6 +82,8 @@ router.post('/', authenticateToken, async (req, res) => {
         frequency,
         dayOfWeek: frequency === 'WEEKLY' ? dayOfWeek : null,
         monthOfYear: frequency === 'MONTHLY' ? monthOfYear : null,
+        activeFromMonth: frequency === 'WEEKLY' ? (activeFromMonth ?? null) : null,
+        activeToMonth: frequency === 'WEEKLY' ? (activeToMonth ?? null) : null,
         categoryId,
         assignedToId: assignedToId || null
       },
@@ -92,15 +106,17 @@ router.post('/', authenticateToken, async (req, res) => {
 router.patch('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      title, 
-      description, 
-      size, 
-      frequency, 
-      dayOfWeek, 
-      monthOfYear, 
-      categoryId, 
-      assignedToId 
+    const {
+      title,
+      description,
+      size,
+      frequency,
+      dayOfWeek,
+      monthOfYear,
+      categoryId,
+      assignedToId,
+      activeFromMonth,
+      activeToMonth
     } = req.body;
 
     const task = await prisma.periodicTask.update({
@@ -112,6 +128,8 @@ router.patch('/:id', authenticateToken, async (req, res) => {
         frequency,
         dayOfWeek: frequency === 'WEEKLY' ? dayOfWeek : null,
         monthOfYear: frequency === 'MONTHLY' ? monthOfYear : null,
+        activeFromMonth: frequency === 'WEEKLY' ? (activeFromMonth ?? null) : null,
+        activeToMonth: frequency === 'WEEKLY' ? (activeToMonth ?? null) : null,
         categoryId,
         assignedToId: assignedToId || null
       },
