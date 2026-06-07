@@ -1,7 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
-// Set environment before tests
-process.env.ADMIN_EMAILS = 'admin@test.com,superadmin@test.com';
+import { requireAdmin } from '../../middleware/admin.js';
 
 describe('Admin Middleware', () => {
   let mockReq;
@@ -9,6 +8,7 @@ describe('Admin Middleware', () => {
   let mockNext;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockReq = {
       user: null
     };
@@ -19,103 +19,98 @@ describe('Admin Middleware', () => {
     mockNext = jest.fn();
   });
 
-  describe('requireAdmin logic', () => {
-    const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-
-    it('should parse admin emails correctly', () => {
-      expect(adminEmails).toContain('admin@test.com');
-      expect(adminEmails).toContain('superadmin@test.com');
-      expect(adminEmails).toHaveLength(2);
-    });
-
-    it('should identify admin users', () => {
-      const user = { email: 'admin@test.com' };
-      const isAdmin = adminEmails.includes(user.email.toLowerCase());
-      expect(isAdmin).toBe(true);
-    });
-
-    it('should identify non-admin users', () => {
-      const user = { email: 'regular@example.com' };
-      const isAdmin = adminEmails.includes(user.email.toLowerCase());
-      expect(isAdmin).toBe(false);
-    });
-
-    it('should handle case-insensitive email matching', () => {
-      const user = { email: 'ADMIN@TEST.COM' };
-      const isAdmin = adminEmails.includes(user.email.toLowerCase());
-      expect(isAdmin).toBe(true);
-    });
-
-    it('should handle mixed case emails', () => {
-      const user = { email: 'Admin@Test.Com' };
-      const isAdmin = adminEmails.includes(user.email.toLowerCase());
-      expect(isAdmin).toBe(true);
-    });
-
-    it('should work with multiple admin emails', () => {
-      const user1 = { email: 'admin@test.com' };
-      const user2 = { email: 'superadmin@test.com' };
-
-      expect(adminEmails.includes(user1.email.toLowerCase())).toBe(true);
-      expect(adminEmails.includes(user2.email.toLowerCase())).toBe(true);
-    });
-  });
-
-  describe('Error Responses', () => {
-    it('should return 401 when user is null', () => {
-      const requireAdminLogic = (req, res, next) => {
-        if (!req.user) {
-          return res.status(401).json({ error: 'Authentication required' });
-        }
-        next();
-      };
-
-      requireAdminLogic(mockReq, mockRes, mockNext);
+  describe('requireAdmin', () => {
+    it('should return 401 when req.user is null (not authenticated)', () => {
+      requireAdmin(mockReq, mockRes, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(401);
       expect(mockRes.json).toHaveBeenCalledWith({ error: 'Authentication required' });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should return 403 when user is not admin', () => {
+    it('should return 401 when req.user is undefined', () => {
+      mockReq.user = undefined;
+
+      requireAdmin(mockReq, mockRes, mockNext);
+
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Authentication required' });
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should return 403 when user is not an admin', () => {
       mockReq.user = { email: 'regular@example.com' };
-      const adminEmails = ['admin@test.com'];
 
-      const requireAdminLogic = (req, res, next) => {
-        if (!req.user) {
-          return res.status(401).json({ error: 'Authentication required' });
-        }
-        if (!adminEmails.includes(req.user.email.toLowerCase())) {
-          return res.status(403).json({ error: 'Admin access required' });
-        }
-        next();
-      };
-
-      requireAdminLogic(mockReq, mockRes, mockNext);
+      requireAdmin(mockReq, mockRes, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(mockRes.json).toHaveBeenCalledWith({ error: 'Admin access required' });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should call next when user is admin', () => {
+    it('should call next when user is an admin', () => {
       mockReq.user = { email: 'admin@test.com' };
-      const adminEmails = ['admin@test.com'];
 
-      const requireAdminLogic = (req, res, next) => {
-        if (!req.user) {
-          return res.status(401).json({ error: 'Authentication required' });
-        }
-        if (!adminEmails.includes(req.user.email.toLowerCase())) {
-          return res.status(403).json({ error: 'Admin access required' });
-        }
-        next();
-      };
-
-      requireAdminLogic(mockReq, mockRes, mockNext);
+      requireAdmin(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
       expect(mockRes.status).not.toHaveBeenCalled();
+    });
+
+    it('should call next when user is a super admin', () => {
+      mockReq.user = { email: 'superadmin@test.com' };
+
+      requireAdmin(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
+    });
+
+    it('should handle case-insensitive email matching (uppercase)', () => {
+      mockReq.user = { email: 'ADMIN@TEST.COM' };
+
+      requireAdmin(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+    });
+
+    it('should handle case-insensitive email matching (mixed case)', () => {
+      mockReq.user = { email: 'Admin@Test.Com' };
+
+      requireAdmin(mockReq, mockRes, mockNext);
+
+      expect(mockNext).toHaveBeenCalled();
+    });
+
+    it('should handle email with surrounding whitespace in env var', () => {
+      const originalEnv = process.env.ADMIN_EMAILS;
+      process.env.ADMIN_EMAILS = ' , admin@test.com , superadmin@test.com  ';
+      mockReq.user = { email: 'admin@test.com' };
+
+      // Re-import doesn't work synchronously for ESM, but the function reads env at call time
+      requireAdmin(mockReq, mockRes, mockNext);
+      expect(mockNext).toHaveBeenCalled();
+
+      process.env.ADMIN_EMAILS = originalEnv;
+    });
+
+    it('should reject empty string email', () => {
+      mockReq.user = { email: '' };
+
+      requireAdmin(mockReq, mockRes, mockNext);
+
+      expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Admin access required' });
+    });
+
+    it('should not include the admin in the error response body', () => {
+      mockReq.user = { email: 'hacker@evil.com' };
+
+      requireAdmin(mockReq, mockRes, mockNext);
+
+      const errorBody = mockRes.json.mock.calls[0][0];
+      expect(errorBody.error).not.toContain('admin@test.com');
+      expect(errorBody.error).not.toContain('superadmin@test.com');
     });
   });
 });
