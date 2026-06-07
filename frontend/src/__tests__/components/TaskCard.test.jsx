@@ -1,108 +1,142 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { MemoryRouter } from 'react-router-dom';
+import TaskCard from '../../components/TaskCard';
 
-describe('TaskCard Logic', () => {
-  describe('Task Size Display', () => {
-    const getSizeLabel = (size) => {
-      const labels = {
-        Pequena: 'S',
-        Mediana: 'M',
-        Grande: 'L'
-      };
-      return labels[size] || size;
-    };
+const theme = createTheme();
 
-    it('should display S for Pequena', () => {
-      expect(getSizeLabel('Pequena')).toBe('S');
-    });
+vi.mock('@hello-pangea/dnd', () => ({
+  Draggable: ({ children }) => children({
+    innerRef: vi.fn(),
+    draggableProps: { 'data-rfd-draggable-props': 'mock' },
+    dragHandleProps: { 'data-rfd-drag-handle': 'mock' }
+  }, { isDragging: false })
+}));
 
-    it('should display M for Mediana', () => {
-      expect(getSizeLabel('Mediana')).toBe('M');
-    });
+vi.mock('../../components/UserAvatar', () => ({
+  default: ({ user }) => <span data-testid="avatar">{user?.name || user?.shortName || '?'}</span>
+}));
 
-    it('should display L for Grande', () => {
-      expect(getSizeLabel('Grande')).toBe('L');
-    });
+function renderWithProviders(ui) {
+  return render(
+    <MemoryRouter>
+      <ThemeProvider theme={theme}>{ui}</ThemeProvider>
+    </MemoryRouter>
+  );
+}
+
+const baseTask = {
+  id: 'task-1',
+  title: 'Test Task',
+  description: 'A description',
+  status: 'Nueva',
+  size: 'Pequena',
+  createdAt: '2025-01-15T10:00:00Z',
+  category: { id: 'cat-1', name: 'Work', emoji: '💼' },
+  assignedTo: null,
+  createdBy: { id: 'usr-1', name: 'Creator', shortName: 'CR' }
+};
+
+describe('TaskCard', () => {
+  it('renders task title in expanded mode', () => {
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByText('Test Task')).toBeInTheDocument();
   });
 
-  describe('Task Status Colors', () => {
-    const getStatusColor = (status) => {
-      const colors = {
-        Nueva: 'default',
-        EnProgreso: 'primary',
-        Completada: 'success'
-      };
-      return colors[status] || 'default';
-    };
-
-    it('should return default for Nueva', () => {
-      expect(getStatusColor('Nueva')).toBe('default');
-    });
-
-    it('should return primary for EnProgreso', () => {
-      expect(getStatusColor('EnProgreso')).toBe('primary');
-    });
-
-    it('should return success for Completada', () => {
-      expect(getStatusColor('Completada')).toBe('success');
-    });
+  it('renders category emoji', () => {
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByText('💼')).toBeInTheDocument();
   });
 
-  describe('Category Display', () => {
-    it('should format category with emoji', () => {
-      const category = { name: 'Shopping', emoji: '🛒' };
-      const display = `${category.emoji} ${category.name}`;
-      expect(display).toBe('🛒 Shopping');
-    });
-
-    it('should handle missing category', () => {
-      const category = null;
-      const display = category ? `${category.emoji} ${category.name}` : '';
-      expect(display).toBe('');
-    });
+  it('renders size toggle buttons', () => {
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByText('S')).toBeInTheDocument();
+    expect(screen.getByText('M')).toBeInTheDocument();
+    expect(screen.getByText('L')).toBeInTheDocument();
   });
 
-  describe('Assignee Display', () => {
-    it('should use shortName if available', () => {
-      const user = { name: 'John Doe', shortName: 'John' };
-      const displayName = user.shortName || user.name;
-      expect(displayName).toBe('John');
-    });
-
-    it('should fall back to name if no shortName', () => {
-      const user = { name: 'John Doe', shortName: null };
-      const displayName = user.shortName || user.name;
-      expect(displayName).toBe('John Doe');
-    });
+  it('renders description in expanded mode', () => {
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByText('A description')).toBeInTheDocument();
   });
 
-  describe('Task Card Data', () => {
-    it('should have required task fields', () => {
-      const task = {
-        id: 'task-id',
-        title: 'Test Task',
-        status: 'Nueva',
-        size: 'Pequena',
-        createdAt: '2025-01-15T10:00:00Z',
-        category: { id: 'cat-id', name: 'Category', emoji: '📋' }
-      };
+  it('renders "Sin descripción" when no description', () => {
+    const task = { ...baseTask, description: null };
+    renderWithProviders(
+      <TaskCard task={task} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByText('Sin descripción')).toBeInTheDocument();
+  });
 
-      expect(task.id).toBeDefined();
-      expect(task.title).toBeDefined();
-      expect(task.status).toBeDefined();
-      expect(task.size).toBeDefined();
-      expect(task.category).toBeDefined();
-    });
+  it('renders default category emoji when no category', () => {
+    const task = { ...baseTask, category: null };
+    renderWithProviders(
+      <TaskCard task={task} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByText('📋')).toBeInTheDocument();
+  });
 
-    it('should handle optional fields', () => {
-      const task = {
-        id: 'task-id',
-        title: 'Test Task',
-        description: null,
-        assignedTo: null
-      };
+  it('calls onEdit when edit button is clicked', async () => {
+    const onEdit = vi.fn();
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={onEdit} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    await userEvent.click(screen.getByLabelText('Editar'));
+    expect(onEdit).toHaveBeenCalledWith(baseTask);
+  });
 
-      expect(task.description).toBeNull();
-      expect(task.assignedTo).toBeNull();
-    });
+  it('calls onDelete when delete button is clicked', async () => {
+    const onDelete = vi.fn();
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={vi.fn()} onDelete={onDelete} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    await userEvent.click(screen.getByLabelText('Eliminar'));
+    expect(onDelete).toHaveBeenCalledWith(baseTask);
+  });
+
+  it('hides edit button when task is completed', () => {
+    const completedTask = { ...baseTask, status: 'Completada' };
+    renderWithProviders(
+      <TaskCard task={completedTask} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.queryByLabelText('Editar')).not.toBeInTheDocument();
+  });
+
+  it('calls onToggleExpanded on click in compact mode', async () => {
+    const onToggleExpanded = vi.fn();
+    renderWithProviders(
+      <TaskCard
+        task={baseTask} index={0} users={[]}
+        onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()}
+        compactMode={true} onToggleExpanded={onToggleExpanded}
+      />
+    );
+    await userEvent.click(screen.getByText('Test Task'));
+    expect(onToggleExpanded).toHaveBeenCalledWith('task-1');
+  });
+
+  it('renders assignee name when assigned', () => {
+    const task = { ...baseTask, assignedTo: { id: 'usr-2', name: 'Assignee', shortName: 'AS' } };
+    renderWithProviders(
+      <TaskCard task={task} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getAllByTestId('avatar').length).toBeGreaterThan(0);
+  });
+
+  it('renders history button linking to task history', () => {
+    renderWithProviders(
+      <TaskCard task={baseTask} index={0} users={[]} onEdit={vi.fn()} onDelete={vi.fn()} onAssign={vi.fn()} onSizeChange={vi.fn()} />
+    );
+    expect(screen.getByLabelText('Ver Historial')).toBeInTheDocument();
   });
 });
