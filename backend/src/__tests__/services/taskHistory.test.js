@@ -1,9 +1,21 @@
-import { describe, it, expect } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
-// Import the ACTIONS constant directly - it's pure data
-import { ACTIONS } from '../../services/taskHistory.js';
+const mockTaskHistoryCreate = jest.fn();
+jest.unstable_mockModule('../../config/passport.js', () => ({
+  prisma: {
+    taskHistory: {
+      create: mockTaskHistoryCreate
+    }
+  }
+}));
+
+const { ACTIONS, logTaskChange } = await import('../../services/taskHistory.js');
 
 describe('TaskHistory Service', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('ACTIONS', () => {
     it('should have all expected action types', () => {
       expect(ACTIONS.CREATED).toBe('CREATED');
@@ -25,79 +37,6 @@ describe('TaskHistory Service', () => {
       const values = Object.values(ACTIONS);
       const uniqueValues = new Set(values);
       expect(uniqueValues.size).toBe(values.length);
-    });
-  });
-
-  describe('logTaskChange data structure', () => {
-    it('should create correct history entry structure for creation', () => {
-      const historyEntry = {
-        taskId: 'task-id',
-        userId: 'user-id',
-        action: ACTIONS.CREATED,
-        previousValue: null,
-        newValue: 'New Task Title'
-      };
-
-      expect(historyEntry.taskId).toBe('task-id');
-      expect(historyEntry.userId).toBe('user-id');
-      expect(historyEntry.action).toBe('CREATED');
-      expect(historyEntry.previousValue).toBeNull();
-      expect(historyEntry.newValue).toBe('New Task Title');
-    });
-
-    it('should create correct history entry structure for status change', () => {
-      const historyEntry = {
-        taskId: 'task-id',
-        userId: 'user-id',
-        action: ACTIONS.STATUS_CHANGED,
-        previousValue: 'Nueva',
-        newValue: 'EnProgreso'
-      };
-
-      expect(historyEntry.action).toBe('STATUS_CHANGED');
-      expect(historyEntry.previousValue).toBe('Nueva');
-      expect(historyEntry.newValue).toBe('EnProgreso');
-    });
-
-    it('should create correct history entry structure for assignment', () => {
-      const historyEntry = {
-        taskId: 'task-id',
-        userId: 'user-id',
-        action: ACTIONS.ASSIGNED,
-        previousValue: 'John Doe',
-        newValue: 'Jane Doe'
-      };
-
-      expect(historyEntry.action).toBe('ASSIGNED');
-      expect(historyEntry.previousValue).toBe('John Doe');
-      expect(historyEntry.newValue).toBe('Jane Doe');
-    });
-
-    it('should create correct history entry structure for deletion', () => {
-      const historyEntry = {
-        taskId: 'task-id',
-        userId: 'user-id',
-        action: ACTIONS.DELETED,
-        previousValue: 'Task to Delete',
-        newValue: null
-      };
-
-      expect(historyEntry.action).toBe('DELETED');
-      expect(historyEntry.previousValue).toBe('Task to Delete');
-      expect(historyEntry.newValue).toBeNull();
-    });
-
-    it('should handle null values for optional fields', () => {
-      const historyEntry = {
-        taskId: 'task-id',
-        userId: 'user-id',
-        action: ACTIONS.CREATED,
-        previousValue: null,
-        newValue: null
-      };
-
-      expect(historyEntry.previousValue).toBeNull();
-      expect(historyEntry.newValue).toBeNull();
     });
   });
 
@@ -136,6 +75,93 @@ describe('TaskHistory Service', () => {
 
     it('should have action for category changes', () => {
       expect(ACTIONS.CATEGORY_CHANGED).toBeDefined();
+    });
+  });
+
+  describe('logTaskChange', () => {
+    it('should call prisma.taskHistory.create with correct data', async () => {
+      const createdRecord = {
+        id: 'history-id',
+        taskId: 'task-1',
+        userId: 'user-1',
+        action: 'CREATED',
+        previousValue: null,
+        newValue: 'New Task Title',
+        timestamp: new Date()
+      };
+      mockTaskHistoryCreate.mockResolvedValue(createdRecord);
+
+      const result = await logTaskChange('task-1', 'user-1', ACTIONS.CREATED, null, 'New Task Title');
+
+      expect(mockTaskHistoryCreate).toHaveBeenCalledTimes(1);
+      expect(mockTaskHistoryCreate).toHaveBeenCalledWith({
+        data: {
+          taskId: 'task-1',
+          userId: 'user-1',
+          action: 'CREATED',
+          previousValue: null,
+          newValue: 'New Task Title'
+        }
+      });
+      expect(result).toEqual(createdRecord);
+    });
+
+    it('should log status change with previous and new values', async () => {
+      const createdRecord = { id: 'h1', action: 'STATUS_CHANGED' };
+      mockTaskHistoryCreate.mockResolvedValue(createdRecord);
+
+      await logTaskChange('task-2', 'user-2', ACTIONS.STATUS_CHANGED, 'Nueva', 'EnProgreso');
+
+      expect(mockTaskHistoryCreate).toHaveBeenCalledWith({
+        data: {
+          taskId: 'task-2',
+          userId: 'user-2',
+          action: 'STATUS_CHANGED',
+          previousValue: 'Nueva',
+          newValue: 'EnProgreso'
+        }
+      });
+    });
+
+    it('should default previousValue and newValue to null when not provided', async () => {
+      mockTaskHistoryCreate.mockResolvedValue({ id: 'h2' });
+
+      await logTaskChange('task-3', 'user-3', ACTIONS.DELETED);
+
+      expect(mockTaskHistoryCreate).toHaveBeenCalledWith({
+        data: {
+          taskId: 'task-3',
+          userId: 'user-3',
+          action: 'DELETED',
+          previousValue: null,
+          newValue: null
+        }
+      });
+    });
+
+    it('should log assignment with previous assignee name and new assignee name', async () => {
+      mockTaskHistoryCreate.mockResolvedValue({ id: 'h3' });
+
+      await logTaskChange('task-4', 'user-4', ACTIONS.ASSIGNED, 'John Doe', 'Jane Doe');
+
+      expect(mockTaskHistoryCreate).toHaveBeenCalledWith({
+        data: {
+          taskId: 'task-4',
+          userId: 'user-4',
+          action: 'ASSIGNED',
+          previousValue: 'John Doe',
+          newValue: 'Jane Doe'
+        }
+      });
+    });
+
+    it('should propagate errors from Prisma', async () => {
+      const dbError = new Error('Database connection failed');
+      mockTaskHistoryCreate.mockRejectedValue(dbError);
+
+      await expect(
+        logTaskChange('task-5', 'user-5', ACTIONS.CREATED, null, 'Title')
+      ).rejects.toThrow('Database connection failed');
     });
   });
 });

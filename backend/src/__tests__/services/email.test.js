@@ -1,14 +1,21 @@
-import { describe, it, expect, beforeEach, afterAll } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+
+const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'mock-message-id' });
+const mockCreateTransport = jest.fn(() => ({
+  sendMail: mockSendMail
+}));
+
+jest.unstable_mockModule('nodemailer', () => ({
+  default: { createTransport: mockCreateTransport },
+  createTransport: mockCreateTransport
+}));
 
 describe('Email Service', () => {
   const originalEnv = { ...process.env };
 
-  beforeEach(() => {
-    // Reset environment for each test
-  });
-
-  afterAll(() => {
-    process.env = originalEnv;
+  afterEach(() => {
+    process.env = { ...originalEnv };
+    jest.clearAllMocks();
   });
 
   describe('Email Configuration', () => {
@@ -132,6 +139,156 @@ describe('Email Service', () => {
 
       expect(transportConfig.auth.user).toBeDefined();
       expect(transportConfig.auth.pass).toBeDefined();
+    });
+  });
+
+  describe('sendTaskAssignmentEmail - not configured', () => {
+    it('should skip when EMAIL_USER is not set', async () => {
+      delete process.env.EMAIL_USER;
+      delete process.env.EMAIL_APP_PASSWORD;
+
+      const { sendTaskAssignmentEmail } = await import('../../services/email.js');
+
+      await sendTaskAssignmentEmail(
+        'recipient@test.com',
+        'John Doe',
+        { title: 'Test Task', size: 'Pequena', description: 'Desc' },
+        'Assigner'
+      );
+
+      expect(mockCreateTransport).not.toHaveBeenCalled();
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+
+    it('should skip when EMAIL_USER is empty string', async () => {
+      process.env.EMAIL_USER = '';
+      process.env.EMAIL_APP_PASSWORD = '';
+
+      jest.resetModules();
+      const { sendTaskAssignmentEmail } = await import('../../services/email.js');
+
+      await sendTaskAssignmentEmail(
+        'recipient@test.com',
+        'John Doe',
+        { title: 'Test Task', size: 'Pequena', description: null },
+        'Assigner'
+      );
+
+      expect(mockCreateTransport).not.toHaveBeenCalled();
+      expect(mockSendMail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sendTaskAssignmentEmail - configured', () => {
+    it('should send email with correct structure when configured', async () => {
+      process.env.EMAIL_USER = 'sender@gmail.com';
+      process.env.EMAIL_APP_PASSWORD = 'app-password';
+
+      jest.resetModules();
+      mockSendMail.mockResolvedValue({ messageId: 'test-123' });
+
+      const { sendTaskAssignmentEmail } = await import('../../services/email.js');
+
+      const task = {
+        title: 'Buy groceries',
+        description: 'Get milk and bread',
+        size: 'Mediana',
+        category: { emoji: '🛒', name: 'Shopping' }
+      };
+
+      await sendTaskAssignmentEmail(
+        'recipient@example.com',
+        'John Doe',
+        task,
+        'Jane Admin'
+      );
+
+      expect(mockCreateTransport).toHaveBeenCalledTimes(1);
+      expect(mockCreateTransport).toHaveBeenCalledWith({
+        service: 'gmail',
+        auth: {
+          user: 'sender@gmail.com',
+          pass: 'app-password'
+        }
+      });
+
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      const mailCall = mockSendMail.mock.calls[0][0];
+
+      expect(mailCall.from).toContain('"Tareas Pendientes"');
+      expect(mailCall.from).toContain('sender@gmail.com');
+      expect(mailCall.to).toBe('recipient@example.com');
+      expect(mailCall.subject).toBe('Nueva tarea asignada: "Buy groceries"');
+      expect(mailCall.html).toContain('Hola John');
+      expect(mailCall.html).toContain('Buy groceries');
+      expect(mailCall.html).toContain('Get milk and bread');
+      expect(mailCall.html).toContain('Mediana (M)');
+      expect(mailCall.html).toContain('Jane Admin');
+    });
+
+    it('should handle task without description', async () => {
+      process.env.EMAIL_USER = 'sender@gmail.com';
+      process.env.EMAIL_APP_PASSWORD = 'app-password';
+
+      jest.resetModules();
+      mockSendMail.mockResolvedValue({ messageId: 'test-456' });
+
+      const { sendTaskAssignmentEmail } = await import('../../services/email.js');
+
+      await sendTaskAssignmentEmail(
+        'recipient@example.com',
+        'Jane Smith',
+        { title: 'Clean kitchen', size: 'Pequena', description: null },
+        'System'
+      );
+
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
+      const mailCall = mockSendMail.mock.calls[0][0];
+
+      expect(mailCall.subject).toBe('Nueva tarea asignada: "Clean kitchen"');
+      expect(mailCall.html).toContain('Hola Jane');
+      expect(mailCall.html).toContain('Pequeña (S)');
+      expect(mailCall.html).toContain('System');
+    });
+
+    it('should handle unknown task size gracefully', async () => {
+      process.env.EMAIL_USER = 'sender@gmail.com';
+      process.env.EMAIL_APP_PASSWORD = 'app-password';
+
+      jest.resetModules();
+      mockSendMail.mockResolvedValue({ messageId: 'test-789' });
+
+      const { sendTaskAssignmentEmail } = await import('../../services/email.js');
+
+      await sendTaskAssignmentEmail(
+        'recipient@example.com',
+        'Bob',
+        { title: 'Unknown size task', size: 'Gigante', description: null },
+        'Admin'
+      );
+
+      const mailCall = mockSendMail.mock.calls[0][0];
+      expect(mailCall.html).toContain('Gigante');
+    });
+
+    it('should handle email send failure gracefully', async () => {
+      process.env.EMAIL_USER = 'sender@gmail.com';
+      process.env.EMAIL_APP_PASSWORD = 'app-password';
+
+      jest.resetModules();
+      const sendError = new Error('SMTP connection refused');
+      mockSendMail.mockRejectedValue(sendError);
+
+      const { sendTaskAssignmentEmail } = await import('../../services/email.js');
+
+      await sendTaskAssignmentEmail(
+        'recipient@example.com',
+        'Test User',
+        { title: 'Test', size: 'Pequena', description: null },
+        'Admin'
+      );
+
+      expect(mockSendMail).toHaveBeenCalledTimes(1);
     });
   });
 });
