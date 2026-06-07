@@ -1,240 +1,195 @@
-import { describe, it, expect } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import express from 'express';
+import request from 'supertest';
 
-describe('Users Route Logic', () => {
-  describe('Score Calculation', () => {
-    const sizePoints = {
-      Pequena: 1,
-      Mediana: 2,
-      Grande: 3
-    };
+const authenticatedUser = { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true };
 
-    it('should assign 1 point for Pequena tasks', () => {
-      expect(sizePoints.Pequena).toBe(1);
-    });
+const mockAuthenticateToken = jest.fn((req, res, next) => {
+  req.user = authenticatedUser;
+  next();
+});
 
-    it('should assign 2 points for Mediana tasks', () => {
-      expect(sizePoints.Mediana).toBe(2);
-    });
+const mockPrisma = {
+  user: {
+    findMany: jest.fn()
+  },
+  taskHistory: {
+    findMany: jest.fn()
+  }
+};
 
-    it('should assign 3 points for Grande tasks', () => {
-      expect(sizePoints.Grande).toBe(3);
-    });
+jest.unstable_mockModule('../../config/passport.js', () => ({
+  prisma: mockPrisma
+}));
 
-    it('should calculate total points for multiple tasks', () => {
-      const userTasks = [
-        { size: 'Pequena' },
-        { size: 'Mediana' },
-        { size: 'Grande' },
-        { size: 'Pequena' }
-      ];
+jest.unstable_mockModule('../../middleware/auth.js', () => ({
+  authenticateToken: mockAuthenticateToken,
+  generateToken: jest.fn()
+}));
 
-      const totalPoints = userTasks.reduce((sum, task) => {
-        return sum + (sizePoints[task.size] || 1);
-      }, 0);
+const router = (await import('../../routes/users.js')).default;
+const app = express();
+app.use(express.json());
+app.use(router);
 
-      // 1 + 2 + 3 + 1 = 7
-      expect(totalPoints).toBe(7);
-    });
-
-    it('should return 0 for empty task list', () => {
-      const userTasks = [];
-      const totalPoints = userTasks.reduce((sum, task) => {
-        return sum + (sizePoints[task.size] || 1);
-      }, 0);
-
-      expect(totalPoints).toBe(0);
-    });
-
-    it('should default to 1 point for unknown sizes', () => {
-      const unknownSize = 'Unknown';
-      const points = sizePoints[unknownSize] || 1;
-
-      expect(points).toBe(1);
+describe('Users Routes', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthenticateToken.mockImplementation((req, res, next) => {
+      req.user = authenticatedUser;
+      next();
     });
   });
 
-  describe('Period Filtering', () => {
-    describe('Week Period', () => {
-      it('should calculate start of week (Monday)', () => {
-        // Wednesday, January 15, 2025
-        const now = new Date('2025-01-15T10:00:00Z');
-        const startDate = new Date(now);
-        const day = startDate.getDay();
-        const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-        startDate.setDate(diff);
-        startDate.setHours(0, 0, 0, 0);
+  describe('GET /', () => {
+    it('should return approved users', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'usr-1', name: 'User One', shortName: 'U1', color: '#000', email: 'one@test.com', picture: null },
+        { id: 'usr-2', name: 'User Two', shortName: 'U2', color: '#fff', email: 'two@test.com', picture: null }
+      ]);
 
-        // Should be Monday
-        expect(startDate.getDay()).toBe(1);
-      });
+      const res = await request(app).get('/');
 
-      it('should handle Sunday correctly (go back to Monday)', () => {
-        // Sunday, January 19, 2025
-        const now = new Date('2025-01-19T10:00:00Z');
-        const startDate = new Date(now);
-        const day = startDate.getDay();
-        const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-        startDate.setDate(diff);
-        startDate.setHours(0, 0, 0, 0);
-
-        // Should be Monday
-        expect(startDate.getDay()).toBe(1);
-      });
-
-      it('should handle Monday correctly (same day)', () => {
-        // Monday, January 13, 2025
-        const now = new Date('2025-01-13T10:00:00Z');
-        const startDate = new Date(now);
-        const day = startDate.getDay();
-        const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
-        startDate.setDate(diff);
-        startDate.setHours(0, 0, 0, 0);
-
-        expect(startDate.getDate()).toBe(13);
-      });
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(2);
+      expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { isApproved: true } })
+      );
     });
 
-    describe('Month Period', () => {
-      it('should calculate start of month', () => {
-        const now = new Date('2025-01-15T10:00:00Z');
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    it('should return empty list when no approved users', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([]);
 
-        expect(startOfMonth.getDate()).toBe(1);
-        expect(startOfMonth.getMonth()).toBe(0); // January
-      });
+      const res = await request(app).get('/');
 
-      it('should handle different months', () => {
-        const now = new Date('2025-06-15T10:00:00Z');
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        expect(startOfMonth.getDate()).toBe(1);
-        expect(startOfMonth.getMonth()).toBe(5); // June
-      });
-    });
-
-    describe('Year Period', () => {
-      it('should calculate start of year', () => {
-        const now = new Date('2025-06-15T10:00:00Z');
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-
-        expect(startOfYear.getDate()).toBe(1);
-        expect(startOfYear.getMonth()).toBe(0); // January
-        expect(startOfYear.getFullYear()).toBe(2025);
-      });
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(0);
     });
   });
 
-  describe('Score Sorting', () => {
-    it('should sort users by total points descending', () => {
-      const scores = [
-        { name: 'User A', totalPoints: 5 },
-        { name: 'User B', totalPoints: 15 },
-        { name: 'User C', totalPoints: 10 }
-      ];
+  describe('GET /scores', () => {
+    it('should return user scores for all time', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'usr-1', name: 'User One', shortName: 'U1', color: '#000', picture: null },
+        { id: 'usr-2', name: 'User Two', shortName: 'U2', color: '#fff', picture: null }
+      ]);
 
-      scores.sort((a, b) => b.totalPoints - a.totalPoints);
+      const res = await request(app).get('/scores');
 
-      expect(scores[0].name).toBe('User B');
-      expect(scores[1].name).toBe('User C');
-      expect(scores[2].name).toBe('User A');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(2);
+      expect(res.body[0].taskCount).toBe(0);
+      expect(res.body[0].totalPoints).toBe(0);
     });
 
-    it('should handle ties (same points)', () => {
-      const scores = [
-        { name: 'User A', totalPoints: 10 },
-        { name: 'User B', totalPoints: 10 }
-      ];
+    it('should return scores with period filter (week)', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
 
-      scores.sort((a, b) => b.totalPoints - a.totalPoints);
+      const res = await request(app).get('/scores?period=week');
 
-      // Both have same points
-      expect(scores[0].totalPoints).toBe(10);
-      expect(scores[1].totalPoints).toBe(10);
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(0);
+      expect(mockPrisma.taskHistory.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ action: 'STATUS_CHANGED', newValue: 'Completada' }) })
+      );
     });
 
-    it('should handle all zero scores', () => {
-      const scores = [
-        { name: 'User A', totalPoints: 0 },
-        { name: 'User B', totalPoints: 0 },
-        { name: 'User C', totalPoints: 0 }
-      ];
+    it('should return scores with period filter (month)', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
 
-      scores.sort((a, b) => b.totalPoints - a.totalPoints);
+      const res = await request(app).get('/scores?period=month');
 
-      expect(scores.every(s => s.totalPoints === 0)).toBe(true);
-    });
-  });
-
-  describe('Task Completion Validation', () => {
-    it('should only count tasks in Completada status', () => {
-      const tasks = [
-        { id: '1', status: 'Completada', assignedToId: 'user1' },
-        { id: '2', status: 'Nueva', assignedToId: 'user1' },
-        { id: '3', status: 'Completada', assignedToId: 'user1' }
-      ];
-
-      const completedTasks = tasks.filter(t => t.status === 'Completada');
-
-      expect(completedTasks).toHaveLength(2);
+      expect(res.status).toBe(200);
     });
 
-    it('should only count tasks assigned to the specific user', () => {
-      const tasks = [
-        { id: '1', status: 'Completada', assignedToId: 'user1' },
-        { id: '2', status: 'Completada', assignedToId: null },
-        { id: '3', status: 'Completada', assignedToId: 'user1' }
-      ];
+    it('should return scores with period filter (year)', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([]);
+      mockPrisma.user.findMany.mockResolvedValue([]);
 
-      const userId = 'user1';
-      const userTasks = tasks.filter(t => t.assignedToId === userId);
+      const res = await request(app).get('/scores?period=year');
 
-      expect(userTasks).toHaveLength(2);
+      expect(res.status).toBe(200);
     });
 
-    it('should not count unassigned tasks', () => {
-      const tasks = [
-        { id: '1', status: 'Completada', assignedToId: null },
-        { id: '2', status: 'Completada', assignedToId: null }
-      ];
+    it('should calculate scores for completed tasks', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([
+        {
+          taskId: 't1',
+          task: { id: 't1', size: 'Pequena', status: 'Completada', assignedToId: 'usr-1' }
+        },
+        {
+          taskId: 't2',
+          task: { id: 't2', size: 'Grande', status: 'Completada', assignedToId: 'usr-1' }
+        },
+        {
+          taskId: 't3',
+          task: { id: 't3', size: 'Mediana', status: 'Completada', assignedToId: 'usr-2' }
+        }
+      ]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'usr-1', name: 'User One', shortName: 'U1', color: '#000', picture: null },
+        { id: 'usr-2', name: 'User Two', shortName: 'U2', color: '#fff', picture: null }
+      ]);
 
-      const assignedTasks = tasks.filter(t => t.assignedToId !== null);
+      const res = await request(app).get('/scores');
 
-      expect(assignedTasks).toHaveLength(0);
+      expect(res.status).toBe(200);
+      const user1 = res.body.find(u => u.id === 'usr-1');
+      const user2 = res.body.find(u => u.id === 'usr-2');
+      expect(user1.taskCount).toBe(2);
+      expect(user1.totalPoints).toBe(4);
+      expect(user2.taskCount).toBe(1);
+      expect(user2.totalPoints).toBe(2);
     });
-  });
 
-  describe('User Score Object', () => {
-    it('should have required properties', () => {
-      const scoreEntry = {
-        id: 'user-id',
-        name: 'John Doe',
-        shortName: 'John',
-        color: '#1976d2',
-        picture: 'https://example.com/pic.jpg',
-        taskCount: 5,
-        totalPoints: 10
-      };
+    it('should sort scores by total points descending', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([
+        { taskId: 't1', task: { id: 't1', size: 'Grande', status: 'Completada', assignedToId: 'usr-1' } },
+        { taskId: 't2', task: { id: 't2', size: 'Grande', status: 'Completada', assignedToId: 'usr-2' } },
+        { taskId: 't3', task: { id: 't3', size: 'Grande', status: 'Completada', assignedToId: 'usr-2' } },
+        { taskId: 't4', task: { id: 't4', size: 'Grande', status: 'Completada', assignedToId: 'usr-2' } }
+      ]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'usr-1', name: 'User One', shortName: null, color: null, picture: null },
+        { id: 'usr-2', name: 'User Two', shortName: null, color: null, picture: null }
+      ]);
 
-      expect(scoreEntry.id).toBeDefined();
-      expect(scoreEntry.name).toBeDefined();
-      expect(scoreEntry.taskCount).toBeDefined();
-      expect(scoreEntry.totalPoints).toBeDefined();
+      const res = await request(app).get('/scores');
+
+      expect(res.body[0].id).toBe('usr-2');
+      expect(res.body[0].totalPoints).toBe(9);
+      expect(res.body[1].id).toBe('usr-1');
+      expect(res.body[1].totalPoints).toBe(3);
     });
 
-    it('should allow optional properties to be null', () => {
-      const scoreEntry = {
-        id: 'user-id',
-        name: 'John Doe',
-        shortName: null,
-        color: null,
-        picture: null,
-        taskCount: 0,
-        totalPoints: 0
-      };
+    it('should not count unassigned completed tasks', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([
+        { taskId: 't1', task: { id: 't1', size: 'Grande', status: 'Completada', assignedToId: null } }
+      ]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'usr-1', name: 'User One', shortName: null, color: null, picture: null }
+      ]);
 
-      expect(scoreEntry.shortName).toBeNull();
-      expect(scoreEntry.color).toBeNull();
-      expect(scoreEntry.picture).toBeNull();
+      const res = await request(app).get('/scores');
+
+      expect(res.body[0].taskCount).toBe(0);
+      expect(res.body[0].totalPoints).toBe(0);
+    });
+
+    it('should handle unknown size with default 1 point', async () => {
+      mockPrisma.taskHistory.findMany.mockResolvedValue([
+        { taskId: 't1', task: { id: 't1', size: 'Gigante', status: 'Completada', assignedToId: 'usr-1' } }
+      ]);
+      mockPrisma.user.findMany.mockResolvedValue([
+        { id: 'usr-1', name: 'User One', shortName: null, color: null, picture: null }
+      ]);
+
+      const res = await request(app).get('/scores');
+
+      expect(res.body[0].totalPoints).toBe(1);
     });
   });
 });
