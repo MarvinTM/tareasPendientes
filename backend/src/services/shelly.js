@@ -140,33 +140,42 @@ async function fetchStatusForShellyId(shellyId) {
   const config = loadConfig();
   const url = `${config.server}/device/status?id=${encodeURIComponent(shellyId)}&auth_key=${encodeURIComponent(config.apiKey)}`;
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`Shelly status error for ${shellyId}: HTTP ${response.status}`);
-      return null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    const data = await response.json();
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error(`Shelly status error for ${shellyId}: HTTP ${response.status} (attempt ${attempt + 1})`);
+        continue;
+      }
 
-    if (!data.isok) {
-      console.error(`Shelly status error for ${shellyId}:`, data);
-      return null;
+      const data = await response.json();
+
+      if (!data.isok) {
+        console.error(`Shelly status error for ${shellyId}:`, data);
+        continue;
+      }
+
+      const online = data.data?.online ?? false;
+      if (!online) {
+        console.warn(`Shelly device ${shellyId} reported offline (attempt ${attempt + 1})`);
+        continue;
+      }
+
+      const deviceStatus = data.data?.device_status;
+      const relays = extractRelays(deviceStatus);
+
+      return { online: true, relays };
+    } catch (error) {
+      console.error(`Shelly status fetch failed for ${shellyId} (attempt ${attempt + 1}):`, error.message);
     }
-
-    const online = data.data?.online ?? false;
-    if (!online) {
-      return { online: false, relays: [] };
-    }
-
-    const deviceStatus = data.data?.device_status;
-    const relays = extractRelays(deviceStatus);
-
-    return { online: true, relays };
-  } catch (error) {
-    console.error(`Shelly status fetch failed for ${shellyId}:`, error.message);
-    return null;
   }
+
+  console.error(`Shelly status fetch failed for ${shellyId} after 3 attempts`);
+  return null;
 }
 
 function extractRelays(deviceStatus) {
