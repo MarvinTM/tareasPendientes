@@ -17,7 +17,7 @@ import Paper from '@mui/material/Paper';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Drawer from '@mui/material/Drawer';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -26,9 +26,28 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import UserAvatar from './UserAvatar';
 import AppLogo from './AppLogo';
 import { modules } from '../config/modules';
+import { keyframes } from '@emotion/react';
+import { useSocket } from '../contexts/SocketContext';
+import api from '../services/api';
 
 const DRAWER_COLLAPSED = 56;
 const DRAWER_EXPANDED = 200;
+
+const ripple = keyframes`
+  0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+`;
+
+const ripple2 = keyframes`
+  0%, 30% { transform: translate(-50%, -50%) scale(0.4); opacity: 0; }
+  50% { opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+`;
+
+const dotPulse = keyframes`
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+  50% { opacity: 0.6; box-shadow: 0 0 0 6px rgba(76, 175, 80, 0); }
+`;
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -100,6 +119,68 @@ export default function Layout() {
 
   const drawerWidth = drawerExpanded ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
 
+  const socket = useSocket();
+  const [riegoRunning, setRiegoRunning] = useState(false);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    api.get('/riego/status')
+      .then(res => setRiegoRunning(res.data.current !== null))
+      .catch(() => {});
+
+    const handleUpdate = (data) => {
+      setRiegoRunning(data.current !== null);
+    };
+    socket.on('riego:updated', handleUpdate);
+    return () => socket.off('riego:updated', handleUpdate);
+  }, [socket]);
+
+  const renderRiegoIcon = (icon) => (
+    <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+      <Box sx={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        border: `2px solid ${theme.palette.primary.main}`,
+        transform: 'translate(-50%, -50%)',
+        animation: `${ripple} 2s ease-out infinite`,
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
+      <Box sx={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        border: `2px solid ${theme.palette.primary.main}`,
+        transform: 'translate(-50%, -50%)',
+        animation: `${ripple2} 2s ease-out infinite`,
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        {icon}
+      </Box>
+      <Box sx={{
+        position: 'absolute',
+        top: -4,
+        right: -4,
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        bgcolor: '#4caf50',
+        animation: `${dotPulse} 1.5s ease-in-out infinite`,
+        zIndex: 2,
+      }} />
+    </Box>
+  );
+
   const renderDrawerItem = (mod) => (
     <ListItemButton
       key={mod.id}
@@ -115,8 +196,9 @@ export default function Layout() {
         minWidth: 0,
         mr: drawerExpanded ? 1.5 : 'auto',
         justifyContent: 'center',
+        ...(mod.id === 'riego' && riegoRunning ? { overflow: 'visible' } : {}),
       }}>
-        <mod.icon />
+        {mod.id === 'riego' && riegoRunning ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
       </ListItemIcon>
       {drawerExpanded && <ListItemText primary={mod.label} />}
     </ListItemButton>
@@ -176,14 +258,15 @@ export default function Layout() {
           <Outlet />
         </Box>
 
-        <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100 }} elevation={3}>
+        <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100, overflow: 'visible' }} elevation={3}>
           <BottomNavigation value={activeModule?.id || ''} onChange={handleBottomNavChange} showLabels>
             {visibleModules.map(mod => (
               <BottomNavigationAction
                 key={mod.id}
                 value={mod.id}
-                icon={<mod.icon />}
+                icon={mod.id === 'riego' && riegoRunning ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
                 label={mod.label}
+                sx={mod.id === 'riego' && riegoRunning ? { overflow: 'visible' } : {}}
               />
             ))}
           </BottomNavigation>
@@ -250,7 +333,7 @@ export default function Layout() {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             transition: 'width 0.2s ease-in-out',
-            overflowX: 'hidden',
+            overflowX: riegoRunning ? 'visible' : 'hidden',
             boxSizing: 'border-box',
           },
         }}
