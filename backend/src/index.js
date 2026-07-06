@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin.js';
 import userRoutes from './routes/users.js';
 import categoryRoutes from './routes/categories.js';
 import periodicTaskRoutes from './routes/periodicTasks.js';
+import deviceRoutes from './routes/devices.js';
 
 dotenv.config();
 
@@ -84,6 +85,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/periodic-tasks', periodicTaskRoutes);
+app.use('/api/devices', deviceRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

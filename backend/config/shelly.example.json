@@ -1,0 +1,16 @@
+{
+  "server": "https://shelly-XXX.shelly.cloud",
+  "apiKey": "your-shelly-cloud-api-key",
+  "devices": [
+    {
+      "id": "shelly-device-id-1",
+      "name": "Luz del salón",
+      "room": "Salón"
+    },
+    {
+      "id": "shelly-device-id-2",
+      "name": "Luz de la cocina",
+      "room": "Cocina"
+    }
+  ]
+}

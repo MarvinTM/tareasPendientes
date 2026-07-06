@@ -13,3 +13,9 @@ export function emitTaskUpdate(event, data) {
     io.emit(event, data);
   }
 }
+
+export function emitDeviceUpdate(data) {
+  if (io) {
+    io.emit('device:updated', data);
+  }
+}
