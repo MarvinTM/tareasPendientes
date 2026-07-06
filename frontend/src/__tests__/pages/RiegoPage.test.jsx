@@ -112,7 +112,7 @@ describe('RiegoPage', () => {
       if (url === '/riego/status') return Promise.resolve({
         data: {
           ...defaultState,
-          current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500 },
+          current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500, status: 'running', statusRetry: 0 },
           queue: [],
         },
       });
@@ -129,7 +129,7 @@ describe('RiegoPage', () => {
   it('stops current phase', async () => {
     mockApiGet.mockImplementation((url) => {
       if (url === '/riego/status') return Promise.resolve({
-        data: { ...defaultState, current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500 }, queue: [] },
+        data: { ...defaultState, current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500, status: 'running', statusRetry: 0 }, queue: [] },
       });
       if (url === '/riego/plans') return Promise.resolve({ data: [] });
       return Promise.reject(new Error('Unknown URL'));
@@ -152,7 +152,7 @@ describe('RiegoPage', () => {
       if (url === '/riego/status') return Promise.resolve({
         data: {
           ...defaultState,
-          current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500 },
+          current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500, status: 'running', statusRetry: 0 },
           queue: [{ queueId: 'q-2', phaseId: 'fase-2', name: 'Patio', durationMin: 5 }],
         },
       });

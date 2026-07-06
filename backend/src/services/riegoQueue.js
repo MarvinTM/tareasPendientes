@@ -39,6 +39,14 @@ function getShellyEndpoint(server) {
   return `${server}/device/relay/control`;
 }
 
+function setCurrentStatus(status, statusRetry = 0) {
+  if (state.current) {
+    state.current.status = status;
+    state.current.statusRetry = statusRetry;
+  }
+  emitState();
+}
+
 async function stopShelly(shellyId, channel, server, apiKey) {
   const url = getShellyEndpoint(server);
   const body = new URLSearchParams({
@@ -49,6 +57,11 @@ async function stopShelly(shellyId, channel, server, apiKey) {
   });
 
   for (let attempt = 0; attempt < STOP_RETRY_COUNT; attempt++) {
+    // Report retry status after first attempt
+    if (attempt > 0) {
+      setCurrentStatus('disconnecting', attempt);
+    }
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -89,6 +102,10 @@ async function startShelly(shellyId, channel, server, apiKey) {
   console.log(`Riego: startShelly -> POST ${url} body: ${body.toString()}`);
 
   for (let attempt = 0; attempt < STOP_RETRY_COUNT; attempt++) {
+    if (attempt > 0) {
+      setCurrentStatus('connecting', attempt);
+    }
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -131,7 +148,11 @@ function getPublicState() {
       phaseId: state.current.phaseId,
       name: state.current.name,
       durationMin: state.current.durationMin,
-      remaining: Math.max(0, Math.round((state.current.endTime - Date.now()) / 1000)),
+      remaining: state.current.status === 'running'
+        ? Math.max(0, Math.round((state.current.endTime - Date.now()) / 1000))
+        : 0,
+      status: state.current.status || 'running',
+      statusRetry: state.current.statusRetry || 0,
     } : null,
     queue: state.queue.map(item => ({
       queueId: item.queueId,
@@ -172,15 +193,14 @@ async function startPhaseItem(item) {
   if (!phase) return;
 
   const durationMs = item.durationMin * 60 * 1000;
-  const endTime = Date.now() + durationMs;
-
-  const success = await startShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
-  console.log(`Riego: phase ${item.phaseId} (${item.name}) Shelly ON ${success ? 'OK' : 'FAILED'}`);
 
   const timerId = setTimeout(async () => {
     try {
       const config = loadConfig();
       const phase = findPhase(item.phaseId);
+      if (state.current) {
+        setCurrentStatus('disconnecting', 0);
+      }
       if (phase) {
         console.log(`Riego: phase ${item.phaseId} (${item.name}) timer expired, stopping Shelly`);
         await stopShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
@@ -200,12 +220,22 @@ async function startPhaseItem(item) {
     channel: phase.channel,
     durationMin: item.durationMin,
     startedAt: new Date().toISOString(),
-    endTime,
+    endTime: Date.now() + durationMs,
     timerId,
-    started: success,
+    status: 'connecting',
+    statusRetry: 0,
   };
 
   emitState();
+
+  const success = await startShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
+  console.log(`Riego: phase ${item.phaseId} (${item.name}) Shelly ON ${success ? 'OK' : 'FAILED'}`);
+
+  if (state.current?.queueId === item.queueId) {
+    state.current.status = 'running';
+    state.current.statusRetry = 0;
+    emitState();
+  }
 }
 
 export function getState() {
@@ -237,9 +267,6 @@ export function enqueue(phaseId, durationMin) {
   state.queue.push(item);
 
   if (!state.current) {
-    // advanceQueue is async but called without await intentionally:
-    // the queue kicks off and emits state via socket when Shelly confirms.
-    // The immediate return gives the caller a quick response.
     advanceQueue();
   } else {
     emitState();
@@ -266,9 +293,11 @@ export function dequeue(queueId) {
 export async function stopCurrent() {
   if (!state.current) return;
 
+  setCurrentStatus('disconnecting', 0);
+
   const config = loadConfig();
   await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 2000));
   await advanceQueue();
 }
 
@@ -325,6 +354,7 @@ function startWatchdog() {
 
     if (Date.now() > state.current.endTime + WATCHDOG_INTERVAL) {
       console.warn(`Riego watchdog: phase ${state.current.phaseId} overrun, force-stopping`);
+      setCurrentStatus('disconnecting', 0);
       const config = loadConfig();
       await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
       await advanceQueue();

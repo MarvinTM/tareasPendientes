@@ -53,6 +53,16 @@ function formatDuration(minutes) {
   return `${minutes} min`;
 }
 
+function formatStatus(status, retry) {
+  if (status === 'connecting') {
+    return retry > 0 ? `Conexión fallida. Reintentando (${retry})...` : 'Conectando...';
+  }
+  if (status === 'disconnecting') {
+    return retry > 0 ? `Desconexión fallida. Reintentando (${retry})...` : 'Desconectando...';
+  }
+  return null;
+}
+
 function formatRemaining(seconds) {
   if (seconds <= 0) return '0 seg';
   const m = Math.floor(seconds / 60);
@@ -283,17 +293,27 @@ export default function RiegoPage() {
                       primary={`${state.current.name} — ${formatDuration(state.current.durationMin)}`}
                       secondary={
                         <Box component="span" display="flex" alignItems="center" gap={0.5}>
-                          <AccessTimeIcon sx={{ fontSize: 14 }} />
-                          <Typography variant="caption">
-                            Quedan {formatRemaining(state.current.remaining)}
-                          </Typography>
+                          {state.current.status === 'running' ? (
+                            <>
+                              <AccessTimeIcon sx={{ fontSize: 14 }} />
+                              <Typography variant="caption">
+                                Quedan {formatRemaining(state.current.remaining)}
+                              </Typography>
+                            </>
+                          ) : (
+                            <Typography variant="caption">
+                              {formatStatus(state.current.status, state.current.statusRetry)}
+                            </Typography>
+                          )}
                         </Box>
                       }
                       secondaryTypographyProps={{ component: 'div' }}
                     />
-                    <IconButton onClick={handleStop} sx={{ color: 'inherit' }}>
-                      <StopIcon />
-                    </IconButton>
+                    {state.current.status === 'running' && (
+                      <IconButton onClick={handleStop} sx={{ color: 'inherit' }}>
+                        <StopIcon />
+                      </IconButton>
+                    )}
                   </ListItem>
                 )}
                 {state.queue.map((item, index) => (
