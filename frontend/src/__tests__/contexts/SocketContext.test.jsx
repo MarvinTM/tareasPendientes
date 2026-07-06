@@ -1,116 +1,127 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
+import { SocketProvider, useSocket } from '../../contexts/SocketContext';
 
-describe('SocketContext Logic', () => {
-  describe('Socket Connection', () => {
-    it('should start with null socket when no user', () => {
-      const user = null;
-      const socket = user ? 'connected' : null;
-      expect(socket).toBeNull();
-    });
+vi.mock('socket.io-client', () => ({
+  io: vi.fn(() => ({
+    on: vi.fn(),
+    disconnect: vi.fn(),
+    id: 'mock-socket-id'
+  }))
+}));
 
-    it('should connect when user is authenticated', () => {
-      const user = { id: 'user-id' };
-      const shouldConnect = !!user;
-      expect(shouldConnect).toBe(true);
-    });
-  });
+vi.mock('../../contexts/AuthContext', async () => {
+  const actual = await vi.importActual('../../contexts/AuthContext');
+  return { ...actual, useAuth: vi.fn() };
+});
 
-  describe('Socket URL Construction', () => {
-    it('should use VITE_API_URL when available', () => {
-      const env = { VITE_API_URL: 'https://example.com' };
-      const socketUrl = env.VITE_API_URL || '';
-      expect(socketUrl).toBe('https://example.com');
-    });
+import { io } from 'socket.io-client';
+import { useAuth } from '../../contexts/AuthContext';
 
-    it('should use empty string for localhost', () => {
-      const hostname = 'localhost';
-      const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
-      const socketUrl = isLocal ? '' : 'constructed-url';
-      expect(socketUrl).toBe('');
-    });
-
-    it('should construct URL for nip.io domains', () => {
-      const hostname = '192.168.1.100.nip.io';
-      const protocol = 'http:';
-      const backendPort = 3001;
-      const socketUrl = `${protocol}//${hostname}:${backendPort}`;
-      expect(socketUrl).toBe('http://192.168.1.100.nip.io:3001');
+describe('SocketContext', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    io.mockReturnValue({
+      on: vi.fn(),
+      disconnect: vi.fn(),
+      id: 'mock-socket-id'
     });
   });
 
-  describe('Socket Events', () => {
-    it('should handle task:created event', () => {
-      const eventName = 'task:created';
-      const taskData = { id: '1', title: 'New Task' };
+  describe('useSocket', () => {
+    it('returns null when user is not authenticated', () => {
+      useAuth.mockReturnValue({
+        user: null, loading: false, login: vi.fn(), logout: vi.fn(), checkAuth: vi.fn()
+      });
 
-      const handler = (data) => {
-        return { event: eventName, data };
-      };
+      const { result } = renderHook(() => useSocket(), { wrapper: SocketProvider });
 
-      const result = handler(taskData);
-      expect(result.event).toBe('task:created');
-      expect(result.data.id).toBe('1');
+      expect(result.current).toBeNull();
+      expect(io).not.toHaveBeenCalled();
     });
 
-    it('should handle task:updated event', () => {
-      const eventName = 'task:updated';
-      const taskData = { id: '1', title: 'Updated Task' };
+    it('connects socket when user is authenticated', async () => {
+      useAuth.mockReturnValue({
+        user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true },
+        loading: false, login: vi.fn(), logout: vi.fn(), checkAuth: vi.fn()
+      });
 
-      expect(eventName).toBe('task:updated');
-      expect(taskData.id).toBe('1');
+      const { result } = renderHook(() => useSocket(), { wrapper: SocketProvider });
+
+      await waitFor(() => {
+        expect(result.current).not.toBeNull();
+      });
+
+      expect(io).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle task:deleted event', () => {
-      const eventName = 'task:deleted';
-      const taskData = { id: '1' };
+    it('disconnects when user becomes null', async () => {
+      const mockDisconnect = vi.fn();
+      io.mockReturnValue({
+        on: vi.fn(),
+        disconnect: mockDisconnect,
+        id: 'socket-1'
+      });
 
-      expect(eventName).toBe('task:deleted');
-      expect(taskData.id).toBe('1');
+      useAuth.mockReturnValue({
+        user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true },
+        loading: false, login: vi.fn(), logout: vi.fn(), checkAuth: vi.fn()
+      });
+
+      const { result, rerender } = renderHook(() => useSocket(), { wrapper: SocketProvider });
+
+      await waitFor(() => {
+        expect(result.current).not.toBeNull();
+      });
+
+      useAuth.mockReturnValue({
+        user: null, loading: false, login: vi.fn(), logout: vi.fn(), checkAuth: vi.fn()
+      });
+
+      rerender();
+
+      await waitFor(() => {
+        expect(result.current).toBeNull();
+      });
+
+      expect(mockDisconnect).toHaveBeenCalled();
     });
-  });
 
-  describe('Socket Lifecycle', () => {
-    it('should disconnect on cleanup', () => {
-      let connected = true;
+    it('cleans up socket on unmount', () => {
+      const mockDisconnect = vi.fn();
+      io.mockReturnValue({
+        on: vi.fn(),
+        disconnect: mockDisconnect,
+        id: 'socket-2'
+      });
 
-      const cleanup = () => {
-        connected = false;
-      };
+      useAuth.mockReturnValue({
+        user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true },
+        loading: false, login: vi.fn(), logout: vi.fn(), checkAuth: vi.fn()
+      });
 
-      cleanup();
-      expect(connected).toBe(false);
+      const { unmount } = renderHook(() => useSocket(), { wrapper: SocketProvider });
+
+      unmount();
+
+      expect(mockDisconnect).toHaveBeenCalled();
     });
 
-    it('should reconnect when user changes', () => {
-      let connectionCount = 0;
+    it('uses VITE_API_URL when available for socket connection', async () => {
+      vi.stubEnv('VITE_API_URL', 'https://api.example.com');
 
-      const connect = () => {
-        connectionCount++;
-      };
+      useAuth.mockReturnValue({
+        user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true },
+        loading: false, login: vi.fn(), logout: vi.fn(), checkAuth: vi.fn()
+      });
 
-      connect(); // Initial
-      connect(); // User change
-      expect(connectionCount).toBe(2);
-    });
-  });
+      renderHook(() => useSocket(), { wrapper: SocketProvider });
 
-  describe('Connection State', () => {
-    it('should track connection status', () => {
-      let isConnected = false;
+      await waitFor(() => {
+        expect(io).toHaveBeenCalledWith('https://api.example.com', expect.any(Object));
+      });
 
-      const onConnect = () => {
-        isConnected = true;
-      };
-
-      const onDisconnect = () => {
-        isConnected = false;
-      };
-
-      onConnect();
-      expect(isConnected).toBe(true);
-
-      onDisconnect();
-      expect(isConnected).toBe(false);
+      vi.unstubAllEnvs();
     });
   });
 });

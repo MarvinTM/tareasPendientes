@@ -1,111 +1,157 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 
-describe('AuthContext Logic', () => {
-  describe('User State', () => {
-    it('should start with null user', () => {
-      const initialUser = null;
-      expect(initialUser).toBeNull();
-    });
+vi.mock('../../services/api', () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn()
+  }
+}));
 
-    it('should store user after login', () => {
-      const user = {
-        id: 'user-id',
-        email: 'test@example.com',
-        name: 'Test User',
-        isApproved: true,
-        isAdmin: false
-      };
+import api from '../../services/api';
 
-      expect(user.id).toBeDefined();
-      expect(user.email).toBeDefined();
-      expect(user.isApproved).toBe(true);
-    });
-
-    it('should clear user after logout', () => {
-      let user = { id: 'user-id', name: 'Test' };
-      user = null;
-      expect(user).toBeNull();
-    });
+describe('AuthContext', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.location.href = '';
   });
 
-  describe('Loading State', () => {
-    it('should start with loading true', () => {
-      const loading = true;
-      expect(loading).toBe(true);
+  describe('useAuth hook', () => {
+    it('throws when used outside AuthProvider', () => {
+      expect(() => renderHook(() => useAuth())).toThrow('useAuth must be used within an AuthProvider');
     });
 
-    it('should set loading false after auth check', () => {
-      let loading = true;
-      // After auth check
-      loading = false;
-      expect(loading).toBe(false);
-    });
-  });
+    it('starts with loading=true and user=null', () => {
+      api.get.mockResolvedValue({ data: { authenticated: false } });
 
-  describe('Admin Detection', () => {
-    it('should identify admin users', () => {
-      const user = { email: 'admin@test.com', isAdmin: true };
-      expect(user.isAdmin).toBe(true);
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
+
+      expect(result.current.loading).toBe(true);
+      expect(result.current.user).toBeNull();
     });
 
-    it('should identify non-admin users', () => {
-      const user = { email: 'user@test.com', isAdmin: false };
-      expect(user.isAdmin).toBe(false);
-    });
-  });
+    it('sets user when checkAuth succeeds with authenticated:true', async () => {
+      const user = { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true, isAdmin: false };
+      api.get.mockResolvedValue({ data: { authenticated: true, user } });
 
-  describe('Approval Status', () => {
-    it('should identify approved users', () => {
-      const user = { isApproved: true };
-      expect(user.isApproved).toBe(true);
-    });
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
 
-    it('should identify pending users', () => {
-      const user = { isApproved: false };
-      expect(user.isApproved).toBe(false);
-    });
-  });
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
 
-  describe('Login URL Construction', () => {
-    it('should construct correct login URL', () => {
-      const backendUrl = 'http://localhost:3001';
-      const redirectOrigin = 'http://localhost:5173';
-      const loginUrl = `${backendUrl}/api/auth/google?redirect_origin=${encodeURIComponent(redirectOrigin)}`;
-
-      expect(loginUrl).toContain('/api/auth/google');
-      expect(loginUrl).toContain('redirect_origin=');
+      expect(result.current.user).toEqual(user);
     });
 
-    it('should encode redirect origin properly', () => {
-      const origin = 'http://localhost:5173';
-      const encoded = encodeURIComponent(origin);
-      expect(encoded).toBe('http%3A%2F%2Flocalhost%3A5173');
-    });
-  });
+    it('sets loading=false when checkAuth returns unauthenticated', async () => {
+      api.get.mockResolvedValue({ data: { authenticated: false } });
 
-  describe('Auth Response Handling', () => {
-    it('should handle authenticated response', () => {
-      const response = {
-        authenticated: true,
-        user: {
-          id: 'user-id',
-          email: 'test@example.com',
-          name: 'Test User',
-          isApproved: true
-        }
-      };
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
 
-      expect(response.authenticated).toBe(true);
-      expect(response.user).toBeDefined();
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.user).toBeNull();
     });
 
-    it('should handle unauthenticated response', () => {
-      const response = {
-        authenticated: false
-      };
+    it('sets loading=false when checkAuth fails', async () => {
+      api.get.mockRejectedValue(new Error('Network error'));
 
-      expect(response.authenticated).toBe(false);
-      expect(response.user).toBeUndefined();
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.user).toBeNull();
+    });
+
+    it('login constructs correct URL and redirects', () => {
+      api.get.mockResolvedValue({ data: { authenticated: false } });
+
+      const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+      act(() => {
+        result.current.login();
+      });
+
+      expect(window.location.href).toContain('/api/auth/google');
+      expect(window.location.href).toContain('redirect_origin=');
+      expect(window.location.href).toContain('localhost');
+    });
+
+    it('logout calls API and clears user', async () => {
+      const user = { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true, isAdmin: false };
+      api.get.mockResolvedValueOnce({ data: { authenticated: true, user } });
+      api.post.mockResolvedValueOnce({ data: { message: 'Logged out' } });
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+      expect(result.current.user).not.toBeNull();
+
+      await act(async () => {
+        await result.current.logout();
+      });
+
+      expect(api.post).toHaveBeenCalledWith('/auth/logout');
+      expect(result.current.user).toBeNull();
+    });
+
+    it('logout handles API failure gracefully', async () => {
+      const user = { id: 'usr-1', email: 'test@test.com', name: 'Test', isApproved: true, isAdmin: false };
+      api.get.mockResolvedValueOnce({ data: { authenticated: true, user } });
+      api.post.mockRejectedValueOnce(new Error('Network error'));
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.logout();
+      });
+
+      expect(result.current.user).toEqual(user);
+    });
+
+    it('checkAuth updates user on subsequent calls', async () => {
+      api.get.mockResolvedValueOnce({ data: { authenticated: false } });
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: AuthProvider
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+      expect(result.current.user).toBeNull();
+
+      const newUser = { id: 'usr-2', email: 'new@test.com', name: 'New', isApproved: true, isAdmin: true };
+      api.get.mockResolvedValueOnce({ data: { authenticated: true, user: newUser } });
+
+      await act(async () => {
+        await result.current.checkAuth();
+      });
+
+      expect(result.current.user).toEqual(newUser);
     });
   });
 });
