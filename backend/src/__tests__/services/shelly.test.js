@@ -1,5 +1,5 @@
-import { jest, describe, it, expect, beforeEach, afterAll } from '@jest/globals';
-import { writeFileSync, unlinkSync } from 'fs';
+import { jest, describe, it, expect, beforeEach, beforeAll, afterAll } from '@jest/globals';
+import { writeFileSync, unlinkSync, readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -14,11 +14,20 @@ const validConfig = {
   apiKey: 'test-api-key',
   devices: [
     { id: 'dev-1', name: 'Luz del salón', room: 'Salón' },
-    { id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina' },
+    { id: 'dev-2', shellyId: 'shelly-shared', name: 'Luz de la cocina', room: 'Cocina', channel: 0 },
+    { id: 'dev-3', shellyId: 'shelly-shared', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1 },
   ],
 };
 
+let originalConfigContent = null;
+
 describe('Shelly Service', () => {
+  beforeAll(() => {
+    if (existsSync(CONFIG_FILE)) {
+      originalConfigContent = readFileSync(CONFIG_FILE, 'utf-8');
+    }
+  });
+
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
@@ -27,7 +36,11 @@ describe('Shelly Service', () => {
   });
 
   afterAll(() => {
-    try { unlinkSync(CONFIG_FILE); } catch {}
+    if (originalConfigContent !== null) {
+      writeFileSync(CONFIG_FILE, originalConfigContent);
+    } else {
+      try { unlinkSync(CONFIG_FILE); } catch {}
+    }
   });
 
   describe('loadConfig', () => {
@@ -56,11 +69,12 @@ describe('Shelly Service', () => {
     it('returns device list from config', async () => {
       const { getDevices } = await import('../../services/shelly.js');
       const devices = getDevices();
-      expect(devices).toHaveLength(2);
-      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón' });
-      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina' });
-    });
 
+      expect(devices).toHaveLength(3);
+      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0 });
+      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0 });
+      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1 });
+    });
     it('defaults room to empty string when missing', async () => {
       writeFileSync(CONFIG_FILE, JSON.stringify({
         ...validConfig,
@@ -73,10 +87,24 @@ describe('Shelly Service', () => {
   });
 
   describe('getDeviceById', () => {
-    it('returns device when found', async () => {
+    it('returns device with shellyId and channel resolved', async () => {
       const { getDeviceById } = await import('../../services/shelly.js');
       const device = getDeviceById('dev-1');
-      expect(device).toEqual(validConfig.devices[0]);
+      expect(device.shellyId).toBe('dev-1');
+      expect(device.channel).toBe(0);
+    });
+
+    it('returns shellyId from config when present', async () => {
+      const { getDeviceById } = await import('../../services/shelly.js');
+      const device = getDeviceById('dev-2');
+      expect(device.shellyId).toBe('shelly-shared');
+      expect(device.channel).toBe(0);
+    });
+
+    it('returns channel from config when present', async () => {
+      const { getDeviceById } = await import('../../services/shelly.js');
+      const device = getDeviceById('dev-3');
+      expect(device.channel).toBe(1);
     });
 
     it('returns null when not found', async () => {
@@ -129,18 +157,36 @@ describe('Shelly Service', () => {
       expect(result).toEqual({ on: null, online: false });
     });
 
-    it('constructs correct URL with auth_key', async () => {
+    it('constructs correct URL with shellyId from config', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }] } } }),
       });
 
       const { fetchDeviceStatus } = await import('../../services/shelly.js');
-      await fetchDeviceStatus('dev-1');
+      await fetchDeviceStatus('dev-2');
 
       const calledUrl = mockFetch.mock.calls[0][0];
-      expect(calledUrl).toContain('device/status?id=dev-1');
+      expect(calledUrl).toContain('device/status?id=shelly-shared');
       expect(calledUrl).toContain('auth_key=test-api-key');
+    });
+
+    it('reads correct channel relay for multi-channel Shelly', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          isok: true,
+          data: {
+            online: true,
+            device_status: { relays: [{ ison: false }, { ison: true }] },
+          },
+        }),
+      });
+
+      const { fetchDeviceStatus } = await import('../../services/shelly.js');
+      const result = await fetchDeviceStatus('dev-3');
+
+      expect(result).toEqual({ on: true, online: true });
     });
 
     it('returns null for unknown device', async () => {
@@ -160,14 +206,19 @@ describe('Shelly Service', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }] } } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }, { ison: false }] } } }),
         });
 
       const { fetchAllStatuses } = await import('../../services/shelly.js');
       const results = await fetchAllStatuses();
 
-      expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', on: true, online: true });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', on: false, online: true });
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, on: true, online: true });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, on: false, online: true });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, on: false, online: true });
     });
 
     it('handles mixed online and offline devices', async () => {
@@ -176,16 +227,22 @@ describe('Shelly Service', () => {
           ok: true,
           json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }] } } }),
         })
-        .mockRejectedValueOnce(new Error('Network error'));
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true, data: { online: false } }),
+        });
 
       const { fetchAllStatuses } = await import('../../services/shelly.js');
       const results = await fetchAllStatuses();
 
-      expect(results).toHaveLength(2);
+      expect(results).toHaveLength(3);
       expect(results[0].online).toBe(true);
       expect(results[0].on).toBe(true);
       expect(results[1].on).toBeNull();
       expect(results[1].online).toBe(false);
+      expect(results[2].on).toBeNull();
+      expect(results[2].online).toBe(false);
     });
   });
 
@@ -199,17 +256,33 @@ describe('Shelly Service', () => {
         });
 
       const { toggleDevice } = await import('../../services/shelly.js');
-      await toggleDevice('dev-1');
+      await toggleDevice('dev-2');
 
       const postCall = mockFetch.mock.calls[0];
       expect(postCall[0]).toContain('device/relay/control');
       expect(postCall[1].method).toBe('POST');
 
       const bodyStr = postCall[1].body.toString();
-      expect(bodyStr).toContain('id=dev-1');
+      expect(bodyStr).toContain('id=shelly-shared');
       expect(bodyStr).toContain('channel=0');
       expect(bodyStr).toContain('turn=toggle');
       expect(bodyStr).toContain('auth_key=test-api-key');
+    });
+
+    it('sends correct channel for multi-channel device', async () => {
+      mockFetch
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ isok: true }) })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }, { ison: false }] } } }),
+        });
+
+      const { toggleDevice } = await import('../../services/shelly.js');
+      await toggleDevice('dev-3');
+
+      const bodyStr = mockFetch.mock.calls[0][1].body.toString();
+      expect(bodyStr).toContain('id=shelly-shared');
+      expect(bodyStr).toContain('channel=1');
     });
 
     it('polls after toggle until Shelly confirms new state', async () => {

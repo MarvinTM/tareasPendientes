@@ -44,12 +44,19 @@ export function getDevices() {
     id: d.id,
     name: d.name,
     room: d.room || '',
+    channel: d.channel ?? 0,
   }));
 }
 
 export function getDeviceById(deviceId) {
   const config = loadConfig();
-  return config.devices.find(d => d.id === deviceId) || null;
+  const device = config.devices.find(d => d.id === deviceId) || null;
+  if (!device) return null;
+  return {
+    ...device,
+    shellyId: device.shellyId || device.id,
+    channel: device.channel ?? 0,
+  };
 }
 
 export async function fetchDeviceStatus(deviceId) {
@@ -59,7 +66,9 @@ export async function fetchDeviceStatus(deviceId) {
     return null;
   }
 
-  const url = `${config.server}/device/status?id=${encodeURIComponent(deviceId)}&auth_key=${encodeURIComponent(config.apiKey)}`;
+  const shellyId = device.shellyId || device.id;
+  const channel = device.channel ?? 0;
+  const url = `${config.server}/device/status?id=${encodeURIComponent(shellyId)}&auth_key=${encodeURIComponent(config.apiKey)}`;
 
   try {
     const response = await fetch(url);
@@ -80,7 +89,7 @@ export async function fetchDeviceStatus(deviceId) {
       return { on: null, online: false };
     }
 
-    const isOn = data.data?.device_status?.relays?.[0]?.ison ?? null;
+    const isOn = data.data?.device_status?.relays?.[channel]?.ison ?? null;
     return { on: isOn, online: true };
   } catch (error) {
     console.error(`Shelly status fetch failed for ${deviceId}:`, error.message);
@@ -114,10 +123,12 @@ export async function toggleDevice(deviceId) {
     throw new Error(`Device not found: ${deviceId}`);
   }
 
+  const shellyId = device.shellyId || device.id;
+  const channel = device.channel ?? 0;
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
-    id: deviceId,
-    channel: '0',
+    id: shellyId,
+    channel: String(channel),
     turn: 'toggle',
     auth_key: config.apiKey,
   });

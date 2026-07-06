@@ -3,12 +3,22 @@
   "apiKey": "your-shelly-cloud-api-key",
   "devices": [
     {
-      "id": "shelly-device-id-1",
+      "id": "luz-salon",
+      "shellyId": "shelly-device-id-1",
       "name": "Luz del salón",
-      "room": "Salón"
+      "room": "Salón",
+      "channel": 0
     },
     {
-      "id": "shelly-device-id-2",
+      "id": "lampara-salon",
+      "shellyId": "shelly-device-id-1",
+      "name": "Lámpara del salón",
+      "room": "Salón",
+      "channel": 1
+    },
+    {
+      "id": "luz-cocina",
+      "shellyId": "shelly-device-id-2",
       "name": "Luz de la cocina",
       "room": "Cocina"
     }
