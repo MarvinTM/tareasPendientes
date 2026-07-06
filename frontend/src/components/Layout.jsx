@@ -259,21 +259,20 @@ export default function Layout() {
         }}>
           <Box sx={{
             display: 'flex',
-            flexDirection: drawerExpanded ? 'row' : 'column',
+            flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: drawerExpanded ? 'space-between' : 'center',
             py: 1,
-            px: 1,
+            px: drawerExpanded ? 1 : 0,
             mb: 1,
-            gap: 0.5,
+            minHeight: 48,
           }}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1,
+                gap: drawerExpanded ? 1 : 0,
                 cursor: 'pointer',
-                flexGrow: 1,
-                justifyContent: drawerExpanded ? 'flex-start' : 'center',
                 minWidth: 0,
               }}
               onClick={() => navigate('/tareas')}
@@ -285,7 +284,7 @@ export default function Layout() {
                 </Typography>
               )}
             </Box>
-            <IconButton size="small" onClick={handleToggleDrawer} sx={{ flexShrink: 0 }}>
+            <IconButton size="small" onClick={handleToggleDrawer} sx={{ flexShrink: 0, p: drawerExpanded ? undefined : 0 }}>
               {drawerExpanded ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
             </IconButton>
           </Box>
