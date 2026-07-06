@@ -9,6 +9,8 @@ import AdminPage from './pages/AdminPage';
 import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import ScoreboardPage from './pages/ScoreboardPage';
 import PeriodicTasksPage from './pages/PeriodicTasksPage';
+import LightsPage from './pages/LightsPage';
+import ConfiguracionPage from './pages/ConfiguracionPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
@@ -69,11 +71,16 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<MainPage />} />
-        <Route path="periodic" element={<PeriodicTasksPage />} />
-        <Route path="scoreboard" element={<ScoreboardPage />} />
-        <Route path="history" element={<AllHistoryPage />} />
-        <Route path="history/:taskId" element={<TaskHistoryPage />} />
+        <Route index element={<Navigate to="/tareas" replace />} />
+        <Route path="tareas" element={<MainPage />} />
+        <Route path="tareas/recurrentes" element={<PeriodicTasksPage />} />
+        <Route path="tareas/puntuacion" element={<ScoreboardPage />} />
+        <Route path="usuario" element={<Navigate to="/usuario/historial" replace />} />
+        <Route path="usuario/historial" element={<AllHistoryPage />} />
+        <Route path="usuario/historial/:taskId" element={<TaskHistoryPage />} />
+        <Route path="usuario/configuracion" element={<ConfiguracionPage />} />
+        <Route path="dispositivos" element={<Navigate to="/dispositivos/luces" replace />} />
+        <Route path="dispositivos/luces" element={<LightsPage />} />
         <Route
           path="admin"
           element={
@@ -83,13 +90,18 @@ function App() {
           }
         />
         <Route
-          path="admin/categories"
+          path="admin/categorias"
           element={
             <AdminRoute>
               <CategoriesAdminPage />
             </AdminRoute>
           }
         />
+        <Route path="periodic" element={<Navigate to="/tareas/recurrentes" replace />} />
+        <Route path="scoreboard" element={<Navigate to="/tareas/puntuacion" replace />} />
+        <Route path="history" element={<Navigate to="/usuario/historial" replace />} />
+        <Route path="history/:taskId" element={<Navigate to="/usuario/historial/:taskId" replace />} />
+        <Route path="admin/categories" element={<Navigate to="/admin/categorias" replace />} />
       </Route>
     </Routes>
   );

@@ -95,7 +95,7 @@ export default function AllHistoryPage() {
                         cursor: entry.task ? 'pointer' : 'default',
                         '&:hover': entry.task ? { backgroundColor: 'action.hover' } : {}
                       }}
-                      onClick={() => entry.task && navigate(`/history/${entry.taskId}`)}
+                      onClick={() => entry.task && navigate(`/usuario/historial/${entry.taskId}`)}
                     >
                       <ListItemAvatar>
                         <UserAvatar user={entry.user} sx={{ width: 40, height: 40 }} showTooltip={false} />

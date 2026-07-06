@@ -67,7 +67,7 @@ export default function TaskHistoryPage() {
     <Box>
       <Button
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/')}
+        onClick={() => navigate('/tareas')}
         sx={{ mb: 2 }}
       >
         Volver a Tareas

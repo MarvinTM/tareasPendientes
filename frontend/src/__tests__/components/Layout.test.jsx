@@ -28,9 +28,9 @@ vi.mock('../../components/AppLogo', () => ({
 
 import { useAuth } from '../../contexts/AuthContext';
 
-function renderWithProviders(ui) {
+function renderWithProviders(ui, { route = '/' } = {}) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <ThemeProvider theme={theme}>{ui}</ThemeProvider>
     </MemoryRouter>
   );
@@ -47,26 +47,25 @@ describe('Layout', () => {
     expect(screen.getByText('Tareas Pendientes')).toBeInTheDocument();
   });
 
-  it('renders navigation items', () => {
+  it('renders navigation items for active tareas module', () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
-    renderWithProviders(<Layout />);
+    renderWithProviders(<Layout />, { route: '/tareas' });
+    expect(screen.getByText('Tablero')).toBeInTheDocument();
     expect(screen.getByText('Recurrentes')).toBeInTheDocument();
     expect(screen.getByText('Puntuación')).toBeInTheDocument();
-    expect(screen.getByText('Historial')).toBeInTheDocument();
   });
 
   it('does not show admin items for non-admin users', () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
-    renderWithProviders(<Layout />);
+    renderWithProviders(<Layout />, { route: '/admin' });
     expect(screen.queryByText('Categorías')).not.toBeInTheDocument();
-    expect(screen.queryByText('Usuarios')).not.toBeInTheDocument();
   });
 
-  it('shows admin items for admin users', () => {
+  it('shows admin items for admin users when on admin route', () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'admin@test.com', name: 'Admin', isAdmin: true }, loading: false, login: vi.fn(), logout: vi.fn() });
-    renderWithProviders(<Layout />);
-    expect(screen.getByText('Categorías')).toBeInTheDocument();
+    renderWithProviders(<Layout />, { route: '/admin' });
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
+    expect(screen.getByText('Categorías')).toBeInTheDocument();
   });
 
   it('renders user avatar', () => {
@@ -75,17 +74,18 @@ describe('Layout', () => {
     expect(screen.getByTestId('user-avatar')).toBeInTheDocument();
   });
 
-  it('renders app logo', () => {
+  it('renders app logos in drawer and appbar', () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
     renderWithProviders(<Layout />);
-    expect(screen.getByTestId('app-logo')).toBeInTheDocument();
+    const logos = screen.getAllByTestId('app-logo');
+    expect(logos).toHaveLength(2);
   });
 
-  it('navigates to home when logo/title is clicked', async () => {
+  it('navigates to /tareas when logo/title is clicked', async () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
     renderWithProviders(<Layout />);
     await userEvent.click(screen.getByText('Tareas Pendientes'));
-    expect(mockNavigate).toHaveBeenCalledWith('/');
+    expect(mockNavigate).toHaveBeenCalledWith('/tareas');
   });
 
   it('calls logout and navigates to login on logout', async () => {

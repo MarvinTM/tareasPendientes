@@ -357,7 +357,7 @@ export default function TaskCard({ task, index, users, onEdit, onDelete, onAssig
           {!showCompact && (
             <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
               <Tooltip title="Ver Historial">
-                <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/history/${task.id}`); }}>
+                <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/usuario/historial/${task.id}`); }}>
                   <HistoryIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
