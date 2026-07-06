@@ -157,7 +157,7 @@ describe('Shelly Service', () => {
       expect(result).toEqual({ on: null, online: false });
     });
 
-    it('constructs correct URL with shellyId from config', async () => {
+    it('constructs correct GET URL with shellyId and auth_key', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }] } } }),
@@ -205,11 +205,7 @@ describe('Shelly Service', () => {
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }] } } }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }, { ison: false }] } } }),
+          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }, { ison: true }] } } }),
         });
 
       const { fetchAllStatuses } = await import('../../services/shelly.js');
@@ -218,7 +214,7 @@ describe('Shelly Service', () => {
       expect(results).toHaveLength(3);
       expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, on: true, online: true });
       expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, on: false, online: true });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, on: false, online: true });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, on: true, online: true });
     });
 
     it('handles mixed online and offline devices', async () => {
@@ -227,18 +223,14 @@ describe('Shelly Service', () => {
           ok: true,
           json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }] } } }),
         })
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({ isok: true, data: { online: false } }),
-        });
+        .mockRejectedValueOnce(new Error('Network error'));
 
       const { fetchAllStatuses } = await import('../../services/shelly.js');
       const results = await fetchAllStatuses();
 
       expect(results).toHaveLength(3);
-      expect(results[0].online).toBe(true);
       expect(results[0].on).toBe(true);
+      expect(results[0].online).toBe(true);
       expect(results[1].on).toBeNull();
       expect(results[1].online).toBe(false);
       expect(results[2].on).toBeNull();

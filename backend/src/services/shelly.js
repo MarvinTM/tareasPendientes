@@ -89,7 +89,15 @@ export async function fetchDeviceStatus(deviceId) {
       return { on: null, online: false };
     }
 
-    const isOn = data.data?.device_status?.relays?.[channel]?.ison ?? null;
+    const deviceStatus = data.data?.device_status;
+
+    let isOn = null;
+    if (deviceStatus?.relays?.[channel]) {
+      isOn = deviceStatus.relays[channel].ison ?? null;
+    } else if (deviceStatus?.['switch:' + channel]) {
+      isOn = deviceStatus['switch:' + channel].output ?? null;
+    }
+
     return { on: isOn, online: true };
   } catch (error) {
     console.error(`Shelly status fetch failed for ${deviceId}:`, error.message);
@@ -99,21 +107,83 @@ export async function fetchDeviceStatus(deviceId) {
 
 export async function fetchAllStatuses() {
   const devices = getDevices();
-  const results = await Promise.allSettled(
-    devices.map(async (device) => {
-      const status = await fetchDeviceStatus(device.id);
-      return {
-        ...device,
-        ...status,
-      };
-    })
-  );
+  const config = loadConfig();
 
-  return results.map(r =>
-    r.status === 'fulfilled'
-      ? r.value
-      : { on: null, online: false }
-  );
+  const uniqueShellyIds = new Map();
+  for (const raw of config.devices) {
+    const sid = raw.shellyId || raw.id;
+    if (!uniqueShellyIds.has(sid)) {
+      uniqueShellyIds.set(sid, true);
+    }
+  }
+
+  const statusMap = new Map();
+  const statusPromises = [...uniqueShellyIds.keys()].map(async (sid) => {
+    const status = await fetchStatusForShellyId(sid);
+    statusMap.set(sid, status);
+  });
+
+  await Promise.allSettled(statusPromises);
+
+  return devices.map(device => {
+    const sid = config.devices.find(d => d.id === device.id)?.shellyId || device.id;
+    const status = statusMap.get(sid);
+    if (status) {
+      const isOn = status.relays?.[device.channel]?.on ?? null;
+      return { ...device, on: isOn, online: status.online };
+    }
+    return { ...device, on: null, online: false };
+  });
+}
+
+async function fetchStatusForShellyId(shellyId) {
+  const config = loadConfig();
+  const url = `${config.server}/device/status?id=${encodeURIComponent(shellyId)}&auth_key=${encodeURIComponent(config.apiKey)}`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`Shelly status error for ${shellyId}: HTTP ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+
+    if (!data.isok) {
+      console.error(`Shelly status error for ${shellyId}:`, data);
+      return null;
+    }
+
+    const online = data.data?.online ?? false;
+    if (!online) {
+      return { online: false, relays: [] };
+    }
+
+    const deviceStatus = data.data?.device_status;
+    const relays = extractRelays(deviceStatus);
+
+    return { online: true, relays };
+  } catch (error) {
+    console.error(`Shelly status fetch failed for ${shellyId}:`, error.message);
+    return null;
+  }
+}
+
+function extractRelays(deviceStatus) {
+  if (!deviceStatus) return [];
+
+  if (Array.isArray(deviceStatus.relays)) {
+    return deviceStatus.relays.map(r => ({ on: r.ison ?? null }));
+  }
+
+  const switches = [];
+  let idx = 0;
+  while (deviceStatus['switch:' + idx] !== undefined) {
+    switches.push({ on: deviceStatus['switch:' + idx].output ?? null });
+    idx++;
+  }
+
+  return switches;
 }
 
 export async function toggleDevice(deviceId) {
