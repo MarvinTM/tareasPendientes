@@ -17,11 +17,12 @@ import Paper from '@mui/material/Paper';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
 import Drawer from '@mui/material/Drawer';
-import Tooltip from '@mui/material/Tooltip';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import UserAvatar from './UserAvatar';
 import AppLogo from './AppLogo';
 import { modules } from '../config/modules';
@@ -38,8 +39,7 @@ export default function Layout() {
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [drawerHover, setDrawerHover] = useState(false);
-  const hoverTimerRef = useRef(null);
+  const [drawerExpanded, setDrawerExpanded] = useState(false);
 
   const activeModule = modules.find(m =>
     location.pathname === m.path || location.pathname.startsWith(m.path + '/')
@@ -57,6 +57,17 @@ export default function Layout() {
     const target = mod.subNav.length > 0 ? mod.subNav[0].path : mod.path;
     navigate(target);
   }, [navigate]);
+
+  const handleDrawerModuleClick = (mod) => {
+    if (!drawerExpanded) {
+      setDrawerExpanded(true);
+    }
+    navigateToModule(mod);
+  };
+
+  const handleToggleDrawer = () => {
+    setDrawerExpanded(prev => !prev);
+  };
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -85,17 +96,29 @@ export default function Layout() {
     if (mod) navigateToModule(mod);
   };
 
-  const handleDrawerMouseEnter = () => {
-    clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => setDrawerHover(true), 200);
-  };
+  const drawerWidth = drawerExpanded ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
 
-  const handleDrawerMouseLeave = () => {
-    clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => setDrawerHover(false), 100);
-  };
-
-  const drawerWidth = drawerHover ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
+  const renderDrawerItem = (mod) => (
+    <ListItemButton
+      key={mod.id}
+      selected={activeModule?.id === mod.id}
+      onClick={() => handleDrawerModuleClick(mod)}
+      sx={{
+        minHeight: 48,
+        px: 1.5,
+        justifyContent: drawerExpanded ? 'initial' : 'center',
+      }}
+    >
+      <ListItemIcon sx={{
+        minWidth: 0,
+        mr: drawerExpanded ? 1.5 : 'auto',
+        justifyContent: 'center',
+      }}>
+        <mod.icon />
+      </ListItemIcon>
+      {drawerExpanded && <ListItemText primary={mod.label} />}
+    </ListItemButton>
+  );
 
   const userMenu = (
     <Menu
@@ -217,8 +240,6 @@ export default function Layout() {
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Drawer
         variant="permanent"
-        onMouseEnter={handleDrawerMouseEnter}
-        onMouseLeave={handleDrawerMouseLeave}
         sx={{
           width: drawerWidth,
           flexShrink: 0,
@@ -238,79 +259,49 @@ export default function Layout() {
           height: '100%',
           pt: 1,
         }}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1,
-              py: 1.5,
-              px: 1,
-              cursor: 'pointer',
-              mb: 1
-            }}
-            onClick={() => navigate('/tareas')}
-          >
-            <AppLogo sx={{ fontSize: 28, flexShrink: 0 }} />
-            {drawerHover && (
-              <Typography variant="subtitle2" fontWeight="bold" noWrap color="primary.main">
-                Tareas Pendientes
-              </Typography>
-            )}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: drawerExpanded ? 'row' : 'column',
+            alignItems: 'center',
+            py: 1,
+            px: 1,
+            mb: 1,
+            gap: 0.5,
+          }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                cursor: 'pointer',
+                flexGrow: 1,
+                justifyContent: drawerExpanded ? 'flex-start' : 'center',
+                minWidth: 0,
+              }}
+              onClick={() => navigate('/tareas')}
+            >
+              <AppLogo sx={{ fontSize: 28, flexShrink: 0 }} />
+              {drawerExpanded && (
+                <Typography variant="subtitle2" fontWeight="bold" noWrap color="primary.main">
+                  Tareas Pendientes
+                </Typography>
+              )}
+            </Box>
+            <IconButton size="small" onClick={handleToggleDrawer} sx={{ flexShrink: 0 }}>
+              {drawerExpanded ? <ChevronLeftIcon fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+            </IconButton>
           </Box>
           <Divider />
 
           <List sx={{ flexGrow: 1 }}>
-            {userModules.map(mod => (
-              <Tooltip key={mod.id} title={drawerHover ? '' : mod.label} placement="right">
-                <ListItemButton
-                  selected={activeModule?.id === mod.id}
-                  onClick={() => navigateToModule(mod)}
-                  sx={{
-                    minHeight: 48,
-                    px: 1.5,
-                    justifyContent: drawerHover ? 'initial' : 'center',
-                  }}
-                >
-                  <ListItemIcon sx={{
-                    minWidth: 0,
-                    mr: drawerHover ? 1.5 : 'auto',
-                    justifyContent: 'center',
-                  }}>
-                    <mod.icon />
-                  </ListItemIcon>
-                  {drawerHover && <ListItemText primary={mod.label} />}
-                </ListItemButton>
-              </Tooltip>
-            ))}
+            {userModules.map(mod => renderDrawerItem(mod))}
           </List>
 
           {user?.isAdmin && (
             <>
               <Divider />
               <List>
-                {adminModules.map(mod => (
-                  <Tooltip key={mod.id} title={drawerHover ? '' : mod.label} placement="right">
-                    <ListItemButton
-                      selected={activeModule?.id === mod.id}
-                      onClick={() => navigateToModule(mod)}
-                      sx={{
-                        minHeight: 48,
-                        px: 1.5,
-                        justifyContent: drawerHover ? 'initial' : 'center',
-                      }}
-                    >
-                      <ListItemIcon sx={{
-                        minWidth: 0,
-                        mr: drawerHover ? 1.5 : 'auto',
-                        justifyContent: 'center',
-                      }}>
-                        <mod.icon />
-                      </ListItemIcon>
-                      {drawerHover && <ListItemText primary={mod.label} />}
-                    </ListItemButton>
-                  </Tooltip>
-                ))}
+                {adminModules.map(mod => renderDrawerItem(mod))}
               </List>
             </>
           )}
