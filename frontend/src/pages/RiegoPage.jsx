@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -105,6 +106,7 @@ function saveStoredDurations(durations) {
 
 export default function RiegoPage() {
   const socket = useSocket();
+  const navigate = useNavigate();
   const [state, setState] = useState({ current: null, queue: [], phases: [], durationMemory: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -369,7 +371,10 @@ export default function RiegoPage() {
         {plans.length === 0 ? (
           <Card sx={{ p: 3, textAlign: 'center' }}>
             <Typography color="text.secondary">
-              No hay planes guardados.
+              No hay planes guardados.{' '}
+              <Button size="small" onClick={() => navigate('/riego/planes')} sx={{ textTransform: 'none' }}>
+                ¿Crear uno?
+              </Button>
             </Typography>
           </Card>
         ) : (
