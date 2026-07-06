@@ -221,7 +221,7 @@ export default function RiegoPage() {
                           size="small"
                           startIcon={starting[phase.id] ? <CircularProgress size={16} /> : <PlayArrowIcon />}
                           onClick={() => handleStart(phase.id)}
-                          disabled={starting[phase.id] || !durations[phase.id] || durations[phase.id] <= 0}
+                          disabled={starting[phase.id] || (durations[phase.id] !== undefined && durations[phase.id] <= 0)}
                         >
                           Activar
                         </Button>
