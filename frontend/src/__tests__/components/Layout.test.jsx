@@ -55,6 +55,13 @@ describe('Layout', () => {
     expect(screen.getByText('Puntuación')).toBeInTheDocument();
   });
 
+  it('renders Riego module sub-nav items', () => {
+    useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
+    renderWithProviders(<Layout />, { route: '/riego' });
+    expect(screen.getByText('Control')).toBeInTheDocument();
+    expect(screen.getByText('Planes')).toBeInTheDocument();
+  });
+
   it('does not show admin items for non-admin users', () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
     renderWithProviders(<Layout />, { route: '/admin' });

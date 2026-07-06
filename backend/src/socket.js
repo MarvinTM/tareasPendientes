@@ -19,3 +19,9 @@ export function emitDeviceUpdate(data) {
     io.emit('device:updated', data);
   }
 }
+
+export function emitRiegoUpdate(data) {
+  if (io) {
+    io.emit('riego:updated', data);
+  }
+}

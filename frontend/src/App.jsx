@@ -10,6 +10,8 @@ import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import ScoreboardPage from './pages/ScoreboardPage';
 import PeriodicTasksPage from './pages/PeriodicTasksPage';
 import LightsPage from './pages/LightsPage';
+import RiegoPage from './pages/RiegoPage';
+import RiegoPlansPage from './pages/RiegoPlansPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
@@ -81,6 +83,8 @@ function App() {
         <Route path="usuario/configuracion" element={<ConfiguracionPage />} />
         <Route path="dispositivos" element={<Navigate to="/dispositivos/luces" replace />} />
         <Route path="dispositivos/luces" element={<LightsPage />} />
+        <Route path="riego" element={<RiegoPage />} />
+        <Route path="riego/planes" element={<RiegoPlansPage />} />
         <Route
           path="admin"
           element={

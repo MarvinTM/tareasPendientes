@@ -22,5 +22,33 @@
       "name": "Luz de la cocina",
       "room": "Cocina"
     }
-  ]
+  ],
+  "riego": {
+    "phases": [
+      {
+        "id": "fase-1",
+        "shellyId": "shelly-device-id-3",
+        "name": "Jardín delantero",
+        "channel": 0
+      },
+      {
+        "id": "fase-2",
+        "shellyId": "shelly-device-id-3",
+        "name": "Patio trasero",
+        "channel": 1
+      },
+      {
+        "id": "fase-3",
+        "shellyId": "shelly-device-id-4",
+        "name": "Huerto",
+        "channel": 0
+      },
+      {
+        "id": "fase-4",
+        "shellyId": "shelly-device-id-4",
+        "name": "Césped",
+        "channel": 1
+      }
+    ]
+  }
 }
