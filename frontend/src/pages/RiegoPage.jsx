@@ -6,7 +6,9 @@ import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import TextField from '@mui/material/TextField';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
@@ -29,16 +31,46 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
 
+const DURATION_OPTIONS = [
+  { label: '10 seg', value: 10 / 60 },
+  { label: '1 min', value: 1 },
+  { label: '5 min', value: 5 },
+  { label: '10 min', value: 10 },
+  { label: '15 min', value: 15 },
+  { label: '20 min', value: 20 },
+  { label: '30 min', value: 30 },
+  { label: '45 min', value: 45 },
+  { label: '1 hora', value: 60 },
+];
+
+const DEFAULT_DURATION = 10;
+
+function formatDuration(minutes) {
+  if (minutes < 1) {
+    return `${Math.round(minutes * 60)} seg`;
+  }
+  if (minutes === 60) return '1 hora';
+  return `${minutes} min`;
+}
+
 function formatRemaining(seconds) {
-  if (seconds <= 0) return '0m 0s';
+  if (seconds <= 0) return '0 seg';
   const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const s = Math.round(seconds % 60);
+  if (m === 0) return `${s} seg`;
   return `${m}m ${s}s`;
 }
 
 function formatTotalDuration(phases) {
   const total = phases.reduce((sum, p) => sum + (p.durationMin || 0), 0);
-  return total;
+  if (total < 1) return `${Math.round(total * 60)} seg`;
+  if (total === 60) return '1 hora';
+  if (total > 60) {
+    const h = Math.floor(total / 60);
+    const m = Math.round(total % 60);
+    return m > 0 ? `${h}h ${m}min` : `${h} horas`;
+  }
+  return `${Math.round(total)} min`;
 }
 
 const DURATION_STORAGE_KEY = 'riego-durations';
@@ -83,7 +115,7 @@ export default function RiegoPage() {
       const response = await api.get('/riego/plans');
       setPlans(response.data);
     } catch {
-      // Silently ignore plans fetch errors
+      // Silently ignore
     }
   }, []);
 
@@ -121,7 +153,7 @@ export default function RiegoPage() {
   }, [state.current?.queueId]);
 
   const handleStart = async (phaseId) => {
-    const duration = durations[phaseId] || 10;
+    const duration = durations[phaseId] || DEFAULT_DURATION;
     if (!duration || duration <= 0 || duration > 120) return;
 
     setStarting(prev => ({ ...prev, [phaseId]: true }));
@@ -161,14 +193,6 @@ export default function RiegoPage() {
     setConfirmPlan(null);
   };
 
-  const handleDurationChange = (phaseId, value) => {
-    const num = Number(value);
-    if (num > 120) return;
-    const newDurations = { ...durations, [phaseId]: num || 0 };
-    setDurations(newDurations);
-    saveStoredDurations(newDurations);
-  };
-
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
@@ -190,7 +214,6 @@ export default function RiegoPage() {
       )}
 
       <Grid container spacing={3}>
-        {/* Phases Section */}
         <Grid item xs={12} md={6}>
           <Typography variant="h6" gutterBottom>Fases</Typography>
           <Grid container spacing={2}>
@@ -206,22 +229,28 @@ export default function RiegoPage() {
                         </Typography>
                       </Box>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <TextField
-                          type="number"
-                          size="small"
-                          value={durations[phase.id] || 10}
-                          onChange={(e) => handleDurationChange(phase.id, e.target.value)}
-                          inputProps={{ min: 1, max: 120, style: { width: 50, textAlign: 'center' } }}
-                          sx={{ width: 80 }}
-                          disabled={false}
-                        />
-                        <Typography variant="caption" color="text.secondary">min</Typography>
+                        <FormControl size="small" sx={{ minWidth: 110 }}>
+                          <Select
+                            value={durations[phase.id] !== undefined ? durations[phase.id] : DEFAULT_DURATION}
+                            onChange={(e) => {
+                              const newDurations = { ...durations, [phase.id]: e.target.value };
+                              setDurations(newDurations);
+                              saveStoredDurations(newDurations);
+                            }}
+                          >
+                            {DURATION_OPTIONS.map(opt => (
+                              <MenuItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
                         <Button
                           variant="contained"
                           size="small"
                           startIcon={starting[phase.id] ? <CircularProgress size={16} /> : <PlayArrowIcon />}
                           onClick={() => handleStart(phase.id)}
-                          disabled={starting[phase.id] || (durations[phase.id] !== undefined && durations[phase.id] <= 0)}
+                          disabled={starting[phase.id]}
                         >
                           Activar
                         </Button>
@@ -234,7 +263,6 @@ export default function RiegoPage() {
           </Grid>
         </Grid>
 
-        {/* Queue Section */}
         <Grid item xs={12} md={6}>
           <Typography variant="h6" gutterBottom>
             Cola de riego
@@ -252,7 +280,7 @@ export default function RiegoPage() {
                       <PlayArrowIcon />
                     </Box>
                     <ListItemText
-                      primary={`${state.current.name} — ${state.current.durationMin} min`}
+                      primary={`${state.current.name} — ${formatDuration(state.current.durationMin)}`}
                       secondary={
                         <Box component="span" display="flex" alignItems="center" gap={0.5}>
                           <AccessTimeIcon sx={{ fontSize: 14 }} />
@@ -276,7 +304,7 @@ export default function RiegoPage() {
                         <HourglassEmptyIcon color="action" />
                       </Box>
                       <ListItemText
-                        primary={`${item.name} — ${item.durationMin} min`}
+                        primary={`${item.name} — ${formatDuration(item.durationMin)}`}
                         secondary={
                           <Chip label="En espera" size="small" variant="outlined" sx={{ mt: 0.5 }} />
                         }
@@ -294,17 +322,13 @@ export default function RiegoPage() {
         </Grid>
       </Grid>
 
-      {/* Plans Section */}
       <Box sx={{ mt: 4 }}>
         <Typography variant="h6" gutterBottom>Planes guardados</Typography>
 
         {plans.length === 0 ? (
           <Card sx={{ p: 3, textAlign: 'center' }}>
             <Typography color="text.secondary">
-              No hay planes guardados.{' '}
-              <Button size="small" onClick={() => {}} sx={{ textTransform: 'none' }}>
-                Crear uno
-              </Button>
+              No hay planes guardados.
             </Typography>
           </Card>
         ) : (
@@ -317,11 +341,11 @@ export default function RiegoPage() {
                     <Typography variant="body2" color="text.secondary">
                       {plan.phases.map(p => {
                         const phase = state.phases.find(ph => ph.id === p.phaseId);
-                        return `${phase?.name || p.phaseId} ${p.durationMin}m`;
+                        return `${phase?.name || p.phaseId} ${formatDuration(p.durationMin)}`;
                       }).join(' → ')}
                     </Typography>
                     <Chip
-                      label={`Total: ${formatTotalDuration(plan.phases)} min`}
+                      label={`Total: ${formatTotalDuration(plan.phases)}`}
                       size="small"
                       sx={{ mt: 0.5 }}
                     />
@@ -351,13 +375,13 @@ export default function RiegoPage() {
         <DialogTitle>Activar plan de riego</DialogTitle>
         <DialogContent>
           <Typography>
-            ¿Añadir plan "{confirmPlan?.name}" ({confirmPlan?.phases?.length || 0} fases, {formatTotalDuration(confirmPlan?.phases || [])} min total) a la cola?
+            ¿Añadir plan "{confirmPlan?.name}" ({confirmPlan?.phases?.length || 0} fases, {formatTotalDuration(confirmPlan?.phases || [])}) a la cola?
           </Typography>
           {confirmPlan?.phases?.map((p, i) => {
             const phase = state.phases.find(ph => ph.id === p.phaseId);
             return (
               <Typography key={i} variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                {i + 1}. {phase?.name || p.phaseId} — {p.durationMin} min
+                {i + 1}. {phase?.name || p.phaseId} — {formatDuration(p.durationMin)}
               </Typography>
             );
           })}

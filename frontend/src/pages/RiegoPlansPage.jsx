@@ -27,6 +27,40 @@ import EditIcon from '@mui/icons-material/Edit';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import api from '../services/api';
 
+const DURATION_OPTIONS = [
+  { label: '10 seg', value: 10 / 60 },
+  { label: '1 min', value: 1 },
+  { label: '5 min', value: 5 },
+  { label: '10 min', value: 10 },
+  { label: '15 min', value: 15 },
+  { label: '20 min', value: 20 },
+  { label: '30 min', value: 30 },
+  { label: '45 min', value: 45 },
+  { label: '1 hora', value: 60 },
+];
+
+const DEFAULT_DURATION = 10;
+
+function formatDuration(minutes) {
+  if (minutes < 1) {
+    return `${Math.round(minutes * 60)} seg`;
+  }
+  if (minutes === 60) return '1 hora';
+  return `${Math.round(minutes)} min`;
+}
+
+function formatPlansTotal(phases) {
+  const total = phases.reduce((s, p) => s + p.durationMin, 0);
+  if (total < 1) return `${Math.round(total * 60)} seg`;
+  if (total === 60) return '1 hora';
+  if (total > 60) {
+    const h = Math.floor(total / 60);
+    const m = Math.round(total % 60);
+    return m > 0 ? `${h}h ${m}min` : `${h} horas`;
+  }
+  return `${Math.round(total)} min`;
+}
+
 export default function RiegoPlansPage() {
   const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
@@ -84,7 +118,7 @@ export default function RiegoPlansPage() {
 
   const handleAddPhase = () => {
     if (riegoState.phases.length === 0) return;
-    setPlanPhases([...planPhases, { phaseId: riegoState.phases[0].id, durationMin: 10 }]);
+    setPlanPhases([...planPhases, { phaseId: riegoState.phases[0].id, durationMin: DEFAULT_DURATION }]);
   };
 
   const handleRemovePhase = (index) => {
@@ -182,12 +216,12 @@ export default function RiegoPlansPage() {
                     {plan.phases.map((p, i) => (
                       <span key={i}>
                         {i > 0 && ' → '}
-                        {getPhaseName(p.phaseId)} ({p.durationMin}m)
+                        {getPhaseName(p.phaseId)} — {formatDuration(p.durationMin)}
                       </span>
                     ))}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {plan.phases.length} fases · Total: {plan.phases.reduce((s, p) => s + p.durationMin, 0)} min
+                    {plan.phases.length} fases · Total: {formatPlansTotal(plan.phases)}
                   </Typography>
                 </Box>
                 <Box display="flex" gap={0.5}>
@@ -241,15 +275,16 @@ export default function RiegoPlansPage() {
                     ))}
                   </Select>
                 </FormControl>
-                <TextField
-                  type="number"
-                  size="small"
-                  value={p.durationMin}
-                  onChange={(e) => handlePhaseChange(index, 'durationMin', e.target.value)}
-                  inputProps={{ min: 1, max: 120, style: { width: 50, textAlign: 'center' } }}
-                  sx={{ width: 80 }}
-                />
-                <Typography variant="caption" color="text.secondary">min</Typography>
+                <FormControl size="small" sx={{ minWidth: 110 }}>
+                  <Select
+                    value={p.durationMin}
+                    onChange={(e) => handlePhaseChange(index, 'durationMin', e.target.value)}
+                  >
+                    {DURATION_OPTIONS.map(opt => (
+                      <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <IconButton size="small" onClick={() => handleMovePhase(index, -1)} disabled={index === 0}>
                   <ArrowUpwardIcon fontSize="small" />
                 </IconButton>

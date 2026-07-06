@@ -189,7 +189,7 @@ describe('RiegoPage', () => {
     await userEvent.click(triggerButtons[0]);
 
     await waitFor(() => {
-      expect(screen.getByText('¿Añadir plan "Plan 1" (2 fases, 15 min total) a la cola?')).toBeInTheDocument();
+      expect(screen.getByText('¿Añadir plan "Plan 1" (2 fases, 15 min) a la cola?')).toBeInTheDocument();
     });
   });
 
@@ -202,18 +202,13 @@ describe('RiegoPage', () => {
     expect(mockSocketOn).toHaveBeenCalledWith('riego:updated', expect.any(Function));
   });
 
-  it('disables activate button when duration is empty', async () => {
+  it('activate button is enabled by default with default duration', async () => {
     renderWithProviders(<RiegoPage />);
     await waitFor(() => {
       expect(screen.getByText('Jardín')).toBeInTheDocument();
     });
 
-    const inputs = screen.getAllByRole('spinbutton');
-    await userEvent.clear(inputs[0]);
-    // After clearing, button should be disabled since value is empty/0
     const buttons = screen.getAllByText('Activar');
-    await waitFor(() => {
-      expect(buttons[0]).toBeDisabled();
-    });
+    expect(buttons[0]).not.toBeDisabled();
   });
 });
