@@ -6,7 +6,6 @@ const MAX_DURATION_MIN = 120;
 const WATCHDOG_INTERVAL = 15000;
 const STOP_RETRY_COUNT = 3;
 const STOP_RETRY_DELAY = 2000;
-const OFF_TIMER_SECONDS = 5;
 
 let state = {
   current: null,
@@ -57,16 +56,24 @@ async function stopShelly(shellyId, channel, server, apiKey) {
         body: body.toString(),
       });
       if (response.ok) return true;
-      console.error(`stopShelly failed for ${shellyId} ch${channel}: HTTP ${response.status} (attempt ${attempt + 1})`);
+
+      const data = await response.json();
+      if (data?.errors?.max_req) {
+        console.warn(`Riego: rate limit on stopShelly for ${shellyId} ch${channel}, waiting before retry`);
+        await new Promise(r => setTimeout(r, STOP_RETRY_DELAY));
+        continue;
+      }
+      console.error(`Riego: stopShelly failed for ${shellyId} ch${channel}: HTTP ${response.status}`);
+      return false;
     } catch (error) {
-      console.error(`stopShelly error for ${shellyId} ch${channel} (attempt ${attempt + 1}):`, error.message);
-    }
-    if (attempt < STOP_RETRY_COUNT - 1) {
-      await new Promise(r => setTimeout(r, STOP_RETRY_DELAY));
+      console.error(`Riego: stopShelly error for ${shellyId} ch${channel} (attempt ${attempt + 1}):`, error.message);
+      if (attempt < STOP_RETRY_COUNT - 1) {
+        await new Promise(r => setTimeout(r, STOP_RETRY_DELAY));
+      }
     }
   }
 
-  console.error(`stopShelly failed after ${STOP_RETRY_COUNT} attempts for ${shellyId} ch${channel}`);
+  console.error(`Riego: stopShelly failed for ${shellyId} ch${channel}`);
   return false;
 }
 
@@ -76,26 +83,41 @@ async function startShelly(shellyId, channel, server, apiKey) {
     id: shellyId,
     channel: String(channel),
     turn: 'on',
-    timer: String(OFF_TIMER_SECONDS),
     auth_key: apiKey,
   });
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
-    });
-    if (!response.ok) {
-      console.error(`startShelly failed for ${shellyId} ch${channel}: HTTP ${response.status}`);
+  console.log(`Riego: startShelly -> POST ${url} body: ${body.toString()}`);
+
+  for (let attempt = 0; attempt < STOP_RETRY_COUNT; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
+      const data = await response.json();
+
+      if (response.ok && data.isok === true) {
+        return true;
+      }
+
+      if (data?.errors?.max_req) {
+        console.warn(`Riego: rate limit on startShelly for ${shellyId} ch${channel} (attempt ${attempt + 1}), waiting before retry`);
+        await new Promise(r => setTimeout(r, STOP_RETRY_DELAY));
+        continue;
+      }
+
+      console.error(`Riego: startShelly failed for ${shellyId} ch${channel}: HTTP ${response.status}, response:`, JSON.stringify(data));
       return false;
+    } catch (error) {
+      console.error(`Riego: startShelly error for ${shellyId} ch${channel} (attempt ${attempt + 1}):`, error.message);
+      if (attempt < STOP_RETRY_COUNT - 1) {
+        await new Promise(r => setTimeout(r, STOP_RETRY_DELAY));
+      }
     }
-    const data = await response.json();
-    return data.isok === true;
-  } catch (error) {
-    console.error(`startShelly error for ${shellyId} ch${channel}:`, error.message);
-    return false;
   }
+
+  return false;
 }
 
 function emitState() {
@@ -135,10 +157,12 @@ async function advanceQueue() {
   if (state.queue.length === 0) {
     state.current = null;
     emitState();
+    console.log('Riego: queue empty, all phases completed');
     return;
   }
 
   const next = state.queue.shift();
+  console.log(`Riego: advancing to phase ${next.phaseId} (${next.name}), remaining in queue: ${state.queue.length}`);
   await startPhaseItem(next);
 }
 
@@ -151,14 +175,21 @@ async function startPhaseItem(item) {
   const endTime = Date.now() + durationMs;
 
   const success = await startShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
+  console.log(`Riego: phase ${item.phaseId} (${item.name}) Shelly ON ${success ? 'OK' : 'FAILED'}`);
 
-  const timerId = setTimeout(() => {
-    const config = loadConfig();
-    const phase = findPhase(item.phaseId);
-    if (phase) {
-      stopShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
+  const timerId = setTimeout(async () => {
+    try {
+      const config = loadConfig();
+      const phase = findPhase(item.phaseId);
+      if (phase) {
+        console.log(`Riego: phase ${item.phaseId} (${item.name}) timer expired, stopping Shelly`);
+        await stopShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
+      }
+      await new Promise(r => setTimeout(r, 2000));
+      await advanceQueue();
+    } catch (error) {
+      console.error(`Riego: timer callback error for phase ${item.phaseId}:`, error);
     }
-    advanceQueue();
   }, durationMs);
 
   state.current = {
@@ -237,6 +268,7 @@ export async function stopCurrent() {
 
   const config = loadConfig();
   await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
+  await new Promise(r => setTimeout(r, 500));
   await advanceQueue();
 }
 
