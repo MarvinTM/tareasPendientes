@@ -59,7 +59,11 @@ export default function Layout() {
   }, [navigate]);
 
   const handleDrawerModuleClick = (mod) => {
-    setDrawerExpanded(prev => !prev);
+    if (activeModule?.id === mod.id) {
+      setDrawerExpanded(prev => !prev);
+    } else if (!drawerExpanded) {
+      setDrawerExpanded(true);
+    }
     navigateToModule(mod);
   };
 
