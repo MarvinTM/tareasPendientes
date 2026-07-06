@@ -18,6 +18,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
+import { keyframes } from '@emotion/react';
 import Paper from '@mui/material/Paper';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -30,6 +31,11 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+
+const pulse = keyframes`
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+`;
 
 const DURATION_OPTIONS = [
   { label: '10 seg', value: 10 / 60 },
@@ -227,16 +233,30 @@ export default function RiegoPage() {
         <Grid item xs={12} md={6}>
           <Typography variant="h6" gutterBottom>Fases</Typography>
           <Grid container spacing={2}>
-            {state.phases.map(phase => (
+            {state.phases.map(phase => {
+              const isActive = state.current?.phaseId === phase.id;
+              return (
               <Grid item xs={12} key={phase.id}>
-                <Card>
+                <Card sx={{
+                  borderLeft: isActive ? '4px solid #4caf50' : undefined,
+                  backgroundColor: isActive ? '#e8f5e9' : undefined,
+                  transition: 'background-color 0.3s ease, border-left 0.3s ease',
+                }}>
                   <CardContent>
                     <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <WaterDropIcon color="primary" />
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {phase.name}
-                        </Typography>
+                        <WaterDropIcon sx={{
+                          color: isActive ? '#4caf50' : undefined,
+                          animation: isActive ? `${pulse} 2s ease-in-out infinite` : undefined,
+                        }} />
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight="bold">
+                            {phase.name}
+                          </Typography>
+                          {isActive && (
+                            <Chip label="En curso" size="small" color="success" sx={{ mt: 0.25, height: 20, fontSize: '0.65rem' }} />
+                          )}
+                        </Box>
                       </Box>
                       <Box display="flex" alignItems="center" gap={1}>
                         <FormControl size="small" sx={{ minWidth: 110 }}>
@@ -269,7 +289,8 @@ export default function RiegoPage() {
                   </CardContent>
                 </Card>
               </Grid>
-            ))}
+              );
+            })}
           </Grid>
         </Grid>
 
