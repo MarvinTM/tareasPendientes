@@ -201,14 +201,21 @@ export default function RiegoPage() {
     }
   };
 
-  const handleTriggerPlan = async () => {
-    if (!confirmPlan) return;
+  const handleTriggerPlan = async (plan) => {
     try {
-      await api.post(`/riego/plans/${confirmPlan.id}/trigger`);
+      await api.post(`/riego/plans/${plan.id}/trigger`);
     } catch {
       setSnackbar('Error al activar el plan');
     }
     setConfirmPlan(null);
+  };
+
+  const handlePlanClick = (plan) => {
+    if (state.current || state.queue.length > 0) {
+      setConfirmPlan(plan);
+    } else {
+      handleTriggerPlan(plan);
+    }
   };
 
   if (loading) {
@@ -399,7 +406,7 @@ export default function RiegoPage() {
                   <Button
                     variant="outlined"
                     startIcon={<PlayArrowIcon />}
-                    onClick={() => setConfirmPlan(plan)}
+                    onClick={() => handlePlanClick(plan)}
                   >
                     Activar plan
                   </Button>
@@ -434,7 +441,7 @@ export default function RiegoPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmPlan(null)}>Cancelar</Button>
-          <Button onClick={handleTriggerPlan} variant="contained" color="primary">
+          <Button onClick={() => confirmPlan && handleTriggerPlan(confirmPlan)} variant="contained" color="primary">
             Añadir a la cola
           </Button>
         </DialogActions>

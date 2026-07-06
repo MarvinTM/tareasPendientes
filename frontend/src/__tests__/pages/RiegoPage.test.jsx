@@ -179,7 +179,19 @@ describe('RiegoPage', () => {
     });
   });
 
-  it('opens confirmation dialog on plan trigger', async () => {
+  it('opens confirmation dialog when queue has items', async () => {
+    mockApiGet.mockImplementation((url) => {
+      if (url === '/riego/status') return Promise.resolve({
+        data: {
+          ...defaultState,
+          current: { queueId: 'q-1', phaseId: 'fase-1', name: 'Jardín', durationMin: 10, remaining: 500, status: 'running', statusRetry: 0 },
+          queue: [{ queueId: 'q-2', phaseId: 'fase-2', name: 'Patio', durationMin: 5 }],
+        },
+      });
+      if (url === '/riego/plans') return Promise.resolve({ data: defaultPlans });
+      return Promise.reject(new Error('Unknown URL'));
+    });
+
     renderWithProviders(<RiegoPage />);
     await waitFor(() => {
       expect(screen.getByText('Plan 1')).toBeInTheDocument();
@@ -190,6 +202,22 @@ describe('RiegoPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('¿Añadir plan "Plan 1" (2 fases, 15 min) a la cola?')).toBeInTheDocument();
+    });
+  });
+
+  it('triggers plan directly when queue is empty', async () => {
+    mockApiPost.mockResolvedValueOnce({ data: {} });
+
+    renderWithProviders(<RiegoPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Plan 1')).toBeInTheDocument();
+    });
+
+    const triggerButtons = screen.getAllByText('Activar plan');
+    await userEvent.click(triggerButtons[0]);
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/riego/plans/p-1/trigger');
     });
   });
 
