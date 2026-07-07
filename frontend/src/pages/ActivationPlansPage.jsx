@@ -257,17 +257,17 @@ export default function ActivationPlansPage() {
               >
                 <ToggleButton value="fixed">
                   <Tooltip title="Hora fija">
-                    <ScheduleIcon fontSize="small" />
+                    <ScheduleIcon fontSize="small" sx={{ color: '#78909c' }} />
                   </Tooltip>
                 </ToggleButton>
                 <ToggleButton value="sunrise">
                   <Tooltip title={`Se activará dinámicamente al amanecer, dependiendo del momento del año. Actualmente: ${sunriseTime}`}>
-                    <Brightness7Icon fontSize="small" />
+                    <Brightness7Icon fontSize="small" sx={{ color: '#ffb300' }} />
                   </Tooltip>
                 </ToggleButton>
                 <ToggleButton value="sunset">
                   <Tooltip title={`Se activará dinámicamente al anochecer, dependiendo del momento del año. Actualmente: ${sunsetTime}`}>
-                    <WbTwilightIcon fontSize="small" />
+                    <WbTwilightIcon fontSize="small" sx={{ color: '#e65100' }} />
                   </Tooltip>
                 </ToggleButton>
               </ToggleButtonGroup>
@@ -309,17 +309,17 @@ export default function ActivationPlansPage() {
               >
                 <ToggleButton value="fixed">
                   <Tooltip title="Hora fija">
-                    <ScheduleIcon fontSize="small" />
+                    <ScheduleIcon fontSize="small" sx={{ color: '#78909c' }} />
                   </Tooltip>
                 </ToggleButton>
                 <ToggleButton value="sunrise">
                   <Tooltip title={`Se desactivará dinámicamente al amanecer, dependiendo del momento del año. Actualmente: ${sunriseTime}`}>
-                    <Brightness7Icon fontSize="small" />
+                    <Brightness7Icon fontSize="small" sx={{ color: '#ffb300' }} />
                   </Tooltip>
                 </ToggleButton>
                 <ToggleButton value="sunset">
                   <Tooltip title={`Se desactivará dinámicamente al anochecer, dependiendo del momento del año. Actualmente: ${sunsetTime}`}>
-                    <WbTwilightIcon fontSize="small" />
+                    <WbTwilightIcon fontSize="small" sx={{ color: '#e65100' }} />
                   </Tooltip>
                 </ToggleButton>
               </ToggleButtonGroup>
