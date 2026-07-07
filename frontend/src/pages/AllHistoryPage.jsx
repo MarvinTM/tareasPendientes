@@ -92,7 +92,7 @@ export default function AllHistoryPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 7, md: 0 } }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <HistoryIcon fontSize="large" color="primary" /> Historial de Actividad
       </Typography>

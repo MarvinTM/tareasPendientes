@@ -65,7 +65,7 @@ export default function RiegoEventsPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 7, md: 0 } }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WaterDropIcon fontSize="large" color="primary" /> Histórico de Riegos
       </Typography>
