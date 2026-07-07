@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -15,7 +14,6 @@ import { useSocket } from '../contexts/SocketContext';
 import { getGroupIcon } from '../utils/iconMap';
 
 export default function DevicesPage() {
-  const { groupId } = useParams();
   const socket = useSocket();
   const [devices, setDevices] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -23,35 +21,25 @@ export default function DevicesPage() {
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState(null);
 
-  const group = groups.find(g => g.id === groupId);
-  const GroupIcon = group ? getGroupIcon(group.icon) : null;
-
-  const fetchDevices = useCallback(async () => {
-    if (!groupId) return;
+  const fetchData = useCallback(async () => {
     try {
-      const response = await api.get(`/devices?group=${groupId}`);
-      setDevices(response.data);
+      const [devicesRes, groupsRes] = await Promise.all([
+        api.get('/devices'),
+        api.get('/devices/groups'),
+      ]);
+      setDevices(devicesRes.data);
+      setGroups(groupsRes.data);
       setError(null);
     } catch (err) {
       setError('Error al cargar los dispositivos');
     } finally {
       setLoading(false);
     }
-  }, [groupId]);
-
-  const fetchGroups = useCallback(async () => {
-    try {
-      const response = await api.get('/devices/groups');
-      setGroups(response.data);
-    } catch {
-      // silently ignore
-    }
   }, []);
 
   useEffect(() => {
-    fetchGroups();
-    fetchDevices();
-  }, [fetchGroups, fetchDevices]);
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     if (!socket) return;
@@ -70,9 +58,9 @@ export default function DevicesPage() {
     const hasOffline = devices.some(d => d.online === false);
     if (!hasOffline) return;
 
-    const interval = setInterval(fetchDevices, 10000);
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
-  }, [devices, fetchDevices]);
+  }, [devices, fetchData]);
 
   const handleToggle = async (deviceId) => {
     setDevices(prev =>
@@ -102,11 +90,15 @@ export default function DevicesPage() {
     );
   }
 
+  const groupedDevices = groups.map(g => ({
+    ...g,
+    devices: devices.filter(d => d.group === g.id),
+  }));
+
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {GroupIcon && <GroupIcon fontSize="large" color="primary" />}
-        {group?.name || 'Dispositivos'}
+        Dispositivos
       </Typography>
 
       {error && (
@@ -118,59 +110,72 @@ export default function DevicesPage() {
       {devices.length === 0 && !loading && (
         <Card sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            No hay dispositivos en este grupo.
+            No hay dispositivos configurados.
           </Typography>
         </Card>
       )}
 
-      <Grid container spacing={2}>
-        {devices.map(device => (
-          <Grid item xs={12} sm={6} md={4} key={device.id}>
-            <Card sx={{ opacity: device.online === false ? 0.7 : 1 }}>
-              <CardContent>
-                <Box display="flex" alignItems="center" justifyContent="space-between">
-                  <Box display="flex" alignItems="center" gap={1.5} minWidth={0}>
-                    {device.online === false ? (
-                      <WarningAmberIcon color="warning" />
-                    ) : GroupIcon ? (
-                      <GroupIcon
-                        sx={{ color: device.on ? '#fdd835' : 'text.secondary' }}
-                      />
-                    ) : null}
-                    <Box minWidth={0}>
-                      <Typography variant="subtitle1" fontWeight="bold" noWrap>
-                        {device.name}
-                      </Typography>
-                      {device.room && (
-                        <Typography variant="body2" color="text.secondary" noWrap>
-                          {device.room}
-                        </Typography>
-                      )}
-                      {device.online === false && (
-                        <Typography variant="caption" color="warning.main">
-                          Sin conexión
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
+      {groupedDevices.filter(g => g.devices.length > 0).map(group => {
+        const GroupIcon = getGroupIcon(group.icon);
 
-                  <Box display="flex" alignItems="center">
-                    {device.toggling ? (
-                      <CircularProgress size={24} />
-                    ) : (
-                      <Switch
-                        checked={device.on === true}
-                        disabled={device.online === false || device.on === null}
-                        onChange={() => handleToggle(device.id)}
-                      />
-                    )}
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+        return (
+          <Box key={group.id} sx={{ mb: 4 }}>
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {GroupIcon && <GroupIcon color="primary" />}
+              {group.name}
+            </Typography>
+
+            <Grid container spacing={2}>
+              {group.devices.map(device => (
+                <Grid item xs={12} sm={6} md={4} key={device.id}>
+                  <Card sx={{ opacity: device.online === false ? 0.7 : 1 }}>
+                    <CardContent>
+                      <Box display="flex" alignItems="center" justifyContent="space-between">
+                        <Box display="flex" alignItems="center" gap={1.5} minWidth={0}>
+                          {device.online === false ? (
+                            <WarningAmberIcon color="warning" />
+                          ) : GroupIcon ? (
+                            <GroupIcon
+                              sx={{ color: device.on ? '#fdd835' : 'text.secondary' }}
+                            />
+                          ) : null}
+                          <Box minWidth={0}>
+                            <Typography variant="subtitle1" fontWeight="bold" noWrap>
+                              {device.name}
+                            </Typography>
+                            {device.room && (
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {device.room}
+                              </Typography>
+                            )}
+                            {device.online === false && (
+                              <Typography variant="caption" color="warning.main">
+                                Sin conexión
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+
+                        <Box display="flex" alignItems="center">
+                          {device.toggling ? (
+                            <CircularProgress size={24} />
+                          ) : (
+                            <Switch
+                              checked={device.on === true}
+                              disabled={device.online === false || device.on === null}
+                              onChange={() => handleToggle(device.id)}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        );
+      })}
 
       <Snackbar
         open={Boolean(snackbar)}

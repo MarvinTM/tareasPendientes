@@ -21,10 +21,7 @@ export const modules = [
     label: 'Dispositivos',
     icon: LightbulbIcon,
     path: '/dispositivos',
-    dynamicSubNav: true,
-    subNav: [
-      { label: 'Luces', path: '/dispositivos/lights' },
-    ],
+    subNav: [],
   },
   {
     id: 'riego',

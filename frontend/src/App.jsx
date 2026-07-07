@@ -82,8 +82,7 @@ function App() {
         <Route path="usuario/historial" element={<AllHistoryPage />} />
         <Route path="usuario/historial/:taskId" element={<TaskHistoryPage />} />
         <Route path="usuario/configuracion" element={<ConfiguracionPage />} />
-        <Route path="dispositivos" element={<Navigate to="/dispositivos/lights" replace />} />
-        <Route path="dispositivos/:groupId" element={<DevicesPage />} />
+        <Route path="dispositivos" element={<DevicesPage />} />
         <Route path="riego" element={<RiegoPage />} />
         <Route path="riego/planes" element={<RiegoPlansPage />} />
         <Route path="riego/eventos" element={<RiegoEventsPage />} />
