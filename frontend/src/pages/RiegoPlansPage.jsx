@@ -172,6 +172,20 @@ export default function RiegoPlansPage() {
     }
   };
 
+  const handleMovePlan = async (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= plans.length) return;
+    const updated = [...plans];
+    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    setPlans(updated);
+    try {
+      await api.patch('/riego/plans/reorder', { planIds: updated.map(p => p.id) });
+    } catch {
+      setSnackbar('Error al reordenar los planes');
+      fetchData();
+    }
+  };
+
   const getPhaseName = (phaseId) => {
     return riegoState.phases.find(p => p.id === phaseId)?.name || phaseId;
   };
@@ -206,7 +220,7 @@ export default function RiegoPlansPage() {
           <Typography color="text.secondary">No hay planes guardados.</Typography>
         </Card>
       ) : (
-        plans.map(plan => (
+        plans.map((plan, index) => (
           <Card key={plan.id} sx={{ mb: 2 }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
@@ -225,6 +239,12 @@ export default function RiegoPlansPage() {
                   </Typography>
                 </Box>
                 <Box display="flex" gap={0.5}>
+                  <IconButton size="small" onClick={() => handleMovePlan(index, -1)} disabled={index === 0}>
+                    <ArrowUpwardIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => handleMovePlan(index, 1)} disabled={index === plans.length - 1}>
+                    <ArrowDownwardIcon fontSize="small" />
+                  </IconButton>
                   <IconButton size="small" onClick={() => handleOpenEdit(plan)}>
                     <EditIcon />
                   </IconButton>

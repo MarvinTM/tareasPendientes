@@ -127,6 +127,7 @@ model RiegoPlan {
   id          String   @id @default(uuid())
   name        String
   phases      Json
+  order       Int      @default(0)
   createdById String
   createdBy   User     @relation("RiegoPlanCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())

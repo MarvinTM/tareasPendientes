@@ -84,7 +84,7 @@ router.get('/plans', authenticateToken, async (req, res) => {
   try {
     const plans = await prisma.riegoPlan.findMany({
       include: { createdBy: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
     });
     res.json(plans);
   } catch (error) {
@@ -127,6 +127,30 @@ router.post('/plans', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error creating riego plan:', error);
     res.status(500).json({ error: 'Failed to create riego plan' });
+  }
+});
+
+router.patch('/plans/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { planIds } = req.body;
+
+    if (!Array.isArray(planIds)) {
+      return res.status(400).json({ error: 'planIds array is required' });
+    }
+
+    await prisma.$transaction(
+      planIds.map((id, index) =>
+        prisma.riegoPlan.update({
+          where: { id },
+          data: { order: index },
+        })
+      )
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error reordering riego plans:', error);
+    res.status(500).json({ error: 'Failed to reorder plans' });
   }
 });
 
