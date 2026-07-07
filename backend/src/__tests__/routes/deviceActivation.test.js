@@ -28,6 +28,42 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
   authenticateToken: mockAuthenticateToken,
 }));
 
+jest.unstable_mockModule('../../services/shelly.js', () => ({
+  getDeviceById: jest.fn().mockReturnValue(null),
+  turnDeviceOn: jest.fn(),
+  turnDeviceOff: jest.fn(),
+  loadConfig: jest.fn().mockReturnValue({ devices: [], groups: [] }),
+  getDevices: jest.fn().mockReturnValue([]),
+  getGroups: jest.fn().mockReturnValue([]),
+  fetchDeviceStatus: jest.fn().mockResolvedValue({ on: null, online: false }),
+  fetchAllStatuses: jest.fn().mockResolvedValue([]),
+  toggleDevice: jest.fn(),
+}));
+
+jest.unstable_mockModule('../../services/activityLog.js', () => ({
+  logActivity: jest.fn().mockResolvedValue(),
+  ACTIONS: { DEVICE_TURNED_ON: 'DEVICE_TURNED_ON', DEVICE_TURNED_OFF: 'DEVICE_TURNED_OFF' },
+}));
+
+jest.unstable_mockModule('../../socket.js', () => ({
+  emitDeviceUpdate: jest.fn(),
+  setIO: jest.fn(),
+}));
+
+const MOCK_SUNRISE = new Date();
+const MOCK_SUNSET = new Date();
+MOCK_SUNRISE.setHours(7, 15, 0, 0);
+MOCK_SUNSET.setHours(21, 30, 0, 0);
+
+jest.unstable_mockModule('suncalc', () => ({
+  default: {
+    getTimes: jest.fn(() => ({
+      sunrise: MOCK_SUNRISE,
+      sunset: MOCK_SUNSET,
+    })),
+  },
+}));
+
 describe('Device Activation Routes', () => {
   let app;
 
@@ -62,9 +98,9 @@ describe('Device Activation Routes', () => {
   });
 
   describe('POST /activation-plans', () => {
-    it('creates a plan', async () => {
+    it('creates a plan with fixed modes', async () => {
       mockPlan.create.mockResolvedValueOnce({
-        id: 'p-new', name: 'Pool Pump', activationTime: '10:00', deactivationTime: '18:00', timezone: 'Europe/Madrid',
+        id: 'p-new', name: 'Pool Pump', activationTime: '10:00', deactivationTime: '18:00', activationMode: 'fixed', deactivationMode: 'fixed', timezone: 'Europe/Madrid',
       });
 
       const res = await request(app)
@@ -78,11 +114,45 @@ describe('Device Activation Routes', () => {
           name: 'Pool Pump',
           activationTime: '10:00',
           deactivationTime: '18:00',
+          activationMode: 'fixed',
+          deactivationMode: 'fixed',
           timezone: 'Europe/Madrid',
           createdById: 'usr-1',
         },
         include: expect.any(Object),
       });
+    });
+
+    it('creates a plan with sunrise/sunset modes — stores 00:00 placeholders', async () => {
+      mockPlan.create.mockResolvedValueOnce({
+        id: 'p-new', name: 'Sun', activationTime: '00:00', deactivationTime: '00:00', activationMode: 'sunrise', deactivationMode: 'sunset', timezone: 'Europe/Madrid',
+      });
+
+      const res = await request(app)
+        .post('/api/devices/activation-plans')
+        .send({ name: 'Sun', activationMode: 'sunrise', deactivationMode: 'sunset' });
+
+      expect(res.status).toBe(201);
+      expect(mockPlan.create).toHaveBeenCalledWith({
+        data: {
+          name: 'Sun',
+          activationTime: '00:00',
+          deactivationTime: '00:00',
+          activationMode: 'sunrise',
+          deactivationMode: 'sunset',
+          timezone: 'Europe/Madrid',
+          createdById: 'usr-1',
+        },
+        include: expect.any(Object),
+      });
+    });
+
+    it('returns 400 for invalid activationMode', async () => {
+      const res = await request(app)
+        .post('/api/devices/activation-plans')
+        .send({ name: 'Bad', activationTime: '10:00', deactivationTime: '18:00', activationMode: 'invalid' });
+
+      expect(res.status).toBe(400);
     });
 
     it('returns 400 when name is missing', async () => {
@@ -93,7 +163,7 @@ describe('Device Activation Routes', () => {
       expect(res.status).toBe(400);
     });
 
-    it('returns 400 when activation >= deactivation', async () => {
+    it('returns 400 when activation >= deactivation for fixed modes', async () => {
       const res = await request(app)
         .post('/api/devices/activation-plans')
         .send({ name: 'Bad', activationTime: '18:00', deactivationTime: '10:00' });
@@ -101,10 +171,10 @@ describe('Device Activation Routes', () => {
       expect(res.status).toBe(400);
     });
 
-    it('returns 400 when times are missing', async () => {
+    it('returns 400 when activationTime missing for fixed mode', async () => {
       const res = await request(app)
         .post('/api/devices/activation-plans')
-        .send({ name: 'Test' });
+        .send({ name: 'Test', deactivationTime: '18:00' });
 
       expect(res.status).toBe(400);
     });
@@ -124,7 +194,7 @@ describe('Device Activation Routes', () => {
 
   describe('PATCH /activation-plans/:id', () => {
     it('updates a plan', async () => {
-      mockPlan.findUnique.mockResolvedValueOnce({ id: 'p-1' });
+      mockPlan.findUnique.mockResolvedValueOnce({ id: 'p-1', activationMode: 'fixed', deactivationMode: 'fixed' });
       mockPlan.update.mockResolvedValueOnce({
         id: 'p-1', name: 'Updated', activationTime: '09:00', deactivationTime: '17:00',
       });
@@ -147,9 +217,9 @@ describe('Device Activation Routes', () => {
       expect(res.status).toBe(404);
     });
 
-    it('validates activation < deactivation on update', async () => {
+    it('validates activation < deactivation on update for fixed modes', async () => {
       mockPlan.findUnique.mockResolvedValueOnce({
-        id: 'p-1', activationTime: '08:00', deactivationTime: '12:00',
+        id: 'p-1', activationTime: '08:00', deactivationTime: '12:00', activationMode: 'fixed', deactivationMode: 'fixed',
       });
 
       const res = await request(app)
@@ -160,7 +230,7 @@ describe('Device Activation Routes', () => {
     });
 
     it('validates activation < deactivation when both updated', async () => {
-      mockPlan.findUnique.mockResolvedValueOnce({ id: 'p-1' });
+      mockPlan.findUnique.mockResolvedValueOnce({ id: 'p-1', activationMode: 'fixed', deactivationMode: 'fixed' });
 
       const res = await request(app)
         .patch('/api/devices/activation-plans/p-1')
@@ -193,16 +263,16 @@ describe('Device Activation Routes', () => {
   describe('GET /activation-status', () => {
     it('returns status map of device assignments', async () => {
       mockActivation.findMany.mockResolvedValueOnce([
-        { deviceId: 'dev-1', planId: 'p-1', plan: { id: 'p-1', name: 'Morning', timezone: 'Europe/Madrid' } },
-        { deviceId: 'dev-2', planId: 'p-1', plan: { id: 'p-1', name: 'Morning', timezone: 'Europe/Madrid' } },
+        { deviceId: 'dev-1', planId: 'p-1', plan: { id: 'p-1', name: 'Morning', activationTime: '08:00', deactivationTime: '12:00', activationMode: 'fixed', deactivationMode: 'fixed' } },
+        { deviceId: 'dev-2', planId: 'p-1', plan: { id: 'p-1', name: 'Morning', activationTime: '08:00', deactivationTime: '12:00', activationMode: 'fixed', deactivationMode: 'fixed' } },
       ]);
 
       const res = await request(app).get('/api/devices/activation-status');
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
-        'dev-1': { planId: 'p-1', planName: 'Morning', timezone: 'Europe/Madrid' },
-        'dev-2': { planId: 'p-1', planName: 'Morning', timezone: 'Europe/Madrid' },
+        'dev-1': { planId: 'p-1', planName: 'Morning', activationTime: '08:00', deactivationTime: '12:00', activationMode: 'fixed', deactivationMode: 'fixed' },
+        'dev-2': { planId: 'p-1', planName: 'Morning', activationTime: '08:00', deactivationTime: '12:00', activationMode: 'fixed', deactivationMode: 'fixed' },
       });
     });
 

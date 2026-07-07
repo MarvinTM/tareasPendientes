@@ -16,6 +16,14 @@ import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
 import { getGroupIcon } from '../utils/iconMap';
 
+function formatPlanLabel(plan) {
+  const actMode = plan.activationMode || 'fixed';
+  const deactMode = plan.deactivationMode || 'fixed';
+  const actLabel = actMode === 'sunrise' ? 'Amanecer' : actMode === 'sunset' ? 'Anochecer' : plan.activationTime;
+  const deactLabel = deactMode === 'sunrise' ? 'Amanecer' : deactMode === 'sunset' ? 'Anochecer' : plan.deactivationTime;
+  return `${plan.name} (${actLabel} — ${deactLabel})`;
+}
+
 export default function DevicesPage() {
   const socket = useSocket();
   const [devices, setDevices] = useState([]);
@@ -211,7 +219,7 @@ export default function DevicesPage() {
                               <MenuItem value="">Sin plan</MenuItem>
                               {plans.map(p => (
                                 <MenuItem key={p.id} value={p.id}>
-                                  {p.name} ({p.activationTime} — {p.deactivationTime})
+                                  {formatPlanLabel(p)}
                                 </MenuItem>
                               ))}
                             </Select>

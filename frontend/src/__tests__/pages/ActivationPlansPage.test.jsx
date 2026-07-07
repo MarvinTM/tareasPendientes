@@ -21,6 +21,15 @@ vi.mock('../../services/api', () => ({
   },
 }));
 
+vi.mock('suncalc', () => ({
+  default: {
+    getTimes: vi.fn(() => ({
+      sunrise: new Date(2000, 0, 1, 7, 15),
+      sunset: new Date(2000, 0, 1, 21, 30),
+    })),
+  },
+}));
+
 function renderWithProviders(ui) {
   return render(
     <MemoryRouter>
@@ -30,7 +39,7 @@ function renderWithProviders(ui) {
 }
 
 const defaultPlans = [
-  { id: 'p-1', name: 'Morning', activationTime: '08:00', deactivationTime: '12:00' },
+  { id: 'p-1', name: 'Morning', activationTime: '08:00', deactivationTime: '12:00', activationMode: 'fixed', deactivationMode: 'fixed' },
 ];
 
 describe('ActivationPlansPage', () => {
@@ -46,11 +55,23 @@ describe('ActivationPlansPage', () => {
     });
   });
 
-  it('renders plan list', async () => {
+  it('renders plan list with fixed mode times', async () => {
     renderWithProviders(<ActivationPlansPage />);
     await waitFor(() => {
       expect(screen.getByText('Morning')).toBeInTheDocument();
       expect(screen.getByText('08:00 — 12:00')).toBeInTheDocument();
+    });
+  });
+
+  it('renders plan list with sunrise/sunset labels', async () => {
+    mockApiGet.mockResolvedValue({
+      data: [{ id: 'p-2', name: 'Sun Plan', activationTime: '00:00', deactivationTime: '00:00', activationMode: 'sunrise', deactivationMode: 'sunset' }],
+    });
+
+    renderWithProviders(<ActivationPlansPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Sun Plan')).toBeInTheDocument();
+      expect(screen.getByText('Amanecer (~07:15) — Anochecer (~21:30)')).toBeInTheDocument();
     });
   });
 
@@ -77,8 +98,8 @@ describe('ActivationPlansPage', () => {
     });
   });
 
-  it('saves new plan', async () => {
-    mockApiPost.mockResolvedValueOnce({ data: { id: 'new', name: 'Evening', activationTime: '18:00', deactivationTime: '22:00' } });
+  it('saves new plan with fixed modes', async () => {
+    mockApiPost.mockResolvedValueOnce({ data: { id: 'new', name: 'Evening', activationTime: '18:00', deactivationTime: '22:00', activationMode: 'fixed', deactivationMode: 'fixed' } });
 
     renderWithProviders(<ActivationPlansPage />);
     await waitFor(() => {
@@ -97,7 +118,7 @@ describe('ActivationPlansPage', () => {
     await userEvent.type(timeInputs[0], '18:00');
     await userEvent.type(timeInputs[1], '22:00');
 
-    mockApiGet.mockResolvedValue({ data: [...defaultPlans, { id: 'new', name: 'Evening', activationTime: '18:00', deactivationTime: '22:00' }] });
+    mockApiGet.mockResolvedValue({ data: [...defaultPlans, { id: 'new', name: 'Evening', activationTime: '18:00', deactivationTime: '22:00', activationMode: 'fixed', deactivationMode: 'fixed' }] });
 
     await userEvent.click(screen.getByText('Guardar'));
 
@@ -106,6 +127,8 @@ describe('ActivationPlansPage', () => {
         name: 'Evening',
         activationTime: '18:00',
         deactivationTime: '22:00',
+        activationMode: 'fixed',
+        deactivationMode: 'fixed',
       });
     });
   });

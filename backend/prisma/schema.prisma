@@ -129,6 +129,8 @@ model DeviceActivationPlan {
   name             String
   activationTime   String
   deactivationTime String
+  activationMode   String              @default("fixed")
+  deactivationMode String              @default("fixed")
   timezone         String              @default("Europe/Madrid")
   createdById      String
   createdBy        User                @relation("DeviceActivationPlanCreator", fields: [createdById], references: [id])

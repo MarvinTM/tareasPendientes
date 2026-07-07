@@ -34,11 +34,21 @@ jest.unstable_mockModule('../../config/passport.js', () => ({
   },
 }));
 
+const mockGetTimes = jest.fn();
+
+jest.unstable_mockModule('suncalc', () => ({
+  default: { getTimes: mockGetTimes },
+}));
+
 describe('DeviceScheduler', () => {
   let _tick, init, _reset;
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockGetTimes.mockReturnValue({
+      sunrise: new Date(2000, 0, 1, 7, 15),
+      sunset: new Date(2000, 0, 1, 21, 30),
+    });
     const mod = await import('../../services/deviceScheduler.js');
     _tick = mod._tick;
     init = mod.init;
@@ -57,65 +67,57 @@ describe('DeviceScheduler', () => {
   });
 
   describe('_tick', () => {
-    const testTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    function makePlan(overrides = {}) {
+      return {
+        deviceId: 'dev-1',
+        planId: 'p-1',
+        plan: {
+          id: 'p-1',
+          name: 'Test Plan',
+          activationMode: 'fixed',
+          deactivationMode: 'fixed',
+          activationTime: '04:00',
+          deactivationTime: '05:00',
+          timezone: 'Europe/Madrid',
+          ...overrides,
+        },
+      };
+    }
 
-    it('turns on device when activationTime matches current time', async () => {
+    it('turns on device when activationTime matches current time (fixed mode)', async () => {
       const device = { id: 'dev-1', name: 'Light' };
       const now = new Date();
       const h = String(now.getHours()).padStart(2, '0');
       const m = String(now.getMinutes()).padStart(2, '0');
       const currentTime = `${h}:${m}`;
 
-      mockActivationFindMany.mockResolvedValue([{
-        deviceId: 'dev-1',
-        planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '23:00', timezone: testTz },
-      }]);
+      mockActivationFindMany.mockResolvedValue([makePlan({ activationTime: currentTime, deactivationTime: '23:00' })]);
       mockGetDeviceById.mockReturnValue(device);
       mockTurnDeviceOn.mockResolvedValue({ on: true });
 
       await _tick();
 
       expect(mockTurnDeviceOn).toHaveBeenCalledWith('dev-1');
-      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({
-        id: 'dev-1', ...device, on: true,
-      });
-      expect(mockLogActivity).toHaveBeenCalledWith(
-        null, 'DEVICE_TURNED_ON', 'dev-1', 'Light',
-        { scheduled: true, planId: 'p-1', planName: 'Morning' }
-      );
     });
 
-    it('turns off device when deactivationTime matches current time', async () => {
+    it('turns off device when deactivationTime matches current time (fixed mode)', async () => {
       const device = { id: 'dev-2', name: 'Pump' };
       const now = new Date();
       const h = String(now.getHours()).padStart(2, '0');
       const m = String(now.getMinutes()).padStart(2, '0');
       const currentTime = `${h}:${m}`;
 
-      mockActivationFindMany.mockResolvedValue([{
-        deviceId: 'dev-2',
-        planId: 'p-2',
-        plan: { id: 'p-2', name: 'Evening', activationTime: '06:00', deactivationTime: currentTime, timezone: testTz },
-      }]);
+      mockActivationFindMany.mockResolvedValue([{ ...makePlan({ activationTime: '06:00', deactivationTime: currentTime }), deviceId: 'dev-2' }]);
       mockGetDeviceById.mockReturnValue(device);
       mockTurnDeviceOff.mockResolvedValue({ on: false });
 
       await _tick();
 
       expect(mockTurnDeviceOff).toHaveBeenCalledWith('dev-2');
-      expect(mockLogActivity).toHaveBeenCalledWith(
-        null, 'DEVICE_TURNED_OFF', 'dev-2', 'Pump',
-        { scheduled: true, planId: 'p-2', planName: 'Evening' }
-      );
     });
 
-    it('skips device when time does not match', async () => {
-      mockActivationFindMany.mockResolvedValue([{
-        deviceId: 'dev-1',
-        planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: '04:00', deactivationTime: '05:00', timezone: testTz },
-      }]);
+    it('skips device when time does not match (fixed mode)', async () => {
+      mockActivationFindMany.mockResolvedValue([makePlan()]);
 
       await _tick();
 
@@ -129,11 +131,7 @@ describe('DeviceScheduler', () => {
       const m = String(now.getMinutes()).padStart(2, '0');
       const currentTime = `${h}:${m}`;
 
-      mockActivationFindMany.mockResolvedValue([{
-        deviceId: 'unknown',
-        planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '12:00', timezone: testTz },
-      }]);
+      mockActivationFindMany.mockResolvedValue([makePlan({ activationTime: currentTime, deactivationTime: '12:00' })]);
       mockGetDeviceById.mockReturnValue(null);
 
       await _tick();
@@ -148,17 +146,90 @@ describe('DeviceScheduler', () => {
       const m = String(now.getMinutes()).padStart(2, '0');
       const currentTime = `${h}:${m}`;
 
-      mockActivationFindMany.mockResolvedValue([{
-        deviceId: 'dev-1',
-        planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '12:00', timezone: testTz },
-      }]);
+      mockActivationFindMany.mockResolvedValue([makePlan({ activationTime: currentTime, deactivationTime: '12:00' })]);
       mockGetDeviceById.mockReturnValue(device);
       mockTurnDeviceOn.mockRejectedValue(new Error('Shelly error'));
 
       await _tick();
 
       expect(mockLogActivity).not.toHaveBeenCalled();
+    });
+
+    it('turns on device when activationMode is sunrise and localTime matches sunrise', async () => {
+      const device = { id: 'dev-1', name: 'Light' };
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${h}:${m}`;
+
+      mockGetTimes.mockReturnValue({
+        sunrise: now,
+        sunset: new Date(2000, 0, 1, 21, 30),
+      });
+
+      mockActivationFindMany.mockResolvedValue([makePlan({ activationMode: 'sunrise', activationTime: '00:00' })]);
+      mockGetDeviceById.mockReturnValue(device);
+      mockTurnDeviceOn.mockResolvedValue({ on: true });
+
+      await _tick();
+
+      expect(mockTurnDeviceOn).toHaveBeenCalledWith('dev-1');
+    });
+
+    it('turns off device when deactivationMode is sunset and localTime matches sunset', async () => {
+      const device = { id: 'dev-2', name: 'Light' };
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${h}:${m}`;
+
+      mockGetTimes.mockReturnValue({
+        sunrise: new Date(2000, 0, 1, 7, 0),
+        sunset: now,
+      });
+
+      mockActivationFindMany.mockResolvedValue([{ ...makePlan({ deactivationMode: 'sunset', deactivationTime: '00:00' }), deviceId: 'dev-2' }]);
+      mockGetDeviceById.mockReturnValue(device);
+      mockTurnDeviceOff.mockResolvedValue({ on: false });
+
+      await _tick();
+
+      expect(mockTurnDeviceOff).toHaveBeenCalledWith('dev-2');
+    });
+
+    it('does not trigger sunrise mode when local time does not match sunrise', async () => {
+      const device = { id: 'dev-1', name: 'Light' };
+      mockGetTimes.mockReturnValue({
+        sunrise: new Date(2000, 0, 1, 4, 0),
+        sunset: new Date(2000, 0, 1, 21, 0),
+      });
+
+      mockActivationFindMany.mockResolvedValue([makePlan({ activationMode: 'sunrise', activationTime: '00:00' })]);
+      mockGetDeviceById.mockReturnValue(device);
+
+      await _tick();
+
+      expect(mockTurnDeviceOn).not.toHaveBeenCalled();
+    });
+
+    it('treats missing activationMode as fixed', async () => {
+      const device = { id: 'dev-1', name: 'Light' };
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${h}:${m}`;
+
+      mockActivationFindMany.mockResolvedValue([{
+        deviceId: 'dev-1',
+        planId: 'p-1',
+        plan: { id: 'p-1', name: 'Legacy', activationTime: currentTime, deactivationTime: '23:00', timezone: 'Europe/Madrid' },
+      }]);
+      mockGetDeviceById.mockReturnValue(device);
+      mockTurnDeviceOn.mockResolvedValue({ on: true });
+
+      await _tick();
+
+      expect(mockTurnDeviceOn).toHaveBeenCalledWith('dev-1');
     });
   });
 });

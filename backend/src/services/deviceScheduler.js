@@ -1,7 +1,11 @@
+import SunCalc from 'suncalc';
 import { turnDeviceOn, turnDeviceOff, getDeviceById } from './shelly.js';
 import { logActivity, ACTIONS } from './activityLog.js';
 import { prisma } from '../config/passport.js';
 import { emitDeviceUpdate } from '../socket.js';
+
+const ALBERITE = { lat: 42.4067, lng: -2.4381 };
+const TIMEZONE = 'Europe/Madrid';
 
 let schedulerTimer = null;
 let initialized = false;
@@ -18,6 +22,26 @@ function getLocalTime(timezone) {
   } catch {
     return null;
   }
+}
+
+export function computeSunTime(type) {
+  const times = SunCalc.getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
+  const date = type === 'sunrise' ? times.sunrise : times.sunset;
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function resolveTime(mode, fixedTime, sunTime) {
+  if (mode === 'sunrise') return sunTime.sunrise;
+  if (mode === 'sunset') return sunTime.sunset;
+  return fixedTime;
+}
+
+function modeLabel(mode) {
+  if (mode === 'sunrise') return 'amanecer';
+  if (mode === 'sunset') return 'anochecer';
+  return 'fijo';
 }
 
 async function tick() {
@@ -37,28 +61,19 @@ async function tick() {
 
     console.log(`[Scheduler] found ${activations.length} activation record(s)`);
 
-    const timeCache = {};
-    function getOrComputeLocalTime(tz) {
-      if (!timeCache[tz]) {
-        timeCache[tz] = getLocalTime(tz);
-      }
-      return timeCache[tz];
-    }
+    const localTime = getLocalTime(TIMEZONE);
+    const sunTime = { sunrise: computeSunTime('sunrise'), sunset: computeSunTime('sunset') };
+    console.log(`[Scheduler] local=${localTime} sun=${sunTime.sunrise}/${sunTime.sunset}`);
 
     let matched = false;
 
     for (const act of activations) {
-      const tz = act.plan.timezone || 'UTC';
-      const localTime = getOrComputeLocalTime(tz);
+      const actMode = act.plan.activationMode || 'fixed';
+      const deactMode = act.plan.deactivationMode || 'fixed';
+      const planOn = resolveTime(actMode, act.plan.activationTime, sunTime);
+      const planOff = resolveTime(deactMode, act.plan.deactivationTime, sunTime);
 
-      if (localTime === null) {
-        console.warn(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" SKIP: invalid timezone "${tz}"`);
-        continue;
-      }
-
-      const planOn = act.plan.activationTime;
-      const planOff = act.plan.deactivationTime;
-      console.log(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" tz=${tz} on=${planOn} off=${planOff} (local=${localTime}, utc=${utcTime})`);
+      console.log(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" on=${planOn}(${modeLabel(actMode)}) off=${planOff}(${modeLabel(deactMode)}) (local=${localTime})`);
 
       const device = getDeviceById(act.deviceId);
       if (!device) {
@@ -117,7 +132,7 @@ export function init() {
   if (initialized) return;
   initialized = true;
   console.log('Device scheduler started');
-  tick(); // run immediately on startup
+  tick();
   schedulerTimer = setInterval(tick, 60000);
 }
 

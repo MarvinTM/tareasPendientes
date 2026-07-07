@@ -1,36 +1,38 @@
 import express from 'express';
+import SunCalc from 'suncalc';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/passport.js';
 import { getDeviceById } from '../services/shelly.js';
+import { computeSunTime } from '../services/deviceScheduler.js';
 
 const router = express.Router();
 
-const DEFAULT_TIMEZONE = process.env.TIMEZONE || 'Europe/Madrid';
+const ALBERITE = { lat: 42.4067, lng: -2.4381 };
+const TIMEZONE = 'Europe/Madrid';
+const VALID_MODES = ['fixed', 'sunrise', 'sunset'];
 
-function isValidTimezone(tz) {
-  try {
-    if (Intl.supportedValuesOf) {
-      return Intl.supportedValuesOf('timeZone').includes(tz);
-    }
-    try {
-      Intl.DateTimeFormat(undefined, { timeZone: tz });
-      return true;
-    } catch {
-      return false;
-    }
-  } catch {
-    return false;
-  }
-}
-
-function getLocalTime(timezone) {
+function getLocalTime() {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone || 'UTC',
+    timeZone: TIMEZONE,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   }).format(new Date());
   return parts;
+}
+
+function formatSunTime(type) {
+  const times = SunCalc.getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
+  const date = type === 'sunrise' ? times.sunrise : times.sunset;
+  const h = String(date.getHours()).padStart(2, '0');
+  const m = String(date.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function resolveTime(mode, fixedTime) {
+  if (mode === 'sunrise') return computeSunTime('sunrise');
+  if (mode === 'sunset') return computeSunTime('sunset');
+  return fixedTime;
 }
 
 router.get('/activation-plans', authenticateToken, async (req, res) => {
@@ -48,29 +50,44 @@ router.get('/activation-plans', authenticateToken, async (req, res) => {
 
 router.post('/activation-plans', authenticateToken, async (req, res) => {
   try {
-    const { name, activationTime, deactivationTime, timezone } = req.body;
+    const { name, activationTime, deactivationTime, activationMode, deactivationMode } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Name is required' });
     }
-    if (!activationTime || !deactivationTime) {
-      return res.status(400).json({ error: 'Both activation and deactivation times are required' });
+
+    const actMode = activationMode || 'fixed';
+    const deactMode = deactivationMode || 'fixed';
+
+    if (!VALID_MODES.includes(actMode)) {
+      return res.status(400).json({ error: `Invalid activationMode: ${actMode}` });
     }
-    if (activationTime >= deactivationTime) {
-      return res.status(400).json({ error: 'Activation time must be before deactivation time' });
+    if (!VALID_MODES.includes(deactMode)) {
+      return res.status(400).json({ error: `Invalid deactivationMode: ${deactMode}` });
     }
 
-    const tz = timezone || DEFAULT_TIMEZONE;
-    if (!isValidTimezone(tz)) {
-      return res.status(400).json({ error: `Invalid timezone: ${tz}` });
+    if (actMode === 'fixed' && !activationTime) {
+      return res.status(400).json({ error: 'activationTime is required for fixed mode' });
+    }
+    if (deactMode === 'fixed' && !deactivationTime) {
+      return res.status(400).json({ error: 'deactivationTime is required for fixed mode' });
+    }
+
+    const storedOn = actMode === 'fixed' ? activationTime : '00:00';
+    const storedOff = deactMode === 'fixed' ? deactivationTime : '00:00';
+
+    if (actMode === 'fixed' && deactMode === 'fixed' && storedOn >= storedOff) {
+      return res.status(400).json({ error: 'Activation time must be before deactivation time' });
     }
 
     const plan = await prisma.deviceActivationPlan.create({
       data: {
         name: name.trim(),
-        activationTime,
-        deactivationTime,
-        timezone: tz,
+        activationTime: storedOn,
+        deactivationTime: storedOff,
+        activationMode: actMode,
+        deactivationMode: deactMode,
+        timezone: TIMEZONE,
         createdById: req.user.id,
       },
       include: { createdBy: { select: { id: true, name: true } } },
@@ -86,7 +103,7 @@ router.post('/activation-plans', authenticateToken, async (req, res) => {
 router.patch('/activation-plans/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, activationTime, deactivationTime, timezone } = req.body;
+    const { name, activationTime, deactivationTime, activationMode, deactivationMode, timezone } = req.body;
 
     const existing = await prisma.deviceActivationPlan.findUnique({ where: { id } });
     if (!existing) {
@@ -100,16 +117,28 @@ router.patch('/activation-plans/:id', authenticateToken, async (req, res) => {
     }
     if (activationTime !== undefined) updateData.activationTime = activationTime;
     if (deactivationTime !== undefined) updateData.deactivationTime = deactivationTime;
-    if (timezone !== undefined) {
-      if (!isValidTimezone(timezone)) {
-        return res.status(400).json({ error: `Invalid timezone: ${timezone}` });
+    if (activationMode !== undefined) {
+      if (!VALID_MODES.includes(activationMode)) {
+        return res.status(400).json({ error: `Invalid activationMode: ${activationMode}` });
       }
+      updateData.activationMode = activationMode;
+    }
+    if (deactivationMode !== undefined) {
+      if (!VALID_MODES.includes(deactivationMode)) {
+        return res.status(400).json({ error: `Invalid deactivationMode: ${deactivationMode}` });
+      }
+      updateData.deactivationMode = deactivationMode;
+    }
+    if (timezone !== undefined) {
       updateData.timezone = timezone;
     }
 
+    const mergedActMode = activationMode ?? existing.activationMode ?? 'fixed';
+    const mergedDeactMode = deactivationMode ?? existing.deactivationMode ?? 'fixed';
     const mergedActivation = activationTime ?? existing.activationTime;
     const mergedDeactivation = deactivationTime ?? existing.deactivationTime;
-    if (mergedActivation >= mergedDeactivation) {
+
+    if (mergedActMode === 'fixed' && mergedDeactMode === 'fixed' && mergedActivation >= mergedDeactivation) {
       return res.status(400).json({ error: 'Activation time must be before deactivation time' });
     }
 
@@ -146,12 +175,19 @@ router.delete('/activation-plans/:id', authenticateToken, async (req, res) => {
 router.get('/activation-status', authenticateToken, async (req, res) => {
   try {
     const activations = await prisma.deviceActivation.findMany({
-      include: { plan: { select: { id: true, name: true, timezone: true } } },
+      include: { plan: { select: { id: true, name: true, activationTime: true, deactivationTime: true, activationMode: true, deactivationMode: true } } },
     });
 
     const status = {};
     for (const a of activations) {
-      status[a.deviceId] = { planId: a.planId, planName: a.plan.name, timezone: a.plan.timezone };
+      status[a.deviceId] = {
+        planId: a.planId,
+        planName: a.plan.name,
+        activationTime: a.plan.activationTime,
+        deactivationTime: a.plan.deactivationTime,
+        activationMode: a.plan.activationMode,
+        deactivationMode: a.plan.deactivationMode,
+      };
     }
 
     res.json(status);
@@ -209,37 +245,49 @@ router.delete('/:deviceId/activation', authenticateToken, async (req, res) => {
 router.get('/scheduler-debug', authenticateToken, async (req, res) => {
   try {
     const now = new Date();
-    const utcTime = getLocalTime('UTC');
+    const utcTime = getLocalTime(); // just format, we use 'Europe/Madrid'
+    const sunriseTime = formatSunTime('sunrise');
+    const sunsetTime = formatSunTime('sunset');
 
     const activations = await prisma.deviceActivation.findMany({
       include: { plan: true },
     });
 
+    const localTime = getLocalTime();
+
     const records = activations.map(act => {
       const device = getDeviceById(act.deviceId);
-      const tz = act.plan.timezone || 'UTC';
-      const localTime = getLocalTime(tz);
-      const matchOn = act.plan.activationTime === localTime;
-      const matchOff = act.plan.deactivationTime === localTime;
+      const actMode = act.plan.activationMode || 'fixed';
+      const deactMode = act.plan.deactivationMode || 'fixed';
+      const resolvedOn = resolveTime(actMode, act.plan.activationTime);
+      const resolvedOff = resolveTime(deactMode, act.plan.deactivationTime);
+      const matchOn = resolvedOn === localTime;
+      const matchOff = resolvedOff === localTime;
       return {
         deviceId: act.deviceId,
         deviceFound: !!device,
         deviceName: device?.name || null,
         planId: act.planId,
         planName: act.plan.name,
-        timezone: tz,
-        localTime,
+        activationMode: actMode,
+        deactivationMode: deactMode,
         activationTime: act.plan.activationTime,
         deactivationTime: act.plan.deactivationTime,
+        resolvedActivationTime: resolvedOn,
+        resolvedDeactivationTime: resolvedOff,
+        sunriseTime,
+        sunsetTime,
+        localTime,
         wouldTriggerNow: matchOn || matchOff,
         wouldAction: matchOn ? 'ON' : (matchOff ? 'OFF' : null),
       };
     });
 
     res.json({
-      serverUtcTime: utcTime,
-      serverTimezoneOffset: now.getTimezoneOffset(),
-      defaultTimezone: DEFAULT_TIMEZONE,
+      serverLocalTime: localTime,
+      utcTime,
+      sunriseTime,
+      sunsetTime,
       activationCount: activations.length,
       records,
     });
