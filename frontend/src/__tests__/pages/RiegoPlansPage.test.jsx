@@ -21,6 +21,20 @@ vi.mock('../../services/api', () => ({
   },
 }));
 
+vi.mock('@hello-pangea/dnd', () => ({
+  DragDropContext: ({ children }) => children,
+  Droppable: ({ children }) => children({
+    innerRef: vi.fn(),
+    droppableProps: {},
+    placeholder: null,
+  }, { isDraggingOver: false }),
+  Draggable: ({ children }) => children({
+    innerRef: vi.fn(),
+    draggableProps: {},
+    dragHandleProps: {},
+  }, { isDragging: false }),
+}));
+
 function renderWithProviders(ui) {
   return render(
     <MemoryRouter>

@@ -25,6 +25,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import api from '../services/api';
 
 const DURATION_OPTIONS = [
@@ -172,11 +173,13 @@ export default function RiegoPlansPage() {
     }
   };
 
-  const handleMovePlan = async (index, direction) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= plans.length) return;
+  const handleDragEnd = async (result) => {
+    const { source, destination } = result;
+    if (!destination || source.index === destination.index) return;
+
     const updated = [...plans];
-    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+    const [moved] = updated.splice(source.index, 1);
+    updated.splice(destination.index, 0, moved);
     setPlans(updated);
     try {
       await api.patch('/riego/plans/reorder', { planIds: updated.map(p => p.id) });
@@ -220,42 +223,57 @@ export default function RiegoPlansPage() {
           <Typography color="text.secondary">No hay planes guardados.</Typography>
         </Card>
       ) : (
-        plans.map((plan, index) => (
-          <Card key={plan.id} sx={{ mb: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
-                <Box flex={1} minWidth={0}>
-                  <Typography variant="h6">{plan.name}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {plan.phases.map((p, i) => (
-                      <span key={i}>
-                        {i > 0 && ' → '}
-                        {getPhaseName(p.phaseId)} — {formatDuration(p.durationMin)}
-                      </span>
-                    ))}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {plan.phases.length} fases · Total: {formatPlansTotal(plan.phases)}
-                  </Typography>
-                </Box>
-                <Box display="flex" gap={0.5}>
-                  <IconButton size="small" onClick={() => handleMovePlan(index, -1)} disabled={index === 0}>
-                    <ArrowUpwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleMovePlan(index, 1)} disabled={index === plans.length - 1}>
-                    <ArrowDownwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleOpenEdit(plan)}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={() => setDeleteConfirm(plan)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Box>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="plans">
+            {(provided) => (
+              <Box ref={provided.innerRef} {...provided.droppableProps}>
+                {plans.map((plan, index) => (
+                  <Draggable key={plan.id} draggableId={plan.id} index={index}>
+                    {(provided, snapshot) => (
+                      <Card
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        {...provided.dragHandleProps}
+                        sx={{
+                          mb: 2,
+                          ...(snapshot.isDragging ? { boxShadow: 4 } : {}),
+                        }}
+                      >
+                        <CardContent>
+                          <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                            <Box flex={1} minWidth={0}>
+                              <Typography variant="h6">{plan.name}</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                {plan.phases.map((p, i) => (
+                                  <span key={i}>
+                                    {i > 0 && ' → '}
+                                    {getPhaseName(p.phaseId)} — {formatDuration(p.durationMin)}
+                                  </span>
+                                ))}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {plan.phases.length} fases · Total: {formatPlansTotal(plan.phases)}
+                              </Typography>
+                            </Box>
+                            <Box display="flex" gap={0.5} alignItems="center">
+                              <IconButton size="small" onClick={() => handleOpenEdit(plan)}>
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton size="small" color="error" onClick={() => setDeleteConfirm(plan)}>
+                                <DeleteIcon />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
               </Box>
-            </CardContent>
-          </Card>
-        ))
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
 
       <Box sx={{ mt: 2 }}>
