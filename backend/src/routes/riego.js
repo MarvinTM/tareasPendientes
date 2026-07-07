@@ -238,30 +238,27 @@ router.post('/plans/:id/trigger', authenticateToken, async (req, res) => {
 
 router.get('/events', authenticateToken, async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 30;
-    const skip = (page - 1) * limit;
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const before = req.query.before;
+    const beforeFilter = before ? { timestamp: { lt: new Date(before) } } : undefined;
 
-    const [events, total] = await Promise.all([
-      prisma.riegoEvent.findMany({
-        include: {
-          user: { select: { id: true, name: true } },
-        },
-        orderBy: { timestamp: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.riegoEvent.count(),
-    ]);
+    const events = await prisma.riegoEvent.findMany({
+      where: beforeFilter,
+      include: {
+        user: { select: { id: true, name: true } },
+      },
+      orderBy: { timestamp: 'desc' },
+      take: limit + 1,
+    });
+
+    const hasMore = events.length > limit;
+    const items = events.slice(0, limit);
+    const nextCursor = items.length > 0 ? items[items.length - 1].timestamp : null;
 
     res.json({
-      events,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      events: items,
+      nextCursor: hasMore && nextCursor ? nextCursor.toISOString() : null,
+      hasMore,
     });
   } catch (error) {
     console.error('Error fetching riego events:', error);
