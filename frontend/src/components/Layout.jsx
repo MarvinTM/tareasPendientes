@@ -366,7 +366,7 @@ export default function Layout() {
             >
               <AppLogo sx={{ fontSize: 28, flexShrink: 0 }} />
               {drawerExpanded && (
-                <Typography variant="subtitle2" fontWeight="bold" noWrap color="primary.main">
+                <Typography variant="subtitle2" fontWeight="bold" color="primary.main" sx={{ lineHeight: 1.2 }}>
                   Tareas Pendientes
                 </Typography>
               )}
