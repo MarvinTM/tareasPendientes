@@ -34,6 +34,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+import RainAnimation from '../components/RainAnimation';
 
 const pulse = keyframes`
   0%, 100% { transform: scale(1); }
@@ -259,6 +260,7 @@ export default function RiegoPage() {
                     <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={isMobile ? 0.5 : 1}>
                       <Box display="flex" alignItems="center" gap={1}>
                         <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                          {isActive && <RainAnimation />}
                           <WaterDropIcon sx={{
                             color: isActive ? '#4caf50' : undefined,
                             animation: isActive ? `${pulse} 2s ease-in-out infinite` : undefined,

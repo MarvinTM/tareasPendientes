@@ -29,6 +29,7 @@ import { modules } from '../config/modules';
 import { keyframes } from '@emotion/react';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../services/api';
+import RainAnimation from './RainAnimation';
 
 const DRAWER_COLLAPSED = 56;
 const DRAWER_EXPANDED = 200;
@@ -138,32 +139,7 @@ export default function Layout() {
 
   const renderRiegoIcon = (icon) => (
     <Box sx={{ position: 'relative', display: 'inline-flex' }}>
-      <Box sx={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: 28,
-        height: 28,
-        borderRadius: '50%',
-        border: `2px solid ${theme.palette.primary.main}`,
-        transform: 'translate(-50%, -50%)',
-        animation: `${ripple} 2s ease-out infinite`,
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
-      <Box sx={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: 28,
-        height: 28,
-        borderRadius: '50%',
-        border: `2px solid ${theme.palette.primary.main}`,
-        transform: 'translate(-50%, -50%)',
-        animation: `${ripple2} 2s ease-out infinite`,
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
+      <RainAnimation />
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         {icon}
       </Box>
