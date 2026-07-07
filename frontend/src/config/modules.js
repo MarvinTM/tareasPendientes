@@ -21,8 +21,9 @@ export const modules = [
     label: 'Dispositivos',
     icon: LightbulbIcon,
     path: '/dispositivos',
+    dynamicSubNav: true,
     subNav: [
-      { label: 'Luces', path: '/dispositivos/luces' },
+      { label: 'Luces', path: '/dispositivos/lights' },
     ],
   },
   {

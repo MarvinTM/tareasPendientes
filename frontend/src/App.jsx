@@ -9,7 +9,7 @@ import AdminPage from './pages/AdminPage';
 import CategoriesAdminPage from './pages/CategoriesAdminPage';
 import ScoreboardPage from './pages/ScoreboardPage';
 import PeriodicTasksPage from './pages/PeriodicTasksPage';
-import LightsPage from './pages/LightsPage';
+import DevicesPage from './pages/DevicesPage';
 import RiegoPage from './pages/RiegoPage';
 import RiegoPlansPage from './pages/RiegoPlansPage';
 import RiegoEventsPage from './pages/RiegoEventsPage';
@@ -82,8 +82,8 @@ function App() {
         <Route path="usuario/historial" element={<AllHistoryPage />} />
         <Route path="usuario/historial/:taskId" element={<TaskHistoryPage />} />
         <Route path="usuario/configuracion" element={<ConfiguracionPage />} />
-        <Route path="dispositivos" element={<Navigate to="/dispositivos/luces" replace />} />
-        <Route path="dispositivos/luces" element={<LightsPage />} />
+        <Route path="dispositivos" element={<Navigate to="/dispositivos/lights" replace />} />
+        <Route path="dispositivos/:groupId" element={<DevicesPage />} />
         <Route path="riego" element={<RiegoPage />} />
         <Route path="riego/planes" element={<RiegoPlansPage />} />
         <Route path="riego/eventos" element={<RiegoEventsPage />} />

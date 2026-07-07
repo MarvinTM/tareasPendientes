@@ -35,6 +35,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
 import RainAnimation from '../components/RainAnimation';
+import { getPhaseIcon } from '../utils/iconMap';
 
 const pulse = keyframes`
   0%, 100% { transform: scale(1); }
@@ -249,6 +250,7 @@ export default function RiegoPage() {
           <Grid container spacing={isMobile ? 1 : 2}>
             {state.phases.map((phase, index) => {
               const isActive = state.current?.phaseId === phase.id;
+              const PhaseIcon = getPhaseIcon(phase.icon);
               return (
               <Grid item xs={12} key={phase.id}>
                 <Card sx={{
@@ -261,7 +263,7 @@ export default function RiegoPage() {
                       <Box display="flex" alignItems="center" gap={1}>
                         <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                           {isActive && <RainAnimation />}
-                          <WaterDropIcon sx={{
+                          <PhaseIcon sx={{
                             color: isActive ? '#4caf50' : undefined,
                             animation: isActive ? `${pulse} 2s ease-in-out infinite` : undefined,
                             fontSize: isMobile ? 20 : undefined,
@@ -421,11 +423,14 @@ export default function RiegoPage() {
                       <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" minWidth={0}>
                         <Typography variant="body2" fontWeight="bold">{plan.name}</Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexWrap: 'wrap' }}>
-                          {plan.phases.map((p, i) => (
+                          {plan.phases.map((p, i) => {
+                            const planPhase = state.phases.find(ph => ph.id === p.phaseId);
+                            const PlanPhaseIcon = getPhaseIcon(planPhase?.icon);
+                            return (
                             <Box key={i} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
                               {i > 0 && <span>→</span>}
                               <Box sx={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle' }}>
-                                <WaterDropIcon sx={{ fontSize: 12, color: 'primary.main' }} />
+                                <PlanPhaseIcon sx={{ fontSize: 12, color: 'primary.main' }} />
                                 <Box sx={{
                                   position: 'absolute',
                                   bottom: -2,
@@ -447,7 +452,8 @@ export default function RiegoPage() {
                               </Box>
                               <span>{formatDuration(p.durationMin)}</span>
                             </Box>
-                          ))}
+                            );
+                          })}
                         </Typography>
                       </Box>
                       <Button

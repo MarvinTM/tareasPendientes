@@ -29,6 +29,7 @@ function getPhases() {
     name: p.name || p.id,
     shellyId: p.shellyId,
     channel: p.channel ?? 0,
+    icon: p.icon || null,
   }));
 }
 
@@ -161,7 +162,7 @@ function getPublicState() {
       name: item.name,
       durationMin: item.durationMin,
     })),
-    phases: getPhases().map(p => ({ id: p.id, name: p.name })),
+    phases: getPhases().map(p => ({ id: p.id, name: p.name, icon: p.icon || null })),
     durationMemory: Object.fromEntries(durationMemory),
   };
 }

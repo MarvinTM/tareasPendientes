@@ -5,6 +5,7 @@ import {
   fetchAllStatuses,
   toggleDevice,
   getDeviceById,
+  getGroups,
 } from '../services/shelly.js';
 import { logActivity, ACTIONS } from '../services/activityLog.js';
 
@@ -13,10 +14,25 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const devices = await fetchAllStatuses();
-    res.json(devices);
+    const group = req.query.group;
+    if (group) {
+      res.json(devices.filter(d => d.group === group));
+    } else {
+      res.json(devices);
+    }
   } catch (error) {
     console.error('Error fetching devices:', error);
     res.status(500).json({ error: 'Failed to fetch devices' });
+  }
+});
+
+router.get('/groups', authenticateToken, async (req, res) => {
+  try {
+    const groups = getGroups();
+    res.json(groups);
+  } catch (error) {
+    console.error('Error fetching device groups:', error);
+    res.status(500).json({ error: 'Failed to fetch device groups' });
   }
 });
 

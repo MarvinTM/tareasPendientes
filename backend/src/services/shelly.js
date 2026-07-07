@@ -45,7 +45,13 @@ export function getDevices() {
     name: d.name,
     room: d.room || '',
     channel: d.channel ?? 0,
+    group: d.group || 'lights',
   }));
+}
+
+export function getGroups() {
+  const config = loadConfig();
+  return config.groups || [];
 }
 
 export function getDeviceById(deviceId) {

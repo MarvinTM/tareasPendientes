@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -9,20 +10,26 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+import { getGroupIcon } from '../utils/iconMap';
 
-export default function LightsPage() {
+export default function DevicesPage() {
+  const { groupId } = useParams();
   const socket = useSocket();
   const [devices, setDevices] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState(null);
 
+  const group = groups.find(g => g.id === groupId);
+  const GroupIcon = group ? getGroupIcon(group.icon) : null;
+
   const fetchDevices = useCallback(async () => {
+    if (!groupId) return;
     try {
-      const response = await api.get('/devices');
+      const response = await api.get(`/devices?group=${groupId}`);
       setDevices(response.data);
       setError(null);
     } catch (err) {
@@ -30,11 +37,21 @@ export default function LightsPage() {
     } finally {
       setLoading(false);
     }
+  }, [groupId]);
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const response = await api.get('/devices/groups');
+      setGroups(response.data);
+    } catch {
+      // silently ignore
+    }
   }, []);
 
   useEffect(() => {
+    fetchGroups();
     fetchDevices();
-  }, [fetchDevices]);
+  }, [fetchGroups, fetchDevices]);
 
   useEffect(() => {
     if (!socket) return;
@@ -46,10 +63,7 @@ export default function LightsPage() {
     };
 
     socket.on('device:updated', handleDeviceUpdate);
-
-    return () => {
-      socket.off('device:updated', handleDeviceUpdate);
-    };
+    return () => socket.off('device:updated', handleDeviceUpdate);
   }, [socket]);
 
   useEffect(() => {
@@ -91,7 +105,8 @@ export default function LightsPage() {
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <LightbulbIcon fontSize="large" color="primary" /> Luces
+        {GroupIcon && <GroupIcon fontSize="large" color="primary" />}
+        {group?.name || 'Dispositivos'}
       </Typography>
 
       {error && (
@@ -103,7 +118,7 @@ export default function LightsPage() {
       {devices.length === 0 && !loading && (
         <Card sx={{ p: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            No hay dispositivos configurados.
+            No hay dispositivos en este grupo.
           </Typography>
         </Card>
       )}
@@ -117,17 +132,13 @@ export default function LightsPage() {
                   <Box display="flex" alignItems="center" gap={1.5} minWidth={0}>
                     {device.online === false ? (
                       <WarningAmberIcon color="warning" />
-                    ) : (
-                      <LightbulbIcon
+                    ) : GroupIcon ? (
+                      <GroupIcon
                         sx={{ color: device.on ? '#fdd835' : 'text.secondary' }}
                       />
-                    )}
+                    ) : null}
                     <Box minWidth={0}>
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        noWrap
-                      >
+                      <Typography variant="subtitle1" fontWeight="bold" noWrap>
                         {device.name}
                       </Typography>
                       {device.room && (

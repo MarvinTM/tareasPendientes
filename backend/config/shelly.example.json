@@ -1,4 +1,8 @@
 {
+  "groups": [
+    { "id": "lights", "name": "Luces", "icon": "Lightbulb" },
+    { "id": "pool", "name": "Piscina", "icon": "Pool" }
+  ],
   "server": "https://shelly-XXX.shelly.cloud",
   "apiKey": "your-shelly-cloud-api-key",
   "devices": [
@@ -7,20 +11,30 @@
       "shellyId": "shelly-device-id-1",
       "name": "Luz del salón",
       "room": "Salón",
-      "channel": 0
+      "channel": 0,
+      "group": "lights"
     },
     {
       "id": "lampara-salon",
       "shellyId": "shelly-device-id-1",
       "name": "Lámpara del salón",
       "room": "Salón",
-      "channel": 1
+      "channel": 1,
+      "group": "lights"
     },
     {
       "id": "luz-cocina",
       "shellyId": "shelly-device-id-2",
       "name": "Luz de la cocina",
-      "room": "Cocina"
+      "room": "Cocina",
+      "group": "lights"
+    },
+    {
+      "id": "bomba-piscina",
+      "shellyId": "shelly-device-id-5",
+      "name": "Bomba de la piscina",
+      "channel": 0,
+      "group": "pool"
     }
   ],
   "riego": {
@@ -35,19 +49,22 @@
         "id": "fase-2",
         "shellyId": "shelly-device-id-3",
         "name": "Patio trasero",
-        "channel": 1
+        "channel": 1,
+        "icon": "Yard"
       },
       {
         "id": "fase-3",
         "shellyId": "shelly-device-id-4",
         "name": "Huerto",
-        "channel": 0
+        "channel": 0,
+        "icon": "Grass"
       },
       {
         "id": "fase-4",
         "shellyId": "shelly-device-id-4",
         "name": "Césped",
-        "channel": 1
+        "channel": 1,
+        "icon": "Waves"
       }
     ]
   }

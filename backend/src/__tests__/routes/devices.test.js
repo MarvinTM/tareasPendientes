@@ -13,10 +13,19 @@ jest.unstable_mockModule('../../services/shelly.js', () => ({
   fetchAllStatuses: mockFetchAllStatuses,
   toggleDevice: mockToggleDevice,
   getDeviceById: mockGetDeviceById,
+  getGroups: jest.fn().mockReturnValue([]),
 }));
 
 jest.unstable_mockModule('../../socket.js', () => ({
   emitDeviceUpdate: mockEmitDeviceUpdate,
+}));
+
+jest.unstable_mockModule('../../services/activityLog.js', () => ({
+  logActivity: jest.fn().mockResolvedValue(),
+  ACTIONS: {
+    DEVICE_TURNED_ON: 'DEVICE_TURNED_ON',
+    DEVICE_TURNED_OFF: 'DEVICE_TURNED_OFF',
+  },
 }));
 
 const mockAuthenticateToken = jest.fn((req, res, next) => {

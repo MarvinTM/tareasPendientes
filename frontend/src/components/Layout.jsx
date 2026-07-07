@@ -60,6 +60,7 @@ export default function Layout() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [drawerExpanded, setDrawerExpanded] = useState(false);
+  const [deviceGroups, setDeviceGroups] = useState([]);
 
   const activeModule = modules.find(m =>
     location.pathname === m.path || location.pathname.startsWith(m.path + '/')
@@ -73,10 +74,25 @@ export default function Layout() {
   const adminModules = modules.filter(m => m.adminOnly);
   const visibleModules = modules.filter(m => !m.adminOnly || user?.isAdmin);
 
+  useEffect(() => {
+    api.get('/devices/groups')
+      .then(res => setDeviceGroups(res.data))
+      .catch(() => {});
+  }, []);
+
+  const activeSubNav = activeModule?.dynamicSubNav
+    ? deviceGroups.map(g => ({ label: g.name, path: `/dispositivos/${g.id}` }))
+    : activeModule?.subNav || [];
+
   const navigateToModule = useCallback((mod) => {
-    const target = mod.subNav.length > 0 ? mod.subNav[0].path : mod.path;
-    navigate(target);
-  }, [navigate]);
+    if (mod.dynamicSubNav) {
+      const firstGroup = deviceGroups[0];
+      navigate(firstGroup ? `/dispositivos/${firstGroup.id}` : mod.path);
+    } else {
+      const target = mod.subNav.length > 0 ? mod.subNav[0].path : mod.path;
+      navigate(target);
+    }
+  }, [navigate, deviceGroups]);
 
   const handleDrawerModuleClick = (mod) => {
     if (activeModule?.id === mod.id) {
@@ -258,7 +274,7 @@ export default function Layout() {
               {activeModule?.label || 'Navegación'}
             </Typography>
             <Divider />
-            {activeModule?.subNav.map(item => (
+            {activeSubNav.map(item => (
               <ListItemButton
                 key={item.path}
                 selected={location.pathname === item.path}
@@ -391,7 +407,7 @@ export default function Layout() {
             </Box>
 
             <Box sx={{ display: 'flex', flexGrow: 1, gap: 0.5 }}>
-              {isActiveModuleAccessible && activeModule?.subNav.map(item => (
+              {isActiveModuleAccessible && activeSubNav.map(item => (
                 <Button
                   key={item.path}
                   color="inherit"

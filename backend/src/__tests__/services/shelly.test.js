@@ -12,6 +12,7 @@ global.fetch = mockFetch;
 const validConfig = {
   server: 'https://shelly-263-eu.shelly.cloud',
   apiKey: 'test-api-key',
+  groups: [],
   devices: [
     { id: 'dev-1', name: 'Luz del salón', room: 'Salón' },
     { id: 'dev-2', shellyId: 'shelly-shared', name: 'Luz de la cocina', room: 'Cocina', channel: 0 },
@@ -71,9 +72,9 @@ describe('Shelly Service', () => {
       const devices = getDevices();
 
       expect(devices).toHaveLength(3);
-      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0 });
-      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0 });
-      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1 });
+      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights' });
+      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights' });
+      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights' });
     });
     it('defaults room to empty string when missing', async () => {
       writeFileSync(CONFIG_FILE, JSON.stringify({
@@ -212,9 +213,9 @@ describe('Shelly Service', () => {
       const results = await fetchAllStatuses();
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, on: true, online: true });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, on: false, online: true });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, on: true, online: true });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true });
     });
 
     it('handles mixed online and offline devices', async () => {
