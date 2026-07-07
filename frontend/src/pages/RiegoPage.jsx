@@ -414,49 +414,53 @@ export default function RiegoPage() {
             <Card key={plan.id} sx={{ mb: isMobile ? 1 : 2 }}>
               <CardContent sx={isMobile ? { p: 1.5, '&:last-child': { pb: 1.5 } } : undefined}>
                 {isMobile ? (
-                  <Box display="flex" alignItems="center" justifyContent="space-between" gap={1}>
-                    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" minWidth={0}>
-                      <Typography variant="body2" fontWeight="bold">{plan.name}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexWrap: 'wrap' }}>
-                        {plan.phases.map((p, i) => (
-                          <Box key={i} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-                            {i > 0 && <span>→</span>}
-                            <Box sx={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle' }}>
-                              <WaterDropIcon sx={{ fontSize: 12, color: 'primary.main' }} />
-                              <Box sx={{
-                                position: 'absolute',
-                                bottom: -2,
-                                right: -2,
-                                width: 10,
-                                height: 10,
-                                borderRadius: '50%',
-                                bgcolor: 'primary.main',
-                                color: 'white',
-                                fontSize: 6,
-                                fontWeight: 'bold',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                lineHeight: 1,
-                              }}>
-                                {i + 1}
+                  <Box>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" gap={1}>
+                      <Box display="flex" alignItems="center" gap={1} flexWrap="wrap" minWidth={0}>
+                        <Typography variant="body2" fontWeight="bold">{plan.name}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexWrap: 'wrap' }}>
+                          {plan.phases.map((p, i) => (
+                            <Box key={i} component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+                              {i > 0 && <span>→</span>}
+                              <Box sx={{ position: 'relative', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                <WaterDropIcon sx={{ fontSize: 12, color: 'primary.main' }} />
+                                <Box sx={{
+                                  position: 'absolute',
+                                  bottom: -2,
+                                  right: -2,
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: '50%',
+                                  bgcolor: 'primary.main',
+                                  color: 'white',
+                                  fontSize: 6,
+                                  fontWeight: 'bold',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  lineHeight: 1,
+                                }}>
+                                  {i + 1}
+                                </Box>
                               </Box>
+                              <span>{formatDuration(p.durationMin)}</span>
                             </Box>
-                            <span>{formatDuration(p.durationMin)}</span>
-                          </Box>
-                        ))}
-                        <Typography component="span" variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>· {formatTotalDuration(plan.phases)}</Typography>
-                      </Typography>
+                          ))}
+                        </Typography>
+                      </Box>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<PlayArrowIcon />}
+                        onClick={() => handlePlanClick(plan)}
+                        sx={{ flexShrink: 0 }}
+                      >
+                        Activar
+                      </Button>
                     </Box>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<PlayArrowIcon />}
-                      onClick={() => handlePlanClick(plan)}
-                      sx={{ flexShrink: 0 }}
-                    >
-                      Activar
-                    </Button>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                      Total: {formatTotalDuration(plan.phases)}
+                    </Typography>
                   </Box>
                 ) : (
                   <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
