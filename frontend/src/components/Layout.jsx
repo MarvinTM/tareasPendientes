@@ -30,6 +30,7 @@ import { keyframes } from '@emotion/react';
 import { useSocket } from '../contexts/SocketContext';
 import api from '../services/api';
 import RainAnimation from './RainAnimation';
+import RiegoBanner from './RiegoBanner';
 
 const DRAWER_COLLAPSED = 56;
 const DRAWER_EXPANDED = 200;
@@ -121,17 +122,17 @@ export default function Layout() {
   const drawerWidth = drawerExpanded ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
 
   const socket = useSocket();
-  const [riegoRunning, setRiegoRunning] = useState(false);
+  const [riegoState, setRiegoState] = useState({ current: null });
 
   useEffect(() => {
     if (!socket) return;
 
     api.get('/riego/status')
-      .then(res => setRiegoRunning(res.data.current !== null))
+      .then(res => setRiegoState({ current: res.data.current }))
       .catch(() => {});
 
     const handleUpdate = (data) => {
-      setRiegoRunning(data.current !== null);
+      setRiegoState({ current: data.current });
     };
     socket.on('riego:updated', handleUpdate);
     return () => socket.off('riego:updated', handleUpdate);
@@ -172,9 +173,9 @@ export default function Layout() {
         minWidth: 0,
         mr: drawerExpanded ? 1.5 : 'auto',
         justifyContent: 'center',
-        ...(mod.id === 'riego' && riegoRunning ? { overflow: 'visible' } : {}),
+        ...(mod.id === 'riego' && riegoState.current ? { overflow: 'visible' } : {}),
       }}>
-        {mod.id === 'riego' && riegoRunning ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
+        {mod.id === 'riego' && riegoState.current ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
       </ListItemIcon>
       {drawerExpanded && <ListItemText primary={mod.label} />}
     </ListItemButton>
@@ -220,6 +221,8 @@ export default function Layout() {
           </Toolbar>
         </AppBar>
 
+        <RiegoBanner key={riegoState.current?.queueId} current={riegoState.current} />
+
         {userMenu}
 
         <Box component="main" sx={{
@@ -240,9 +243,9 @@ export default function Layout() {
               <BottomNavigationAction
                 key={mod.id}
                 value={mod.id}
-                icon={mod.id === 'riego' && riegoRunning ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
+                icon={mod.id === 'riego' && riegoState.current ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
                 label={mod.label}
-                sx={mod.id === 'riego' && riegoRunning ? { overflow: 'visible' } : {}}
+                sx={mod.id === 'riego' && riegoState.current ? { overflow: 'visible' } : {}}
               />
             ))}
           </BottomNavigation>
@@ -309,7 +312,7 @@ export default function Layout() {
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             transition: 'width 0.2s ease-in-out',
-            overflowX: riegoRunning ? 'visible' : 'hidden',
+            overflowX: riegoState.current ? 'visible' : 'hidden',
             boxSizing: 'border-box',
           },
         }}
@@ -415,6 +418,8 @@ export default function Layout() {
             </IconButton>
           </Toolbar>
         </AppBar>
+
+        <RiegoBanner key={riegoState.current?.queueId} current={riegoState.current} />
 
         {userMenu}
 
