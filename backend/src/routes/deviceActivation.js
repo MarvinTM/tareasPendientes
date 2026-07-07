@@ -1,6 +1,7 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/passport.js';
+import { getDeviceById } from '../services/shelly.js';
 
 const router = express.Router();
 
@@ -162,6 +163,46 @@ router.delete('/:deviceId/activation', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error removing activation:', error);
     res.status(500).json({ error: 'Failed to remove activation' });
+  }
+});
+
+router.get('/scheduler-debug', authenticateToken, async (req, res) => {
+  try {
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const currentTime = `${h}:${m}`;
+
+    const activations = await prisma.deviceActivation.findMany({
+      include: { plan: true },
+    });
+
+    const records = activations.map(act => {
+      const device = getDeviceById(act.deviceId);
+      const matchOn = act.plan.activationTime === currentTime;
+      const matchOff = act.plan.deactivationTime === currentTime;
+      return {
+        deviceId: act.deviceId,
+        deviceFound: !!device,
+        deviceName: device?.name || null,
+        planId: act.planId,
+        planName: act.plan.name,
+        activationTime: act.plan.activationTime,
+        deactivationTime: act.plan.deactivationTime,
+        wouldTriggerNow: matchOn || matchOff,
+        wouldAction: matchOn ? 'ON' : (matchOff ? 'OFF' : null),
+      };
+    });
+
+    res.json({
+      serverTime: currentTime,
+      serverTimezoneOffset: now.getTimezoneOffset(),
+      activationCount: activations.length,
+      records,
+    });
+  } catch (error) {
+    console.error('Error in scheduler debug:', error);
+    res.status(500).json({ error: 'Failed to get scheduler debug info' });
   }
 });
 

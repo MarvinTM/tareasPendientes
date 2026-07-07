@@ -22,6 +22,16 @@ import activityRoutes from './routes/activity.js';
 import { init as initRiego } from './services/riegoQueue.js';
 import { init as initScheduler } from './services/deviceScheduler.js';
 
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err.message, err.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+  process.exit(1);
+});
+
 dotenv.config();
 
 const app = express();

@@ -14,48 +14,79 @@ function getCurrentTime() {
 }
 
 async function tick() {
+  const currentTime = getCurrentTime();
+  const nowFull = new Date().toISOString();
+  console.log(`[Scheduler] === tick at ${currentTime} (${nowFull}) ===`);
+
   try {
-    const currentTime = getCurrentTime();
     const activations = await prisma.deviceActivation.findMany({
       include: { plan: true },
     });
 
-    for (const act of activations) {
-      const device = getDeviceById(act.deviceId);
-      if (!device) continue;
+    if (activations.length === 0) {
+      console.log('[Scheduler] no DeviceActivation records found in DB — nothing to schedule');
+      return;
+    }
 
-      if (act.plan.activationTime === currentTime) {
+    console.log(`[Scheduler] found ${activations.length} activation record(s)`);
+
+    let matched = false;
+
+    for (const act of activations) {
+      const planOn = act.plan.activationTime;
+      const planOff = act.plan.deactivationTime;
+      console.log(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" on=${planOn} off=${planOff} (now=${currentTime})`);
+
+      const device = getDeviceById(act.deviceId);
+      if (!device) {
+        console.warn(`[Scheduler]   SKIP: device "${act.deviceId}" not found in shelly.json`);
+        continue;
+      }
+
+      if (planOn === currentTime) {
+        matched = true;
+        console.log(`[Scheduler]   MATCH ON → triggering ${act.deviceId} (${device.name})`);
         try {
           const result = await turnDeviceOn(act.deviceId);
           emitDeviceUpdate({ id: act.deviceId, ...device, ...result });
+          console.log(`[Scheduler]   ON success for ${act.deviceId}`);
           logActivity(null, ACTIONS.DEVICE_TURNED_ON, act.deviceId, device.name, {
             scheduled: true,
             planId: act.planId,
             planName: act.plan.name,
           }).catch(err => console.error('Failed to log scheduled activation:', err));
         } catch (err) {
-          console.error(`Scheduler: failed to turn on ${act.deviceId}:`, err.message);
+          console.error(`[Scheduler]   ON FAILED for ${act.deviceId}:`, err.message);
         }
         await new Promise(r => setTimeout(r, 5000));
       }
 
-      if (act.plan.deactivationTime === currentTime) {
+      if (planOff === currentTime) {
+        matched = true;
+        console.log(`[Scheduler]   MATCH OFF → triggering ${act.deviceId} (${device.name})`);
         try {
           const result = await turnDeviceOff(act.deviceId);
           emitDeviceUpdate({ id: act.deviceId, ...device, ...result });
+          console.log(`[Scheduler]   OFF success for ${act.deviceId}`);
           logActivity(null, ACTIONS.DEVICE_TURNED_OFF, act.deviceId, device.name, {
             scheduled: true,
             planId: act.planId,
             planName: act.plan.name,
           }).catch(err => console.error('Failed to log scheduled deactivation:', err));
         } catch (err) {
-          console.error(`Scheduler: failed to turn off ${act.deviceId}:`, err.message);
+          console.error(`[Scheduler]   OFF FAILED for ${act.deviceId}:`, err.message);
         }
         await new Promise(r => setTimeout(r, 5000));
       }
     }
+
+    if (!matched) {
+      console.log(`[Scheduler] no activation/deactivation matched current time ${currentTime}`);
+    }
+
+    console.log(`[Scheduler] === tick done ===`);
   } catch (err) {
-    console.error('Scheduler tick error:', err);
+    console.error('[Scheduler] tick error:', err.message, err.stack);
   }
 }
 
