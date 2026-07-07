@@ -7,6 +7,7 @@ import {
   dequeue,
   stopCurrent,
 } from '../services/riegoQueue.js';
+import { logActivity, ACTIONS } from '../services/activityLog.js';
 
 const router = express.Router();
 
@@ -33,7 +34,11 @@ router.post('/start', authenticateToken, async (req, res) => {
     }
 
     const queueId = enqueue(phaseId, Number(durationMin));
-    res.status(201).json({ queueId, ...getState() });
+    const state = getState();
+    const phase = state.phases.find(p => p.id === phaseId);
+    logActivity(req.user.id, ACTIONS.RIEGO_PHASE_STARTED, phaseId, phase?.name || phaseId, { durationMin: Number(durationMin) })
+      .catch(err => console.error('Failed to log riego activity:', err));
+    res.status(201).json({ queueId, ...state });
   } catch (error) {
     if (error.message?.includes('Fase no encontrada') || error.message?.includes('Duración inválida')) {
       return res.status(400).json({ error: error.message });
@@ -45,7 +50,13 @@ router.post('/start', authenticateToken, async (req, res) => {
 
 router.post('/stop', authenticateToken, async (req, res) => {
   try {
+    const state = getState();
+    const current = state.current;
     await stopCurrent();
+    if (current) {
+      logActivity(req.user.id, ACTIONS.RIEGO_PHASE_STOPPED, current.phaseId, current.name)
+        .catch(err => console.error('Failed to log riego activity:', err));
+    }
     res.json(getState());
   } catch (error) {
     console.error('Error stopping riego:', error);
@@ -109,6 +120,9 @@ router.post('/plans', authenticateToken, async (req, res) => {
       include: { createdBy: { select: { id: true, name: true } } },
     });
 
+    logActivity(req.user.id, ACTIONS.RIEGO_PLAN_CREATED, plan.id, plan.name, { phasesCount: phases.length })
+      .catch(err => console.error('Failed to log riego activity:', err));
+
     res.status(201).json(plan);
   } catch (error) {
     console.error('Error creating riego plan:', error);
@@ -144,6 +158,9 @@ router.patch('/plans/:id', authenticateToken, async (req, res) => {
       include: { createdBy: { select: { id: true, name: true } } },
     });
 
+    logActivity(req.user.id, ACTIONS.RIEGO_PLAN_UPDATED, plan.id, plan.name)
+      .catch(err => console.error('Failed to log riego activity:', err));
+
     res.json(plan);
   } catch (error) {
     console.error('Error updating riego plan:', error);
@@ -161,6 +178,10 @@ router.delete('/plans/:id', authenticateToken, async (req, res) => {
     }
 
     await prisma.riegoPlan.delete({ where: { id } });
+
+    logActivity(req.user.id, ACTIONS.RIEGO_PLAN_DELETED, existing.id, existing.name)
+      .catch(err => console.error('Failed to log riego activity:', err));
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting riego plan:', error);
@@ -180,6 +201,9 @@ router.post('/plans/:id/trigger', authenticateToken, async (req, res) => {
     for (const p of plan.phases) {
       enqueue(p.phaseId, p.durationMin);
     }
+
+    logActivity(req.user.id, ACTIONS.RIEGO_PLAN_TRIGGERED, plan.id, plan.name, { phasesCount: plan.phases.length })
+      .catch(err => console.error('Failed to log riego activity:', err));
 
     res.status(201).json(getState());
   } catch (error) {

@@ -21,6 +21,7 @@ model User {
   tasksCreated  Task[]         @relation("TaskCreator")
   tasksAssigned Task[]         @relation("TaskAssignee")
   taskChanges   TaskHistory[]
+  activityLogs  ActivityLog[]
   periodicTasks PeriodicTask[] @relation("PeriodicTaskAssignee")
   riegoPlans    RiegoPlan[]    @relation("RiegoPlanCreator")
 }
@@ -108,6 +109,17 @@ model SystemLog {
   id        String   @id @default(uuid())
   key       String   @unique
   timestamp DateTime @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  targetId   String?
+  targetName String?
+  details    Json?
+  timestamp  DateTime @default(now())
 }
 
 model RiegoPlan {

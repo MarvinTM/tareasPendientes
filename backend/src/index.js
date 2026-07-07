@@ -17,6 +17,7 @@ import categoryRoutes from './routes/categories.js';
 import periodicTaskRoutes from './routes/periodicTasks.js';
 import deviceRoutes from './routes/devices.js';
 import riegoRoutes from './routes/riego.js';
+import activityRoutes from './routes/activity.js';
 import { init as initRiego } from './services/riegoQueue.js';
 
 dotenv.config();
@@ -89,6 +90,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/periodic-tasks', periodicTaskRoutes);
 app.use('/api/devices', deviceRoutes);
 app.use('/api/riego', riegoRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

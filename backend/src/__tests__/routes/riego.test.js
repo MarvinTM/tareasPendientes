@@ -119,7 +119,9 @@ describe('Riego Routes', () => {
 
   describe('POST /api/riego/stop', () => {
     it('stops current and returns state', async () => {
-      mockGetState.mockReturnValueOnce({ current: null, queue: [], phases: [], durationMemory: {} });
+      mockGetState
+        .mockReturnValueOnce({ current: { phaseId: 'fase-1', name: 'Fase 1' }, queue: [], phases: [], durationMemory: {} })
+        .mockReturnValueOnce({ current: null, queue: [], phases: [], durationMemory: {} });
 
       const res = await request(app).post('/api/riego/stop');
 
@@ -129,7 +131,9 @@ describe('Riego Routes', () => {
     });
 
     it('returns 200 even when nothing active', async () => {
-      mockGetState.mockReturnValueOnce({ current: null, queue: [], phases: [], durationMemory: {} });
+      mockGetState
+        .mockReturnValueOnce({ current: null, queue: [], phases: [], durationMemory: {} })
+        .mockReturnValueOnce({ current: null, queue: [], phases: [], durationMemory: {} });
 
       const res = await request(app).post('/api/riego/stop');
 

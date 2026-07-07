@@ -6,6 +6,7 @@ import {
   toggleDevice,
   getDeviceById,
 } from '../services/shelly.js';
+import { logActivity, ACTIONS } from '../services/activityLog.js';
 
 const router = express.Router();
 
@@ -29,6 +30,10 @@ router.post('/:deviceId/toggle', authenticateToken, async (req, res) => {
     }
 
     const result = await toggleDevice(deviceId);
+
+    const action = result.on ? ACTIONS.DEVICE_TURNED_ON : ACTIONS.DEVICE_TURNED_OFF;
+    logActivity(req.user.id, action, deviceId, device.name, { newState: result.on })
+      .catch(err => console.error('Failed to log device activity:', err));
 
     emitDeviceUpdate({ id: deviceId, ...device, ...result });
 

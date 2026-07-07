@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -25,27 +25,36 @@ const actionLabels = {
   DESCRIPTION_UPDATED: { label: 'Descripción Actualizada', color: 'warning' },
   ASSIGNED: { label: 'Asignada', color: 'primary' },
   UNASSIGNED: { label: 'Desasignada', color: 'default' },
-  DELETED: { label: 'Eliminada', color: 'error' }
+  DELETED: { label: 'Eliminada', color: 'error' },
+  CATEGORY_CHANGED: { label: 'Categoría Cambiada', color: 'secondary' },
+  DEVICE_TURNED_ON: { label: 'Dispositivo Encendido', color: 'success' },
+  DEVICE_TURNED_OFF: { label: 'Dispositivo Apagado', color: 'default' },
+  RIEGO_PHASE_STARTED: { label: 'Fase de Riego Iniciada', color: 'info' },
+  RIEGO_PHASE_STOPPED: { label: 'Fase de Riego Detenida', color: 'warning' },
+  RIEGO_PLAN_CREATED: { label: 'Plan de Riego Creado', color: 'success' },
+  RIEGO_PLAN_UPDATED: { label: 'Plan de Riego Actualizado', color: 'warning' },
+  RIEGO_PLAN_DELETED: { label: 'Plan de Riego Eliminado', color: 'error' },
+  RIEGO_PLAN_TRIGGERED: { label: 'Plan de Riego Ejecutado', color: 'info' },
 };
 
 export default function AllHistoryPage() {
   const navigate = useNavigate();
-  const [history, setHistory] = useState([]);
+  const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState(null);
+  const [cursors, setCursors] = useState([]);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(false);
 
-  useEffect(() => {
-    fetchHistory();
-  }, [page]);
-
-  const fetchHistory = async () => {
+  const fetchEntries = useCallback(async (before) => {
     try {
       setLoading(true);
-      const response = await api.get(`/history?page=${page}&limit=30`);
-      setHistory(response.data.history);
-      setPagination(response.data.pagination);
+      const params = { limit: 30 };
+      if (before) params.before = before;
+      const response = await api.get('/activity', { params });
+      setEntries(response.data.entries);
+      setNextCursor(response.data.nextCursor);
+      setHasMore(response.data.hasMore);
       setError(null);
     } catch (err) {
       setError('Error al cargar el historial');
@@ -53,9 +62,28 @@ export default function AllHistoryPage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetchEntries(null);
+  }, [fetchEntries]);
+
+  const handleNext = () => {
+    if (nextCursor) {
+      setCursors(prev => [...prev, nextCursor]);
+      fetchEntries(nextCursor);
+    }
   };
 
-  if (loading && page === 1) {
+  const handlePrevious = () => {
+    const newCursors = [...cursors];
+    newCursors.pop();
+    const prevCursor = newCursors.length > 0 ? newCursors[newCursors.length - 1] : null;
+    setCursors(newCursors);
+    fetchEntries(prevCursor);
+  };
+
+  if (loading && cursors.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
         <CircularProgress />
@@ -75,7 +103,7 @@ export default function AllHistoryPage() {
         </Alert>
       )}
 
-      {history.length === 0 ? (
+      {entries.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center' }}>
           <Typography color="text.secondary">No hay actividad registrada.</Typography>
         </Paper>
@@ -83,7 +111,7 @@ export default function AllHistoryPage() {
         <>
           <Paper>
             <List>
-              {history.map((entry, index) => {
+              {entries.map((entry, index) => {
                 const actionConfig = actionLabels[entry.action] || { label: entry.action, color: 'default' };
 
                 return (
@@ -92,10 +120,14 @@ export default function AllHistoryPage() {
                     <ListItem
                       alignItems="flex-start"
                       sx={{
-                        cursor: entry.task ? 'pointer' : 'default',
-                        '&:hover': entry.task ? { backgroundColor: 'action.hover' } : {}
+                        cursor: entry.type === 'task' && entry.task ? 'pointer' : 'default',
+                        '&:hover': entry.type === 'task' && entry.task ? { backgroundColor: 'action.hover' } : {},
                       }}
-                      onClick={() => entry.task && navigate(`/usuario/historial/${entry.taskId}`)}
+                      onClick={() => {
+                        if (entry.type === 'task' && entry.task) {
+                          navigate(`/usuario/historial/${entry.taskId}`);
+                        }
+                      }}
                     >
                       <ListItemAvatar>
                         <UserAvatar user={entry.user} sx={{ width: 40, height: 40 }} showTooltip={false} />
@@ -111,9 +143,16 @@ export default function AllHistoryPage() {
                               color={actionConfig.color}
                               size="small"
                             />
-                            {entry.task && (
+                            {entry.type === 'task' && entry.task && (
                               <Chip
                                 label={entry.task.title}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )}
+                            {entry.type === 'activity' && entry.targetName && (
+                              <Chip
+                                label={entry.targetName}
                                 size="small"
                                 variant="outlined"
                               />
@@ -125,7 +164,7 @@ export default function AllHistoryPage() {
                             <Typography variant="body2" color="text.secondary" component="span">
                               {new Date(entry.timestamp).toLocaleString()}
                             </Typography>
-                            {(entry.previousValue || entry.newValue) && (
+                            {entry.type === 'task' && (entry.previousValue || entry.newValue) && (
                               <Box component="span" sx={{ display: 'block', mt: 1 }}>
                                 {entry.previousValue && (
                                   <Typography variant="body2" component="span" sx={{ display: 'block' }}>
@@ -135,6 +174,25 @@ export default function AllHistoryPage() {
                                 {entry.newValue && (
                                   <Typography variant="body2" component="span" sx={{ display: 'block' }}>
                                     <strong>A:</strong> {entry.newValue}
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+                            {entry.type === 'activity' && entry.details && (
+                              <Box component="span" sx={{ display: 'block', mt: 1 }}>
+                                {entry.details.phasesCount !== undefined && (
+                                  <Typography variant="body2" component="span" sx={{ display: 'block' }}>
+                                    <strong>Fases:</strong> {entry.details.phasesCount}
+                                  </Typography>
+                                )}
+                                {entry.details.durationMin !== undefined && (
+                                  <Typography variant="body2" component="span" sx={{ display: 'block' }}>
+                                    <strong>Duración:</strong> {entry.details.durationMin} min
+                                  </Typography>
+                                )}
+                                {entry.details.newState !== undefined && entry.details.newState !== null && (
+                                  <Typography variant="body2" component="span" sx={{ display: 'block' }}>
+                                    <strong>Estado:</strong> {entry.details.newState ? 'Encendido' : 'Apagado'}
                                   </Typography>
                                 )}
                               </Box>
@@ -149,27 +207,22 @@ export default function AllHistoryPage() {
             </List>
           </Paper>
 
-          {pagination && pagination.totalPages > 1 && (
-            <Box display="flex" justifyContent="center" gap={2} mt={3}>
-              <Button
-                variant="outlined"
-                disabled={page === 1 || loading}
-                onClick={() => setPage(p => p - 1)}
-              >
-                Anterior
-              </Button>
-              <Typography sx={{ display: 'flex', alignItems: 'center' }}>
-                Página {page} de {pagination.totalPages}
-              </Typography>
-              <Button
-                variant="outlined"
-                disabled={page >= pagination.totalPages || loading}
-                onClick={() => setPage(p => p + 1)}
-              >
-                Siguiente
-              </Button>
-            </Box>
-          )}
+          <Box display="flex" justifyContent="center" gap={2} mt={3}>
+            <Button
+              variant="outlined"
+              disabled={cursors.length === 0 || loading}
+              onClick={handlePrevious}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!hasMore || loading}
+              onClick={handleNext}
+            >
+              Siguiente
+            </Button>
+          </Box>
         </>
       )}
     </Box>
