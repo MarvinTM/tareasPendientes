@@ -239,6 +239,82 @@ export async function toggleDevice(deviceId) {
   return { on: targetOn };
 }
 
+export async function turnDeviceOn(deviceId) {
+  const config = loadConfig();
+  const device = config.devices.find(d => d.id === deviceId);
+  if (!device) {
+    throw new Error(`Device not found: ${deviceId}`);
+  }
+
+  const shellyId = device.shellyId || device.id;
+  const channel = device.channel ?? 0;
+  const url = `${config.server}/device/relay/control`;
+  const body = new URLSearchParams({
+    id: shellyId,
+    channel: String(channel),
+    turn: 'on',
+    auth_key: config.apiKey,
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    console.error(`Shelly turn on error for ${deviceId}: HTTP ${response.status}`);
+    throw new Error(`Shelly API error: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.isok) {
+    console.error(`Shelly turn on error for ${deviceId}:`, data);
+    throw new Error('Shelly API returned unsuccessful response');
+  }
+
+  const targetOn = await pollForState(deviceId);
+  return { on: targetOn };
+}
+
+export async function turnDeviceOff(deviceId) {
+  const config = loadConfig();
+  const device = config.devices.find(d => d.id === deviceId);
+  if (!device) {
+    throw new Error(`Device not found: ${deviceId}`);
+  }
+
+  const shellyId = device.shellyId || device.id;
+  const channel = device.channel ?? 0;
+  const url = `${config.server}/device/relay/control`;
+  const body = new URLSearchParams({
+    id: shellyId,
+    channel: String(channel),
+    turn: 'off',
+    auth_key: config.apiKey,
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    console.error(`Shelly turn off error for ${deviceId}: HTTP ${response.status}`);
+    throw new Error(`Shelly API error: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.isok) {
+    console.error(`Shelly turn off error for ${deviceId}:`, data);
+    throw new Error('Shelly API returned unsuccessful response');
+  }
+
+  const targetOn = await pollForState(deviceId);
+  return { on: targetOn };
+}
+
 async function pollForState(deviceId) {
   const maxAttempts = 5;
   const interval = 1000;

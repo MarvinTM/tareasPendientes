@@ -21,7 +21,10 @@ export const modules = [
     label: 'Dispositivos',
     icon: LightbulbIcon,
     path: '/dispositivos',
-    subNav: [],
+    subNav: [
+      { label: 'Dispositivos', path: '/dispositivos' },
+      { label: 'Planes de activación', path: '/dispositivos/planes' },
+    ],
   },
   {
     id: 'riego',

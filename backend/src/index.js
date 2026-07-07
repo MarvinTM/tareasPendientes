@@ -16,9 +16,11 @@ import userRoutes from './routes/users.js';
 import categoryRoutes from './routes/categories.js';
 import periodicTaskRoutes from './routes/periodicTasks.js';
 import deviceRoutes from './routes/devices.js';
+import deviceActivationRoutes from './routes/deviceActivation.js';
 import riegoRoutes from './routes/riego.js';
 import activityRoutes from './routes/activity.js';
 import { init as initRiego } from './services/riegoQueue.js';
+import { init as initScheduler } from './services/deviceScheduler.js';
 
 dotenv.config();
 
@@ -89,6 +91,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/periodic-tasks', periodicTaskRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/devices', deviceActivationRoutes);
 app.use('/api/riego', riegoRoutes);
 app.use('/api/activity', activityRoutes);
 
@@ -105,6 +108,7 @@ app.use((err, req, res, next) => {
 
 // Initialize Riego queue (startup safety + watchdog + shutdown handlers)
 initRiego();
+initScheduler();
 
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);

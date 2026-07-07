@@ -5,6 +5,9 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Grid from '@mui/material/Grid';
 import Switch from '@mui/material/Switch';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
@@ -17,20 +20,26 @@ export default function DevicesPage() {
   const socket = useSocket();
   const [devices, setDevices] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [activationStatus, setActivationStatus] = useState({});
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [snackbar, setSnackbar] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [devicesRes, groupsRes] = await Promise.all([
+      const [devicesRes, groupsRes, statusRes, plansRes] = await Promise.all([
         api.get('/devices'),
         api.get('/devices/groups'),
+        api.get('/devices/activation-status'),
+        api.get('/devices/activation-plans'),
       ]);
       setDevices(devicesRes.data);
       setGroups(groupsRes.data);
+      setActivationStatus(statusRes.data);
+      setPlans(plansRes.data);
       setError(null);
-    } catch (err) {
+    } catch {
       setError('Error al cargar los dispositivos');
     } finally {
       setLoading(false);
@@ -74,11 +83,32 @@ export default function DevicesPage() {
           d.id === deviceId ? { ...d, on: response.data.on, toggling: false } : d
         )
       );
-    } catch (err) {
+    } catch {
       setDevices(prev =>
         prev.map(d => (d.id === deviceId ? { ...d, toggling: false } : d))
       );
       setSnackbar('Error al cambiar el dispositivo');
+    }
+  };
+
+  const handleAssign = async (deviceId, planId) => {
+    try {
+      if (planId) {
+        const res = await api.post(`/devices/${deviceId}/activation`, { planId });
+        setActivationStatus(prev => ({
+          ...prev,
+          [deviceId]: { planId: res.data.planId, planName: res.data.plan.name },
+        }));
+      } else {
+        await api.delete(`/devices/${deviceId}/activation`);
+        setActivationStatus(prev => {
+          const updated = { ...prev };
+          delete updated[deviceId];
+          return updated;
+        });
+      }
+    } catch {
+      setSnackbar('Error al asignar el plan');
     }
   };
 
@@ -131,7 +161,7 @@ export default function DevicesPage() {
                   <Card sx={{ opacity: device.online === false ? 0.7 : 1 }}>
                     <CardContent>
                       <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box display="flex" alignItems="center" gap={1.5} minWidth={0}>
+                        <Box display="flex" alignItems="center" gap={1.5} minWidth={0} flex={1}>
                           {device.online === false ? (
                             <WarningAmberIcon color="warning" />
                           ) : GroupIcon ? (
@@ -139,7 +169,7 @@ export default function DevicesPage() {
                               sx={{ color: device.on ? '#fdd835' : 'text.secondary' }}
                             />
                           ) : null}
-                          <Box minWidth={0}>
+                          <Box minWidth={0} flex={1}>
                             <Typography variant="subtitle1" fontWeight="bold" noWrap>
                               {device.name}
                             </Typography>
@@ -168,6 +198,26 @@ export default function DevicesPage() {
                           )}
                         </Box>
                       </Box>
+
+                      {plans.length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          <FormControl size="small" fullWidth>
+                            <Select
+                              value={activationStatus[device.id]?.planId || ''}
+                              onChange={(e) => handleAssign(device.id, e.target.value)}
+                              displayEmpty
+                              disabled={device.online === false}
+                            >
+                              <MenuItem value="">Sin plan</MenuItem>
+                              {plans.map(p => (
+                                <MenuItem key={p.id} value={p.id}>
+                                  {p.name} ({p.activationTime} — {p.deactivationTime})
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Box>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>

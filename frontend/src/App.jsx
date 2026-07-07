@@ -13,6 +13,7 @@ import DevicesPage from './pages/DevicesPage';
 import RiegoPage from './pages/RiegoPage';
 import RiegoPlansPage from './pages/RiegoPlansPage';
 import RiegoEventsPage from './pages/RiegoEventsPage';
+import ActivationPlansPage from './pages/ActivationPlansPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
@@ -83,6 +84,7 @@ function App() {
         <Route path="usuario/historial/:taskId" element={<TaskHistoryPage />} />
         <Route path="usuario/configuracion" element={<ConfiguracionPage />} />
         <Route path="dispositivos" element={<DevicesPage />} />
+        <Route path="dispositivos/planes" element={<ActivationPlansPage />} />
         <Route path="riego" element={<RiegoPage />} />
         <Route path="riego/planes" element={<RiegoPlansPage />} />
         <Route path="riego/eventos" element={<RiegoEventsPage />} />

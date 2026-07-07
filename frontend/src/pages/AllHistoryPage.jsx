@@ -143,7 +143,7 @@ export default function AllHistoryPage() {
                       primary={
                         <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
                           <Typography component="span" fontWeight="medium">
-                            {entry.user?.name || 'Usuario Desconocido'}
+                            {entry.user?.name || (entry.details?.scheduled ? 'Sistema' : 'Usuario Desconocido')}
                           </Typography>
                           <Chip
                             label={actionConfig.label}

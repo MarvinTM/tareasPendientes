@@ -21,10 +21,11 @@ model User {
   tasksCreated  Task[]         @relation("TaskCreator")
   tasksAssigned Task[]         @relation("TaskAssignee")
   taskChanges   TaskHistory[]
+  periodicTasks PeriodicTask[] @relation("PeriodicTaskAssignee")
   activityLogs  ActivityLog[]
   riegoEvents   RiegoEvent[]
-  periodicTasks PeriodicTask[] @relation("PeriodicTaskAssignee")
   riegoPlans    RiegoPlan[]    @relation("RiegoPlanCreator")
+  activationPlans DeviceActivationPlan[] @relation("DeviceActivationPlanCreator")
 }
 
 model Task {
@@ -114,13 +115,34 @@ model SystemLog {
 
 model ActivityLog {
   id         String   @id @default(uuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
   action     String
   targetId   String?
   targetName String?
   details    Json?
   timestamp  DateTime @default(now())
+}
+
+model DeviceActivationPlan {
+  id               String              @id @default(uuid())
+  name             String
+  activationTime   String
+  deactivationTime String
+  createdById      String
+  createdBy        User                @relation("DeviceActivationPlanCreator", fields: [createdById], references: [id])
+  assignments      DeviceActivation[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model DeviceActivation {
+  id        String              @id @default(uuid())
+  deviceId  String              @unique
+  planId    String
+  plan      DeviceActivationPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
 }
 
 model RiegoPlan {

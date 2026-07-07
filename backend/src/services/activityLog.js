@@ -3,7 +3,7 @@ import { prisma } from '../config/passport.js';
 export async function logActivity(userId, action, targetId = null, targetName = null, details = null) {
   return prisma.activityLog.create({
     data: {
-      userId,
+      userId: userId || null,
       action,
       targetId,
       targetName,
