@@ -6,7 +6,8 @@ module.exports = {
       script: 'src/index.js',
       env: {
         NODE_ENV: 'production',
-        PORT: 3001
+        PORT: 3001,
+        TIMEZONE: 'Europe/Madrid'
       },
       instances: 1,
       autorestart: true,

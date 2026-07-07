@@ -64,7 +64,7 @@ describe('Device Activation Routes', () => {
   describe('POST /activation-plans', () => {
     it('creates a plan', async () => {
       mockPlan.create.mockResolvedValueOnce({
-        id: 'p-new', name: 'Pool Pump', activationTime: '10:00', deactivationTime: '18:00',
+        id: 'p-new', name: 'Pool Pump', activationTime: '10:00', deactivationTime: '18:00', timezone: 'Europe/Madrid',
       });
 
       const res = await request(app)
@@ -78,6 +78,7 @@ describe('Device Activation Routes', () => {
           name: 'Pool Pump',
           activationTime: '10:00',
           deactivationTime: '18:00',
+          timezone: 'Europe/Madrid',
           createdById: 'usr-1',
         },
         include: expect.any(Object),
@@ -192,16 +193,16 @@ describe('Device Activation Routes', () => {
   describe('GET /activation-status', () => {
     it('returns status map of device assignments', async () => {
       mockActivation.findMany.mockResolvedValueOnce([
-        { deviceId: 'dev-1', planId: 'p-1', plan: { id: 'p-1', name: 'Morning' } },
-        { deviceId: 'dev-2', planId: 'p-1', plan: { id: 'p-1', name: 'Morning' } },
+        { deviceId: 'dev-1', planId: 'p-1', plan: { id: 'p-1', name: 'Morning', timezone: 'Europe/Madrid' } },
+        { deviceId: 'dev-2', planId: 'p-1', plan: { id: 'p-1', name: 'Morning', timezone: 'Europe/Madrid' } },
       ]);
 
       const res = await request(app).get('/api/devices/activation-status');
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({
-        'dev-1': { planId: 'p-1', planName: 'Morning' },
-        'dev-2': { planId: 'p-1', planName: 'Morning' },
+        'dev-1': { planId: 'p-1', planName: 'Morning', timezone: 'Europe/Madrid' },
+        'dev-2': { planId: 'p-1', planName: 'Morning', timezone: 'Europe/Madrid' },
       });
     });
 

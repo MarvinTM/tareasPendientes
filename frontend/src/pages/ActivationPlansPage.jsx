@@ -7,6 +7,7 @@ import CardContent from '@mui/material/CardContent';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
@@ -21,6 +22,23 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import api from '../services/api';
 
+function getBrowserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'Europe/Madrid';
+  }
+}
+
+function getTimezoneList() {
+  try {
+    if (Intl.supportedValuesOf) {
+      return Intl.supportedValuesOf('timeZone');
+    }
+  } catch {}
+  return ['Europe/Madrid', 'Europe/London', 'UTC'];
+}
+
 export default function ActivationPlansPage() {
   const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
@@ -32,6 +50,7 @@ export default function ActivationPlansPage() {
   const [planName, setPlanName] = useState('');
   const [activationTime, setActivationTime] = useState('');
   const [deactivationTime, setDeactivationTime] = useState('');
+  const [timezone, setTimezone] = useState(getBrowserTimezone());
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -56,6 +75,7 @@ export default function ActivationPlansPage() {
     setPlanName('');
     setActivationTime('');
     setDeactivationTime('');
+    setTimezone(getBrowserTimezone());
     setDialogOpen(true);
   };
 
@@ -64,6 +84,7 @@ export default function ActivationPlansPage() {
     setPlanName(plan.name);
     setActivationTime(plan.activationTime);
     setDeactivationTime(plan.deactivationTime);
+    setTimezone(plan.timezone || getBrowserTimezone());
     setDialogOpen(true);
   };
 
@@ -82,7 +103,7 @@ export default function ActivationPlansPage() {
 
     setSaving(true);
     try {
-      const payload = { name: planName.trim(), activationTime, deactivationTime };
+      const payload = { name: planName.trim(), activationTime, deactivationTime, timezone };
 
       if (editingPlan) {
         await api.patch(`/devices/activation-plans/${editingPlan.id}`, payload);
@@ -148,7 +169,7 @@ export default function ActivationPlansPage() {
                   <Typography variant="h6">{plan.name}</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                     <AccessTimeIcon fontSize="small" />
-                    {plan.activationTime} — {plan.deactivationTime}
+                    {plan.activationTime} — {plan.deactivationTime} ({plan.timezone || 'UTC'})
                   </Typography>
                 </Box>
                 <Box display="flex" gap={0.5}>
@@ -199,6 +220,14 @@ export default function ActivationPlansPage() {
               InputLabelProps={{ shrink: true }}
               inputProps={{ step: 60 }}
               fullWidth
+            />
+            <Autocomplete
+              options={getTimezoneList()}
+              value={timezone}
+              onChange={(_, newValue) => setTimezone(newValue || getBrowserTimezone())}
+              renderInput={(params) => (
+                <TextField {...params} label="Zona horaria" fullWidth />
+              )}
             />
           </Box>
         </DialogContent>

@@ -5,6 +5,34 @@ import { getDeviceById } from '../services/shelly.js';
 
 const router = express.Router();
 
+const DEFAULT_TIMEZONE = process.env.TIMEZONE || 'Europe/Madrid';
+
+function isValidTimezone(tz) {
+  try {
+    if (Intl.supportedValuesOf) {
+      return Intl.supportedValuesOf('timeZone').includes(tz);
+    }
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      return true;
+    } catch {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
+function getLocalTime(timezone) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone || 'UTC',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+  return parts;
+}
+
 router.get('/activation-plans', authenticateToken, async (req, res) => {
   try {
     const plans = await prisma.deviceActivationPlan.findMany({
@@ -20,7 +48,7 @@ router.get('/activation-plans', authenticateToken, async (req, res) => {
 
 router.post('/activation-plans', authenticateToken, async (req, res) => {
   try {
-    const { name, activationTime, deactivationTime } = req.body;
+    const { name, activationTime, deactivationTime, timezone } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Name is required' });
@@ -32,11 +60,17 @@ router.post('/activation-plans', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Activation time must be before deactivation time' });
     }
 
+    const tz = timezone || DEFAULT_TIMEZONE;
+    if (!isValidTimezone(tz)) {
+      return res.status(400).json({ error: `Invalid timezone: ${tz}` });
+    }
+
     const plan = await prisma.deviceActivationPlan.create({
       data: {
         name: name.trim(),
         activationTime,
         deactivationTime,
+        timezone: tz,
         createdById: req.user.id,
       },
       include: { createdBy: { select: { id: true, name: true } } },
@@ -52,7 +86,7 @@ router.post('/activation-plans', authenticateToken, async (req, res) => {
 router.patch('/activation-plans/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, activationTime, deactivationTime } = req.body;
+    const { name, activationTime, deactivationTime, timezone } = req.body;
 
     const existing = await prisma.deviceActivationPlan.findUnique({ where: { id } });
     if (!existing) {
@@ -66,6 +100,12 @@ router.patch('/activation-plans/:id', authenticateToken, async (req, res) => {
     }
     if (activationTime !== undefined) updateData.activationTime = activationTime;
     if (deactivationTime !== undefined) updateData.deactivationTime = deactivationTime;
+    if (timezone !== undefined) {
+      if (!isValidTimezone(timezone)) {
+        return res.status(400).json({ error: `Invalid timezone: ${timezone}` });
+      }
+      updateData.timezone = timezone;
+    }
 
     const mergedActivation = activationTime ?? existing.activationTime;
     const mergedDeactivation = deactivationTime ?? existing.deactivationTime;
@@ -106,12 +146,12 @@ router.delete('/activation-plans/:id', authenticateToken, async (req, res) => {
 router.get('/activation-status', authenticateToken, async (req, res) => {
   try {
     const activations = await prisma.deviceActivation.findMany({
-      include: { plan: { select: { id: true, name: true } } },
+      include: { plan: { select: { id: true, name: true, timezone: true } } },
     });
 
     const status = {};
     for (const a of activations) {
-      status[a.deviceId] = { planId: a.planId, planName: a.plan.name };
+      status[a.deviceId] = { planId: a.planId, planName: a.plan.name, timezone: a.plan.timezone };
     }
 
     res.json(status);
@@ -169,9 +209,7 @@ router.delete('/:deviceId/activation', authenticateToken, async (req, res) => {
 router.get('/scheduler-debug', authenticateToken, async (req, res) => {
   try {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-    const currentTime = `${h}:${m}`;
+    const utcTime = getLocalTime('UTC');
 
     const activations = await prisma.deviceActivation.findMany({
       include: { plan: true },
@@ -179,14 +217,18 @@ router.get('/scheduler-debug', authenticateToken, async (req, res) => {
 
     const records = activations.map(act => {
       const device = getDeviceById(act.deviceId);
-      const matchOn = act.plan.activationTime === currentTime;
-      const matchOff = act.plan.deactivationTime === currentTime;
+      const tz = act.plan.timezone || 'UTC';
+      const localTime = getLocalTime(tz);
+      const matchOn = act.plan.activationTime === localTime;
+      const matchOff = act.plan.deactivationTime === localTime;
       return {
         deviceId: act.deviceId,
         deviceFound: !!device,
         deviceName: device?.name || null,
         planId: act.planId,
         planName: act.plan.name,
+        timezone: tz,
+        localTime,
         activationTime: act.plan.activationTime,
         deactivationTime: act.plan.deactivationTime,
         wouldTriggerNow: matchOn || matchOff,
@@ -195,8 +237,9 @@ router.get('/scheduler-debug', authenticateToken, async (req, res) => {
     });
 
     res.json({
-      serverTime: currentTime,
+      serverUtcTime: utcTime,
       serverTimezoneOffset: now.getTimezoneOffset(),
+      defaultTimezone: DEFAULT_TIMEZONE,
       activationCount: activations.length,
       records,
     });

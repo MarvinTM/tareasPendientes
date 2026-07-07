@@ -6,17 +6,24 @@ import { emitDeviceUpdate } from '../socket.js';
 let schedulerTimer = null;
 let initialized = false;
 
-function getCurrentTime() {
-  const now = new Date();
-  const h = String(now.getHours()).padStart(2, '0');
-  const m = String(now.getMinutes()).padStart(2, '0');
-  return `${h}:${m}`;
+function getLocalTime(timezone) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone || 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(new Date());
+    return parts;
+  } catch {
+    return null;
+  }
 }
 
 async function tick() {
-  const currentTime = getCurrentTime();
   const nowFull = new Date().toISOString();
-  console.log(`[Scheduler] === tick at ${currentTime} (${nowFull}) ===`);
+  const utcTime = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC' }).format(new Date());
+  console.log(`[Scheduler] === tick at ${utcTime} UTC (${nowFull}) ===`);
 
   try {
     const activations = await prisma.deviceActivation.findMany({
@@ -30,12 +37,28 @@ async function tick() {
 
     console.log(`[Scheduler] found ${activations.length} activation record(s)`);
 
+    const timeCache = {};
+    function getOrComputeLocalTime(tz) {
+      if (!timeCache[tz]) {
+        timeCache[tz] = getLocalTime(tz);
+      }
+      return timeCache[tz];
+    }
+
     let matched = false;
 
     for (const act of activations) {
+      const tz = act.plan.timezone || 'UTC';
+      const localTime = getOrComputeLocalTime(tz);
+
+      if (localTime === null) {
+        console.warn(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" SKIP: invalid timezone "${tz}"`);
+        continue;
+      }
+
       const planOn = act.plan.activationTime;
       const planOff = act.plan.deactivationTime;
-      console.log(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" on=${planOn} off=${planOff} (now=${currentTime})`);
+      console.log(`[Scheduler]   device=${act.deviceId} plan="${act.plan.name}" tz=${tz} on=${planOn} off=${planOff} (local=${localTime}, utc=${utcTime})`);
 
       const device = getDeviceById(act.deviceId);
       if (!device) {
@@ -43,7 +66,7 @@ async function tick() {
         continue;
       }
 
-      if (planOn === currentTime) {
+      if (planOn === localTime) {
         matched = true;
         console.log(`[Scheduler]   MATCH ON → triggering ${act.deviceId} (${device.name})`);
         try {
@@ -61,7 +84,7 @@ async function tick() {
         await new Promise(r => setTimeout(r, 5000));
       }
 
-      if (planOff === currentTime) {
+      if (planOff === localTime) {
         matched = true;
         console.log(`[Scheduler]   MATCH OFF → triggering ${act.deviceId} (${device.name})`);
         try {
@@ -81,7 +104,7 @@ async function tick() {
     }
 
     if (!matched) {
-      console.log(`[Scheduler] no activation/deactivation matched current time ${currentTime}`);
+      console.log(`[Scheduler] no activation/deactivation matched local time (utc=${utcTime})`);
     }
 
     console.log(`[Scheduler] === tick done ===`);

@@ -57,6 +57,8 @@ describe('DeviceScheduler', () => {
   });
 
   describe('_tick', () => {
+    const testTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
     it('turns on device when activationTime matches current time', async () => {
       const device = { id: 'dev-1', name: 'Light' };
       const now = new Date();
@@ -67,7 +69,7 @@ describe('DeviceScheduler', () => {
       mockActivationFindMany.mockResolvedValue([{
         deviceId: 'dev-1',
         planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '23:00' },
+        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '23:00', timezone: testTz },
       }]);
       mockGetDeviceById.mockReturnValue(device);
       mockTurnDeviceOn.mockResolvedValue({ on: true });
@@ -94,7 +96,7 @@ describe('DeviceScheduler', () => {
       mockActivationFindMany.mockResolvedValue([{
         deviceId: 'dev-2',
         planId: 'p-2',
-        plan: { id: 'p-2', name: 'Evening', activationTime: '06:00', deactivationTime: currentTime },
+        plan: { id: 'p-2', name: 'Evening', activationTime: '06:00', deactivationTime: currentTime, timezone: testTz },
       }]);
       mockGetDeviceById.mockReturnValue(device);
       mockTurnDeviceOff.mockResolvedValue({ on: false });
@@ -112,7 +114,7 @@ describe('DeviceScheduler', () => {
       mockActivationFindMany.mockResolvedValue([{
         deviceId: 'dev-1',
         planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: '04:00', deactivationTime: '05:00' },
+        plan: { id: 'p-1', name: 'Morning', activationTime: '04:00', deactivationTime: '05:00', timezone: testTz },
       }]);
 
       await _tick();
@@ -130,7 +132,7 @@ describe('DeviceScheduler', () => {
       mockActivationFindMany.mockResolvedValue([{
         deviceId: 'unknown',
         planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '12:00' },
+        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '12:00', timezone: testTz },
       }]);
       mockGetDeviceById.mockReturnValue(null);
 
@@ -149,7 +151,7 @@ describe('DeviceScheduler', () => {
       mockActivationFindMany.mockResolvedValue([{
         deviceId: 'dev-1',
         planId: 'p-1',
-        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '12:00' },
+        plan: { id: 'p-1', name: 'Morning', activationTime: currentTime, deactivationTime: '12:00', timezone: testTz },
       }]);
       mockGetDeviceById.mockReturnValue(device);
       mockTurnDeviceOn.mockRejectedValue(new Error('Shelly error'));
