@@ -246,7 +246,7 @@ export default function RiegoPage() {
         <Grid item xs={12} md={6}>
           <Typography variant="h6" gutterBottom>Fases</Typography>
           <Grid container spacing={isMobile ? 1 : 2}>
-            {state.phases.map(phase => {
+            {state.phases.map((phase, index) => {
               const isActive = state.current?.phaseId === phase.id;
               return (
               <Grid item xs={12} key={phase.id}>
@@ -258,11 +258,31 @@ export default function RiegoPage() {
                   <CardContent sx={isMobile ? { p: 1.5, '&:last-child': { pb: 1.5 } } : undefined}>
                     <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={isMobile ? 0.5 : 1}>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <WaterDropIcon sx={{
-                          color: isActive ? '#4caf50' : undefined,
-                          animation: isActive ? `${pulse} 2s ease-in-out infinite` : undefined,
-                          fontSize: isMobile ? 20 : undefined,
-                        }} />
+                        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                          <WaterDropIcon sx={{
+                            color: isActive ? '#4caf50' : undefined,
+                            animation: isActive ? `${pulse} 2s ease-in-out infinite` : undefined,
+                            fontSize: isMobile ? 20 : undefined,
+                          }} />
+                          <Box sx={{
+                            position: 'absolute',
+                            bottom: -3,
+                            right: -3,
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            bgcolor: isActive ? '#4caf50' : 'primary.main',
+                            color: 'white',
+                            fontSize: 14,
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            lineHeight: 1,
+                          }}>
+                            {index + 1}
+                          </Box>
+                        </Box>
                         <Box>
                           <Typography variant={isMobile ? 'body1' : 'subtitle1'} fontWeight="bold">
                             {phase.name}
