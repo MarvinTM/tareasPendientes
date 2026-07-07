@@ -56,12 +56,10 @@ MOCK_SUNRISE.setHours(7, 15, 0, 0);
 MOCK_SUNSET.setHours(21, 30, 0, 0);
 
 jest.unstable_mockModule('suncalc', () => ({
-  default: {
-    getTimes: jest.fn(() => ({
-      sunrise: MOCK_SUNRISE,
-      sunset: MOCK_SUNSET,
-    })),
-  },
+  getTimes: jest.fn(() => ({
+    sunrise: MOCK_SUNRISE,
+    sunset: MOCK_SUNSET,
+  })),
 }));
 
 describe('Device Activation Routes', () => {

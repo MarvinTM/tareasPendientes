@@ -1,4 +1,4 @@
-import SunCalc from 'suncalc';
+import { getTimes } from 'suncalc';
 import { turnDeviceOn, turnDeviceOff, getDeviceById } from './shelly.js';
 import { logActivity, ACTIONS } from './activityLog.js';
 import { prisma } from '../config/passport.js';
@@ -25,7 +25,7 @@ function getLocalTime(timezone) {
 }
 
 export function computeSunTime(type) {
-  const times = SunCalc.getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
+  const times = getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
   const date = type === 'sunrise' ? times.sunrise : times.sunset;
   const h = String(date.getHours()).padStart(2, '0');
   const m = String(date.getMinutes()).padStart(2, '0');

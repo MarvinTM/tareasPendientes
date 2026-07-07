@@ -22,12 +22,10 @@ vi.mock('../../services/api', () => ({
 }));
 
 vi.mock('suncalc', () => ({
-  default: {
-    getTimes: vi.fn(() => ({
-      sunrise: new Date(2000, 0, 1, 7, 15),
-      sunset: new Date(2000, 0, 1, 21, 30),
-    })),
-  },
+  getTimes: vi.fn(() => ({
+    sunrise: new Date(2000, 0, 1, 7, 15),
+    sunset: new Date(2000, 0, 1, 21, 30),
+  })),
 }));
 
 function renderWithProviders(ui) {

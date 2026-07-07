@@ -37,7 +37,7 @@ jest.unstable_mockModule('../../config/passport.js', () => ({
 const mockGetTimes = jest.fn();
 
 jest.unstable_mockModule('suncalc', () => ({
-  default: { getTimes: mockGetTimes },
+  getTimes: mockGetTimes,
 }));
 
 describe('DeviceScheduler', () => {

@@ -1,5 +1,5 @@
 import express from 'express';
-import SunCalc from 'suncalc';
+import { getTimes } from 'suncalc';
 import { authenticateToken } from '../middleware/auth.js';
 import { prisma } from '../config/passport.js';
 import { getDeviceById } from '../services/shelly.js';
@@ -22,7 +22,7 @@ function getLocalTime() {
 }
 
 function formatSunTime(type) {
-  const times = SunCalc.getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
+  const times = getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
   const date = type === 'sunrise' ? times.sunrise : times.sunset;
   const h = String(date.getHours()).padStart(2, '0');
   const m = String(date.getMinutes()).padStart(2, '0');

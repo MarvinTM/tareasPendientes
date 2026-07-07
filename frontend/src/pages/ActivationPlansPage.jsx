@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import SunCalc from 'suncalc';
+import { getTimes } from 'suncalc';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
@@ -30,7 +30,7 @@ import api from '../services/api';
 const ALBERITE = { lat: 42.4067, lng: -2.4381 };
 
 function getSunTime(type) {
-  const times = SunCalc.getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
+  const times = getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
   const date = type === 'sunrise' ? times.sunrise : times.sunset;
   const h = String(date.getHours()).padStart(2, '0');
   const m = String(date.getMinutes()).padStart(2, '0');
