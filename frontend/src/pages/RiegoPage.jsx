@@ -21,6 +21,8 @@ import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import { keyframes } from '@emotion/react';
 import Paper from '@mui/material/Paper';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -107,6 +109,8 @@ function saveStoredDurations(durations) {
 export default function RiegoPage() {
   const socket = useSocket();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [state, setState] = useState({ current: null, queue: [], phases: [], durationMemory: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -227,7 +231,7 @@ export default function RiegoPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WaterDropIcon fontSize="large" color="primary" /> Riego
       </Typography>
@@ -238,10 +242,10 @@ export default function RiegoPage() {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 1.5, md: 3 }}>
         <Grid item xs={12} md={6}>
           <Typography variant="h6" gutterBottom>Fases</Typography>
-          <Grid container spacing={2}>
+          <Grid container spacing={isMobile ? 1 : 2}>
             {state.phases.map(phase => {
               const isActive = state.current?.phaseId === phase.id;
               return (
@@ -251,15 +255,16 @@ export default function RiegoPage() {
                   backgroundColor: isActive ? '#e8f5e9' : undefined,
                   transition: 'background-color 0.3s ease, border-left 0.3s ease',
                 }}>
-                  <CardContent>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+                  <CardContent sx={isMobile ? { p: 1.5, '&:last-child': { pb: 1.5 } } : undefined}>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={isMobile ? 0.5 : 1}>
                       <Box display="flex" alignItems="center" gap={1}>
                         <WaterDropIcon sx={{
                           color: isActive ? '#4caf50' : undefined,
                           animation: isActive ? `${pulse} 2s ease-in-out infinite` : undefined,
+                          fontSize: isMobile ? 20 : undefined,
                         }} />
                         <Box>
-                          <Typography variant="subtitle1" fontWeight="bold">
+                          <Typography variant={isMobile ? 'body1' : 'subtitle1'} fontWeight="bold">
                             {phase.name}
                           </Typography>
                           {isActive && (
@@ -267,8 +272,8 @@ export default function RiegoPage() {
                           )}
                         </Box>
                       </Box>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <FormControl size="small" sx={{ minWidth: 110 }}>
+                      <Box display="flex" alignItems="center" gap={isMobile ? 0.5 : 1}>
+                        <FormControl size="small" sx={{ minWidth: isMobile ? 90 : 110 }}>
                           <Select
                             value={durations[phase.id] !== undefined ? durations[phase.id] : DEFAULT_DURATION}
                             onChange={(e) => {
@@ -372,7 +377,7 @@ export default function RiegoPage() {
         </Grid>
       </Grid>
 
-      <Box sx={{ mt: 4 }}>
+      <Box sx={{ mt: { xs: 2, md: 4 } }}>
         <Typography variant="h6" gutterBottom>Planes guardados</Typography>
 
         {plans.length === 0 ? (
