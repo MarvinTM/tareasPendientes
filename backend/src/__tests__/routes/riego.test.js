@@ -17,6 +17,10 @@ const mockPrisma = {
     update: jest.fn(),
     delete: jest.fn(),
   },
+  riegoEvent: {
+    findMany: jest.fn(),
+    count: jest.fn(),
+  },
 };
 
 jest.unstable_mockModule('../../config/passport.js', () => ({
@@ -28,6 +32,20 @@ jest.unstable_mockModule('../../services/riegoQueue.js', () => ({
   enqueue: mockEnqueue,
   dequeue: mockDequeue,
   stopCurrent: mockStopCurrent,
+}));
+
+const mockLogActivity = jest.fn().mockResolvedValue();
+
+jest.unstable_mockModule('../../services/activityLog.js', () => ({
+  logActivity: mockLogActivity,
+  ACTIONS: {
+    RIEGO_PHASE_STARTED: 'RIEGO_PHASE_STARTED',
+    RIEGO_PHASE_STOPPED: 'RIEGO_PHASE_STOPPED',
+    RIEGO_PLAN_CREATED: 'RIEGO_PLAN_CREATED',
+    RIEGO_PLAN_UPDATED: 'RIEGO_PLAN_UPDATED',
+    RIEGO_PLAN_DELETED: 'RIEGO_PLAN_DELETED',
+    RIEGO_PLAN_TRIGGERED: 'RIEGO_PLAN_TRIGGERED',
+  },
 }));
 
 const mockAuthenticateToken = jest.fn((req, res, next) => {
@@ -268,6 +286,73 @@ describe('Riego Routes', () => {
       const res = await request(app).post('/api/riego/plans/invalid/trigger');
 
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /api/riego/events', () => {
+    it('returns events with cursor pagination', async () => {
+      const events = [
+        { id: 'e-1', phaseId: 'fase-1', phaseName: 'Jardín', event: 'STARTED', stopReason: null, error: null, userId: null, timestamp: new Date('2025-01-01T12:00:00Z') },
+        { id: 'e-2', phaseId: 'fase-1', phaseName: 'Jardín', event: 'STOPPED', stopReason: 'timeout', error: null, userId: null, timestamp: new Date('2025-01-01T11:00:00Z') },
+      ];
+      mockPrisma.riegoEvent.findMany.mockResolvedValueOnce(events);
+
+      const res = await request(app).get('/api/riego/events?limit=30');
+
+      expect(res.status).toBe(200);
+      expect(res.body.events).toHaveLength(2);
+      expect(res.body.hasMore).toBeFalsy();
+      expect(mockPrisma.riegoEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 31 })
+      );
+    });
+
+    it('returns hasMore true when events exceed limit', async () => {
+      const events = Array.from({ length: 16 }, (_, i) => ({
+        id: `e-${i}`, phaseId: 'fase-1', phaseName: 'Test', event: 'STARTED',
+        stopReason: null, error: null, userId: null, timestamp: new Date(`2025-01-01T${10 + i}:00:00Z`),
+      }));
+      mockPrisma.riegoEvent.findMany.mockResolvedValueOnce(events);
+
+      const res = await request(app).get('/api/riego/events?limit=15');
+
+      expect(res.status).toBe(200);
+      expect(res.body.events).toHaveLength(15);
+      expect(res.body.hasMore).toBe(true);
+      expect(res.body.nextCursor).toBeTruthy();
+    });
+
+    it('supports before cursor for pagination', async () => {
+      mockPrisma.riegoEvent.findMany.mockResolvedValueOnce([]);
+
+      const res = await request(app)
+        .get('/api/riego/events')
+        .query({ before: '2025-01-01T12:00:00Z', limit: 30 });
+
+      expect(res.status).toBe(200);
+      expect(mockPrisma.riegoEvent.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { timestamp: { lt: expect.any(Date) } },
+        })
+      );
+    });
+
+    it('returns 401 when not authenticated', async () => {
+      mockAuthenticateToken.mockImplementationOnce((req, res) =>
+        res.status(401).json({ error: 'Unauthorized' })
+      );
+
+      const res = await request(app).get('/api/riego/events');
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      mockPrisma.riegoEvent.findMany.mockRejectedValueOnce(new Error('DB error'));
+
+      const res = await request(app).get('/api/riego/events');
+
+      expect(res.status).toBe(500);
     });
   });
 });

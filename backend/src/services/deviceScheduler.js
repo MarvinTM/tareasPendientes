@@ -74,3 +74,7 @@ export function _reset() {
   }
   initialized = false;
 }
+
+export async function _tick() {
+  await tick();
+}

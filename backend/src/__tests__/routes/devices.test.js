@@ -8,12 +8,14 @@ const mockFetchAllStatuses = jest.fn();
 const mockToggleDevice = jest.fn();
 const mockGetDeviceById = jest.fn();
 const mockEmitDeviceUpdate = jest.fn();
+const mockLogActivity = jest.fn().mockResolvedValue();
+const mockGetGroups = jest.fn().mockReturnValue([]);
 
 jest.unstable_mockModule('../../services/shelly.js', () => ({
   fetchAllStatuses: mockFetchAllStatuses,
   toggleDevice: mockToggleDevice,
   getDeviceById: mockGetDeviceById,
-  getGroups: jest.fn().mockReturnValue([]),
+  getGroups: mockGetGroups,
 }));
 
 jest.unstable_mockModule('../../socket.js', () => ({
@@ -21,7 +23,7 @@ jest.unstable_mockModule('../../socket.js', () => ({
 }));
 
 jest.unstable_mockModule('../../services/activityLog.js', () => ({
-  logActivity: jest.fn().mockResolvedValue(),
+  logActivity: mockLogActivity,
   ACTIONS: {
     DEVICE_TURNED_ON: 'DEVICE_TURNED_ON',
     DEVICE_TURNED_OFF: 'DEVICE_TURNED_OFF',
@@ -104,6 +106,17 @@ describe('Devices Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ id: 'dev-1', on: false });
       expect(mockToggleDevice).toHaveBeenCalledWith('dev-1');
+      expect(mockLogActivity).toHaveBeenCalledWith('usr-1', 'DEVICE_TURNED_OFF', 'dev-1', 'Luz del salón', { newState: false });
+    });
+
+    it('logs DEVICE_TURNED_ON when toggle result is on', async () => {
+      mockGetDeviceById.mockReturnValueOnce({ id: 'dev-2', name: 'Pool Pump' });
+      mockToggleDevice.mockResolvedValueOnce({ on: true });
+
+      const res = await request(app).post('/api/devices/dev-2/toggle');
+
+      expect(res.status).toBe(200);
+      expect(mockLogActivity).toHaveBeenCalledWith('usr-1', 'DEVICE_TURNED_ON', 'dev-2', 'Pool Pump', { newState: true });
     });
 
     it('returns 404 when device not in config', async () => {
@@ -157,6 +170,55 @@ describe('Devices Routes', () => {
       const res = await request(app).post('/api/devices/dev-1/toggle');
 
       expect(res.status).toBe(500);
+    });
+  });
+
+  describe('GET /api/devices/groups', () => {
+    it('returns groups from config', async () => {
+      mockGetGroups.mockReturnValueOnce([
+        { id: 'lights', name: 'Luces', icon: 'Lightbulb' },
+        { id: 'pool', name: 'Piscina', icon: 'Pool' },
+      ]);
+
+      const res = await request(app).get('/api/devices/groups');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(2);
+      expect(res.body[0].name).toBe('Luces');
+    });
+
+    it('returns empty array when no groups configured', async () => {
+      mockGetGroups.mockReturnValueOnce([]);
+
+      const res = await request(app).get('/api/devices/groups');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('returns 401 when not authenticated', async () => {
+      mockAuthenticateToken.mockImplementationOnce((req, res) =>
+        res.status(401).json({ error: 'Unauthorized' })
+      );
+
+      const res = await request(app).get('/api/devices/groups');
+
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/devices with group filter', () => {
+    it('filters devices by group', async () => {
+      mockFetchAllStatuses.mockResolvedValueOnce([
+        { id: 'dev-1', name: 'Light', group: 'lights', on: false, online: true },
+        { id: 'dev-2', name: 'Pump', group: 'pool', on: true, online: true },
+      ]);
+
+      const res = await request(app).get('/api/devices?group=pool');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0].name).toBe('Pump');
     });
   });
 });

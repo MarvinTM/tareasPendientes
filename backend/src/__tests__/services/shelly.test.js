@@ -344,4 +344,132 @@ describe('Shelly Service', () => {
       await expect(toggleDevice('dev-1')).rejects.toThrow('unsuccessful response');
     });
   });
+
+  describe('getGroups', () => {
+    it('returns groups from config', async () => {
+      writeFileSync(CONFIG_FILE, JSON.stringify({
+        ...validConfig,
+        groups: [
+          { id: 'lights', name: 'Luces', icon: 'Lightbulb' },
+          { id: 'pool', name: 'Piscina', icon: 'Pool' },
+        ],
+      }));
+
+      const { getGroups } = await import('../../services/shelly.js');
+      const groups = getGroups();
+
+      expect(groups).toHaveLength(2);
+      expect(groups[0]).toEqual({ id: 'lights', name: 'Luces', icon: 'Lightbulb' });
+      expect(groups[1]).toEqual({ id: 'pool', name: 'Piscina', icon: 'Pool' });
+    });
+
+    it('returns empty array when groups field is missing', async () => {
+      writeFileSync(CONFIG_FILE, JSON.stringify({
+        ...validConfig,
+        groups: undefined,
+      }));
+
+      const { getGroups } = await import('../../services/shelly.js');
+      const groups = getGroups();
+
+      expect(groups).toEqual([]);
+    });
+  });
+
+  describe('turnDeviceOn', () => {
+    it('sends turn on command and returns { on: true }', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isok: true }),
+      });
+
+      const { turnDeviceOn } = await import('../../services/shelly.js');
+      const result = await turnDeviceOn('dev-1');
+
+      expect(result).toEqual({ on: true });
+      const postCall = mockFetch.mock.calls[0];
+      expect(postCall[0]).toContain('/device/relay/control');
+      const bodyStr = postCall[1].body.toString();
+      expect(bodyStr).toContain('turn=on');
+      expect(bodyStr).toContain('auth_key=test-api-key');
+    });
+
+    it('retries on rate limit error', async () => {
+      const { turnDeviceOn } = await import('../../services/shelly.js');
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: false, errors: { max_req: true } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true }),
+        });
+
+      const result = await turnDeviceOn('dev-1');
+
+      expect(result).toEqual({ on: true });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('retries on network errors up to 3 times then throws', async () => {
+      const { turnDeviceOn } = await import('../../services/shelly.js');
+
+      mockFetch
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(turnDeviceOn('dev-1')).rejects.toThrow('after 3 attempts');
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('throws when device not found', async () => {
+      const { turnDeviceOn } = await import('../../services/shelly.js');
+
+      await expect(turnDeviceOn('non-existent')).rejects.toThrow('Device not found');
+    });
+  });
+
+  describe('turnDeviceOff', () => {
+    it('sends turn off command and returns { on: false }', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isok: true }),
+      });
+
+      const { turnDeviceOff } = await import('../../services/shelly.js');
+      const result = await turnDeviceOff('dev-1');
+
+      expect(result).toEqual({ on: false });
+      const bodyStr = mockFetch.mock.calls[0][1].body.toString();
+      expect(bodyStr).toContain('turn=off');
+    });
+
+    it('retries on rate limit error', async () => {
+      const { turnDeviceOff } = await import('../../services/shelly.js');
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: false, errors: { max_req: true } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true }),
+        });
+
+      const result = await turnDeviceOff('dev-1');
+
+      expect(result).toEqual({ on: false });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws when device not found', async () => {
+      const { turnDeviceOff } = await import('../../services/shelly.js');
+
+      await expect(turnDeviceOff('non-existent')).rejects.toThrow('Device not found');
+    });
+  });
 });
