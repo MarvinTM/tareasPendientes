@@ -12,6 +12,7 @@ import PeriodicTasksPage from './pages/PeriodicTasksPage';
 import LightsPage from './pages/LightsPage';
 import RiegoPage from './pages/RiegoPage';
 import RiegoPlansPage from './pages/RiegoPlansPage';
+import RiegoEventsPage from './pages/RiegoEventsPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
@@ -85,6 +86,7 @@ function App() {
         <Route path="dispositivos/luces" element={<LightsPage />} />
         <Route path="riego" element={<RiegoPage />} />
         <Route path="riego/planes" element={<RiegoPlansPage />} />
+        <Route path="riego/eventos" element={<RiegoEventsPage />} />
         <Route
           path="admin"
           element={

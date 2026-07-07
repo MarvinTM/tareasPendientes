@@ -22,6 +22,7 @@ model User {
   tasksAssigned Task[]         @relation("TaskAssignee")
   taskChanges   TaskHistory[]
   activityLogs  ActivityLog[]
+  riegoEvents   RiegoEvent[]
   periodicTasks PeriodicTask[] @relation("PeriodicTaskAssignee")
   riegoPlans    RiegoPlan[]    @relation("RiegoPlanCreator")
 }
@@ -130,4 +131,17 @@ model RiegoPlan {
   createdBy   User     @relation("RiegoPlanCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model RiegoEvent {
+  id         String   @id @default(uuid())
+  phaseId    String
+  phaseName  String
+  event      String
+  stopReason String?
+  error      String?
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  details    Json?
+  timestamp  DateTime @default(now())
 }

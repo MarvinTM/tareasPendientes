@@ -127,7 +127,7 @@ describe('Riego Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.current).toBeNull();
-      expect(mockStopCurrent).toHaveBeenCalled();
+      expect(mockStopCurrent).toHaveBeenCalledWith(authenticatedUser.id);
     });
 
     it('returns 200 even when nothing active', async () => {

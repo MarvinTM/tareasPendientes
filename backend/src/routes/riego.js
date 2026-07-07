@@ -52,7 +52,7 @@ router.post('/stop', authenticateToken, async (req, res) => {
   try {
     const state = getState();
     const current = state.current;
-    await stopCurrent();
+    await stopCurrent(req.user.id);
     if (current) {
       logActivity(req.user.id, ACTIONS.RIEGO_PHASE_STOPPED, current.phaseId, current.name)
         .catch(err => console.error('Failed to log riego activity:', err));
@@ -209,6 +209,39 @@ router.post('/plans/:id/trigger', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error triggering riego plan:', error);
     res.status(500).json({ error: 'Failed to trigger riego plan' });
+  }
+});
+
+router.get('/events', authenticateToken, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 30;
+    const skip = (page - 1) * limit;
+
+    const [events, total] = await Promise.all([
+      prisma.riegoEvent.findMany({
+        include: {
+          user: { select: { id: true, name: true } },
+        },
+        orderBy: { timestamp: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.riegoEvent.count(),
+    ]);
+
+    res.json({
+      events,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching riego events:', error);
+    res.status(500).json({ error: 'Failed to fetch riego events' });
   }
 });
 

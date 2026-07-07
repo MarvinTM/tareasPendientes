@@ -33,6 +33,7 @@ export const modules = [
     subNav: [
       { label: 'Control', path: '/riego' },
       { label: 'Planes', path: '/riego/planes' },
+      { label: 'Histórico de Riegos', path: '/riego/eventos' },
     ],
   },
   {

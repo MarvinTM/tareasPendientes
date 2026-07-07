@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { emitRiegoUpdate } from '../socket.js';
 import { loadConfig } from './shelly.js';
+import { logRiegoEvent } from './riegoEvent.js';
 
 const MAX_DURATION_MIN = 120;
 const WATCHDOG_INTERVAL = 15000;
@@ -201,14 +202,26 @@ async function startPhaseItem(item) {
       if (state.current) {
         setCurrentStatus('disconnecting', 0);
       }
+      let offSuccess = true;
       if (phase) {
         console.log(`Riego: phase ${item.phaseId} (${item.name}) timer expired, stopping Shelly`);
-        await stopShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
+        offSuccess = await stopShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
       }
+      if (!offSuccess) {
+        logRiegoEvent('ERROR', item.phaseId, item.name, {
+          error: `Shelly OFF failed after ${STOP_RETRY_COUNT} attempts`,
+        }).catch(err => console.error('Failed to log riego event:', err));
+      }
+      logRiegoEvent('STOPPED', item.phaseId, item.name, {
+        stopReason: 'timeout',
+      }).catch(err => console.error('Failed to log riego event:', err));
       await new Promise(r => setTimeout(r, 2000));
       await advanceQueue();
     } catch (error) {
       console.error(`Riego: timer callback error for phase ${item.phaseId}:`, error);
+      logRiegoEvent('ERROR', item.phaseId, item.name, {
+        error: error.message,
+      }).catch(err => console.error('Failed to log riego event:', err));
     }
   }, durationMs);
 
@@ -230,6 +243,15 @@ async function startPhaseItem(item) {
 
   const success = await startShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
   console.log(`Riego: phase ${item.phaseId} (${item.name}) Shelly ON ${success ? 'OK' : 'FAILED'}`);
+
+  if (success) {
+    logRiegoEvent('STARTED', item.phaseId, item.name)
+      .catch(err => console.error('Failed to log riego event:', err));
+  } else {
+    logRiegoEvent('ERROR', item.phaseId, item.name, {
+      error: `Shelly ON failed after ${STOP_RETRY_COUNT} attempts`,
+    }).catch(err => console.error('Failed to log riego event:', err));
+  }
 
   if (state.current?.queueId === item.queueId) {
     state.current.status = 'running';
@@ -290,14 +312,30 @@ export function dequeue(queueId) {
   return true;
 }
 
-export async function stopCurrent() {
+export async function stopCurrent(userId = null) {
   if (!state.current) return;
+
+  const phaseId = state.current.phaseId;
+  const phaseName = state.current.name;
 
   setCurrentStatus('disconnecting', 0);
 
   const config = loadConfig();
-  await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
+  const success = await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
   await new Promise(r => setTimeout(r, 2000));
+
+  if (!success) {
+    logRiegoEvent('ERROR', phaseId, phaseName, {
+      error: `Shelly OFF failed after ${STOP_RETRY_COUNT} attempts`,
+      userId,
+    }).catch(err => console.error('Failed to log riego event:', err));
+  }
+
+  logRiegoEvent('STOPPED', phaseId, phaseName, {
+    stopReason: 'manual',
+    userId,
+  }).catch(err => console.error('Failed to log riego event:', err));
+
   await advanceQueue();
 }
 
@@ -322,8 +360,14 @@ export async function startupSafetyCheck() {
 
 export async function emergencyStopAll() {
   if (state.current) {
+    const phaseId = state.current.phaseId;
+    const phaseName = state.current.name;
     clearTimer();
     state.current = null;
+
+    logRiegoEvent('STOPPED', phaseId, phaseName, {
+      stopReason: 'emergency',
+    }).catch(err => console.error('Failed to log riego event:', err));
   }
 
   const config = loadConfig();
@@ -353,10 +397,18 @@ function startWatchdog() {
     if (!state.current) return;
 
     if (Date.now() > state.current.endTime + WATCHDOG_INTERVAL) {
-      console.warn(`Riego watchdog: phase ${state.current.phaseId} overrun, force-stopping`);
+      const phaseId = state.current.phaseId;
+      const phaseName = state.current.name;
+
+      console.warn(`Riego watchdog: phase ${phaseId} overrun, force-stopping`);
       setCurrentStatus('disconnecting', 0);
       const config = loadConfig();
       await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
+
+      logRiegoEvent('STOPPED', phaseId, phaseName, {
+        stopReason: 'watchdog',
+      }).catch(err => console.error('Failed to log riego event:', err));
+
       await advanceQueue();
     }
   }, WATCHDOG_INTERVAL);

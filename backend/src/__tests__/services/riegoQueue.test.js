@@ -1,6 +1,7 @@
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 const mockEmitRiegoUpdate = jest.fn();
+const mockLogRiegoEvent = jest.fn().mockResolvedValue();
 
 const mockLoadConfig = jest.fn();
 
@@ -10,6 +11,10 @@ jest.unstable_mockModule('../../socket.js', () => ({
 
 jest.unstable_mockModule('../../services/shelly.js', () => ({
   loadConfig: mockLoadConfig,
+}));
+
+jest.unstable_mockModule('../../services/riegoEvent.js', () => ({
+  logRiegoEvent: mockLogRiegoEvent,
 }));
 
 const mockFetch = jest.fn();
