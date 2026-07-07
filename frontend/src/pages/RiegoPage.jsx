@@ -343,38 +343,59 @@ export default function RiegoPage() {
               </Box>
             ) : (
               <List disablePadding>
-                {state.current && (
-                  <ListItem sx={{ backgroundColor: 'primary.light', color: 'primary.contrastText' }}>
-                    <Box display="flex" alignItems="center" gap={1} mr={1}>
-                      <PlayArrowIcon />
-                    </Box>
-                    <ListItemText
-                      primary={`${state.current.name} — ${formatDuration(state.current.durationMin)}`}
-                      secondary={
-                        <Box component="span" display="flex" alignItems="center" gap={0.5}>
-                          {state.current.status === 'running' ? (
-                            <>
-                              <AccessTimeIcon sx={{ fontSize: 14 }} />
+                {state.current && (() => {
+                  const totalSeconds = state.current.durationMin * 60;
+                  const progress = state.current.status === 'running'
+                    ? Math.max(0, Math.min(1, 1 - (state.current.remaining / Math.max(1, totalSeconds))))
+                    : state.current.status === 'disconnecting' ? 1 : 0;
+
+                  return (
+                    <ListItem sx={{ position: 'relative', overflow: 'hidden' }}>
+                      <Box
+                        key={state.current.queueId}
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          bottom: 0,
+                          width: `${Math.round(progress * 100)}%`,
+                          backgroundColor: 'primary.light',
+                          transition: 'width 1s linear',
+                          zIndex: 0,
+                        }}
+                      />
+                      <Box display="flex" alignItems="center" gap={1} mr={1} sx={{ position: 'relative', zIndex: 1 }}>
+                        <PlayArrowIcon />
+                      </Box>
+                      <ListItemText
+                        primary={`${state.current.name} — ${formatDuration(state.current.durationMin)}`}
+                        secondary={
+                          <Box component="span" display="flex" alignItems="center" gap={0.5}>
+                            {state.current.status === 'running' ? (
+                              <>
+                                <AccessTimeIcon sx={{ fontSize: 14 }} />
+                                <Typography variant="caption">
+                                  Quedan {formatRemaining(state.current.remaining)}
+                                </Typography>
+                              </>
+                            ) : (
                               <Typography variant="caption">
-                                Quedan {formatRemaining(state.current.remaining)}
+                                {formatStatus(state.current.status, state.current.statusRetry)}
                               </Typography>
-                            </>
-                          ) : (
-                            <Typography variant="caption">
-                              {formatStatus(state.current.status, state.current.statusRetry)}
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                      secondaryTypographyProps={{ component: 'div' }}
-                    />
-                    {state.current.status === 'running' && (
-                      <IconButton onClick={handleStop} sx={{ color: 'inherit' }}>
-                        <StopIcon />
-                      </IconButton>
-                    )}
-                  </ListItem>
-                )}
+                            )}
+                          </Box>
+                        }
+                        secondaryTypographyProps={{ component: 'div' }}
+                        sx={{ position: 'relative', zIndex: 1 }}
+                      />
+                      {state.current.status === 'running' && (
+                        <IconButton onClick={handleStop} sx={{ position: 'relative', zIndex: 1 }}>
+                          <StopIcon />
+                        </IconButton>
+                      )}
+                    </ListItem>
+                  );
+                })()}
                 {state.queue.map((item, index) => (
                   <Box key={item.queueId}>
                     {index > 0 || state.current ? <Divider /> : null}
