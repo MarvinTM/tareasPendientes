@@ -36,6 +36,7 @@ async function tick() {
         } catch (err) {
           console.error(`Scheduler: failed to turn on ${act.deviceId}:`, err.message);
         }
+        await new Promise(r => setTimeout(r, 5000));
       }
 
       if (act.plan.deactivationTime === currentTime) {
@@ -50,6 +51,7 @@ async function tick() {
         } catch (err) {
           console.error(`Scheduler: failed to turn off ${act.deviceId}:`, err.message);
         }
+        await new Promise(r => setTimeout(r, 5000));
       }
     }
   } catch (err) {

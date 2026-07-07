@@ -256,25 +256,42 @@ export async function turnDeviceOn(deviceId) {
     auth_key: config.apiKey,
   });
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
 
-  if (!response.ok) {
-    console.error(`Shelly turn on error for ${deviceId}: HTTP ${response.status}`);
-    throw new Error(`Shelly API error: HTTP ${response.status}`);
+      const data = await response.json();
+
+      if (response.ok && data.isok === true) {
+        return { on: true };
+      }
+
+      if (data?.errors?.max_req) {
+        console.warn(`Shelly turn on rate limit for ${deviceId} (attempt ${attempt + 1}), waiting before retry`);
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+
+      console.error(`Shelly turn on error for ${deviceId} (attempt ${attempt + 1}):`, JSON.stringify(data));
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      throw new Error(`Shelly API error: ${JSON.stringify(data)}`);
+    } catch (error) {
+      if (error.message?.startsWith('Shelly API error:')) throw error;
+      console.error(`Shelly turn on error for ${deviceId} (attempt ${attempt + 1}):`, error.message);
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
   }
 
-  const data = await response.json();
-  if (!data.isok) {
-    console.error(`Shelly turn on error for ${deviceId}:`, data);
-    throw new Error('Shelly API returned unsuccessful response');
-  }
-
-  const targetOn = await pollForState(deviceId);
-  return { on: targetOn };
+  throw new Error(`Shelly turn on failed for ${deviceId} after 3 attempts`);
 }
 
 export async function turnDeviceOff(deviceId) {
@@ -294,25 +311,42 @@ export async function turnDeviceOff(deviceId) {
     auth_key: config.apiKey,
   });
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+      });
 
-  if (!response.ok) {
-    console.error(`Shelly turn off error for ${deviceId}: HTTP ${response.status}`);
-    throw new Error(`Shelly API error: HTTP ${response.status}`);
+      const data = await response.json();
+
+      if (response.ok && data.isok === true) {
+        return { on: false };
+      }
+
+      if (data?.errors?.max_req) {
+        console.warn(`Shelly turn off rate limit for ${deviceId} (attempt ${attempt + 1}), waiting before retry`);
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+
+      console.error(`Shelly turn off error for ${deviceId} (attempt ${attempt + 1}):`, JSON.stringify(data));
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      throw new Error(`Shelly API error: ${JSON.stringify(data)}`);
+    } catch (error) {
+      if (error.message?.startsWith('Shelly API error:')) throw error;
+      console.error(`Shelly turn off error for ${deviceId} (attempt ${attempt + 1}):`, error.message);
+      if (attempt < 2) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
   }
 
-  const data = await response.json();
-  if (!data.isok) {
-    console.error(`Shelly turn off error for ${deviceId}:`, data);
-    throw new Error('Shelly API returned unsuccessful response');
-  }
-
-  const targetOn = await pollForState(deviceId);
-  return { on: targetOn };
+  throw new Error(`Shelly turn off failed for ${deviceId} after 3 attempts`);
 }
 
 async function pollForState(deviceId) {
