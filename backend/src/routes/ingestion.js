@@ -77,7 +77,7 @@ router.get('/latest', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/ingestion/today — 5-min aggregated intervals for today (JWT auth)
+// GET /api/ingestion/today — 5-min aggregated intervals for chart (JWT auth)
 router.get('/today', authenticateToken, async (req, res) => {
   try {
     const rows = await prisma.$queryRawUnsafe(`
@@ -98,7 +98,7 @@ router.get('/today', authenticateToken, async (req, res) => {
           + INTERVAL '5 min' * FLOOR(EXTRACT(EPOCH FROM (timestamp - date_trunc('day', timestamp))) / 300)
           AS time,
         ROUND(AVG(solar))::int                  AS "solarProduction",
-        ROUND(AVG(total_ac - COALESCE(meter, 0)))::int AS "houseConsumption",
+        GREATEST(0, ROUND(AVG(solar + COALESCE(batt_pwr, 0) - COALESCE(meter, 0))))::int AS "houseConsumption",
         ROUND(AVG(COALESCE(batt_pwr, 0)))::int  AS "batteryPower",
         ROUND(AVG(COALESCE(batt_soc, 0))::numeric, 1)::float AS "batterySoc",
         ROUND(AVG(COALESCE(meter, 0)))::int     AS "gridPower"
@@ -111,6 +111,34 @@ router.get('/today', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Today query error:', err.message);
     res.status(500).json({ error: 'Failed to fetch today data' });
+  }
+});
+
+// GET /api/ingestion/today/raw — all individual readings, latest first (JWT auth)
+router.get('/today/raw', authenticateToken, async (req, res) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe(`
+      SELECT
+        timestamp AS time,
+        COALESCE(SUM("pvPower"), 0)::int AS "solarProduction",
+        GREATEST(0,
+          COALESCE(SUM("pvPower"), 0)
+          + COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END), 0)
+          - COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END), 0)
+        )::int AS "houseConsumption",
+        COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END), 0)::int AS "batteryPower",
+        COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battSoc" END), 0)::float AS "batterySoc",
+        COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END), 0)::int AS "gridPower"
+      FROM "InverterReading"
+      WHERE timestamp >= NOW() - INTERVAL '24 hours'
+      GROUP BY timestamp
+      ORDER BY timestamp DESC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Raw query error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch raw data' });
   }
 });
 

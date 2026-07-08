@@ -35,49 +35,15 @@ function SystemDiagram({ master: m, slave: s }) {
   const slave = s || {};
 
   const solarProd = Math.round((master.pvPower || 0) + (slave.pvPower || 0));
-  const totalAc = (master.activePower || 0) + (slave.activePower || 0);
   const meterPower = master.meterPower != null ? master.meterPower : null;
-  const houseLoad = meterPower != null ? totalAc - meterPower : null;
   const battPower = master.battPower != null ? master.battPower : null;
   const battSoc = master.battSoc != null ? master.battSoc : null;
-  const maxPower = 8000;
-
-  const arrow = (visible, color, x1, y1, x2, y2, power, label) => {
-    if (!visible) return null;
-    const opacity = Math.min(1, Math.max(0.15, 0.25 + Math.abs(power) / maxPower * 0.75));
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
-    return (
-      <g key={label} opacity={opacity}>
-        <defs>
-          <marker id={`arrow-${label}`} viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-            <path d="M0 0 L10 5 L0 10 z" fill={color} />
-          </marker>
-        </defs>
-        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={2} markerEnd={`url(#arrow-${label})`} />
-        <rect x={midX - 30} y={midY - 10} width={60} height={16} rx={3} fill="rgba(255,255,255,0.85)" />
-        <text x={midX} y={midY + 2} textAnchor="middle" fontSize={10} fill={color}>
-          {Math.round(Math.abs(power)).toLocaleString()} W
-        </text>
-      </g>
-    );
-  };
+  const houseLoad = meterPower != null
+    ? Math.max(0, Math.round(solarProd + (battPower || 0) - (meterPower || 0)))
+    : null;
 
   return (
     <Box sx={{ position: 'relative', width: '100%', aspectRatio: '4/3', maxHeight: 380 }}>
-      <svg viewBox="0 0 600 400" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-        {/* Solar → House */}
-        {arrow(solarProd > 0, COLORS.solar, 300, 85, 470, 185, solarProd, 'sh')}
-        {/* Solar → Battery (charging) */}
-        {arrow(battPower != null && battPower < -10, COLORS.battery, 280, 85, 150, 190, battPower || 0, 'sb')}
-        {/* Solar → Grid (exporting) */}
-        {arrow(meterPower != null && meterPower < -10, COLORS.grid, 300, 85, 280, 340, meterPower || 0, 'sg')}
-        {/* Battery → House (discharging) */}
-        {arrow(battPower != null && battPower > 10, COLORS.house, 150, 220, 420, 215, battPower || 0, 'bh')}
-        {/* Grid → House (importing) */}
-        {arrow(meterPower != null && meterPower > 10, COLORS.gridImport, 310, 315, 460, 220, meterPower || 0, 'gh')}
-      </svg>
-
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr 1fr 1fr', height: '100%', gap: 1, p: 1 }}>
         {/* Row 1: Solar (col 2) */}
         <Box sx={{ gridRow: 1, gridColumn: 2, display: 'flex' }}>
@@ -100,7 +66,7 @@ function SystemDiagram({ master: m, slave: s }) {
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Batería</Typography>
               <Typography variant="h6" fontWeight="bold" color={battPower != null && battPower > 0 ? 'error.main' : 'success.main'} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 {battPower != null
-                  ? `${battPower > 0 ? '+' : ''}${Math.round(Math.abs(battPower)).toLocaleString()}`
+                  ? `${battPower > 0 ? '−' : '+'}${Math.round(Math.abs(battPower)).toLocaleString()}`
                   : '—'} <Typography component="span" variant="caption">W</Typography>
               </Typography>
               {battSoc != null && (
@@ -127,13 +93,13 @@ function SystemDiagram({ master: m, slave: s }) {
         <Box sx={{ gridRow: 3, gridColumn: 2, display: 'flex' }}>
           <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <CardContent sx={{ textAlign: 'center', py: { xs: 1, sm: 2 }, '&:last-child': { pb: { xs: 1, sm: 2 } } }}>
-              <PowerIcon sx={{ color: meterPower != null ? (meterPower > 0 ? COLORS.gridImport : COLORS.grid) : 'text.secondary', fontSize: { xs: 24, sm: 32 } }} />
+              <PowerIcon sx={{ color: meterPower != null ? (meterPower < 0 ? COLORS.gridImport : COLORS.grid) : 'text.secondary', fontSize: { xs: 24, sm: 32 } }} />
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Red</Typography>
-              <Typography variant="h6" fontWeight="bold" color={meterPower != null ? (meterPower > 0 ? 'warning.main' : 'info.main') : 'text.primary'} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
-                {meterPower != null ? Math.abs(meterPower).toLocaleString() : '—'} <Typography component="span" variant="caption">W</Typography>
+              <Typography variant="h6" fontWeight="bold" color={meterPower != null ? (meterPower < 0 ? 'warning.main' : 'info.main') : 'text.primary'} sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                {meterPower != null ? meterPower.toLocaleString() : '—'} <Typography component="span" variant="caption">W</Typography>
               </Typography>
-              <Typography variant="caption" color={meterPower != null ? (meterPower > 0 ? 'warning.main' : 'info.main') : 'text.secondary'} sx={{ display: 'block' }}>
-                {meterPower != null ? (meterPower > 0 ? 'Importando' : 'Exportando') : ''}
+              <Typography variant="caption" color={meterPower != null ? (meterPower < 0 ? 'warning.main' : 'info.main') : 'text.secondary'} sx={{ display: 'block' }}>
+                {meterPower != null ? (meterPower > 0 ? 'Exportando' : 'Importando') : ''}
               </Typography>
             </CardContent>
           </Card>
@@ -177,8 +143,8 @@ function DailyChart({ data }) {
 function DailyTable({ data, loadMoreRef, pageSize }) {
   if (!data || data.length === 0) return null;
 
-  const visibleRows = data.slice(0, pageSize).reverse();
-  const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const visibleRows = data.slice(0, pageSize);
+  const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
     <TableContainer component={Paper} sx={{ mt: 3, maxHeight: 520 }}>
@@ -200,14 +166,14 @@ function DailyTable({ data, loadMoreRef, pageSize }) {
               <TableCell align="right">{row.solarProduction?.toLocaleString() || '—'}</TableCell>
               <TableCell align="right">{row.houseConsumption?.toLocaleString() || '—'}</TableCell>
               <TableCell align="right">
-                <Typography component="span" variant="body2" color={row.batteryPower >= 0 ? 'error.main' : 'success.main'}>
-                  {row.batteryPower != null ? `${row.batteryPower > 0 ? '+' : ''}${row.batteryPower.toLocaleString()}` : '—'}
+                <Typography component="span" variant="body2" color={row.batteryPower > 0 ? 'error.main' : 'success.main'}>
+                  {row.batteryPower != null ? `${row.batteryPower > 0 ? '−' : '+'}${Math.abs(row.batteryPower).toLocaleString()}` : '—'}
                 </Typography>
               </TableCell>
               <TableCell align="right">{row.batterySoc != null ? row.batterySoc.toFixed(1) : '—'}</TableCell>
               <TableCell align="right">
-                <Typography component="span" variant="body2" color={row.gridPower > 0 ? 'warning.main' : 'info.main'}>
-                  {row.gridPower != null ? `${row.gridPower.toLocaleString()} ${row.gridPower > 0 ? 'imp' : 'exp'}` : '—'}
+                <Typography component="span" variant="body2" color={row.gridPower < 0 ? 'warning.main' : 'info.main'}>
+                  {row.gridPower != null ? `${row.gridPower.toLocaleString()} ${row.gridPower > 0 ? 'exp' : 'imp'}` : '—'}
                 </Typography>
               </TableCell>
             </TableRow>
@@ -228,17 +194,22 @@ function DailyTable({ data, loadMoreRef, pageSize }) {
 export default function SolarPage() {
   const socket = useSocket();
   const [latest, setLatest] = useState({});
-  const [todayData, setTodayData] = useState([]);
+  const [todayData, setTodayData] = useState([]);   // aggregated (5-min) for chart
+  const [rawData, setRawData] = useState([]);       // raw individual readings for table
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(50);
   const [lastUpdate, setLastUpdate] = useState(null);
   const loadMoreRef = useRef(null);
 
-  // Fetch today's aggregated data
-  const fetchToday = useCallback(async () => {
+  // Fetch today's data (both aggregated for chart + raw for table)
+  const fetchData = useCallback(async () => {
     try {
-      const res = await api.get('/ingestion/today');
-      if (Array.isArray(res.data)) setTodayData(res.data);
+      const [aggRes, rawRes] = await Promise.all([
+        api.get('/ingestion/today'),
+        api.get('/ingestion/today/raw'),
+      ]);
+      if (Array.isArray(aggRes.data)) setTodayData(aggRes.data);
+      if (Array.isArray(rawRes.data)) setRawData(rawRes.data);
     } catch (e) {
       // socket will provide live data
     } finally {
@@ -246,7 +217,7 @@ export default function SolarPage() {
     }
   }, []);
 
-  useEffect(() => { fetchToday(); }, [fetchToday]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // Socket for live data
   useEffect(() => {
@@ -268,16 +239,16 @@ export default function SolarPage() {
   useEffect(() => {
     if (!loadMoreRef.current) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setPageSize(p => Math.min(p + 50, todayData.length)); },
+      ([entry]) => { if (entry.isIntersecting) setPageSize(p => Math.min(p + 50, rawData.length)); },
       { threshold: 0.1 }
     );
     observer.observe(loadMoreRef.current);
     return () => observer.disconnect();
-  }, [todayData.length]);
+  }, [rawData.length]);
 
   const { master, slave } = latest;
 
-  if (loading && todayData.length === 0) {
+  if (loading && todayData.length === 0 && rawData.length === 0) {
     return (
       <Box display="flex" justifyContent="center" minHeight="50vh" alignItems="center">
         <CircularProgress />
@@ -308,7 +279,7 @@ export default function SolarPage() {
       </Grid>
 
       <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>Datos (Últimas 24 horas)</Typography>
-      <DailyTable data={todayData} loadMoreRef={loadMoreRef} pageSize={pageSize} />
+      <DailyTable data={rawData} loadMoreRef={loadMoreRef} pageSize={pageSize} />
     </Box>
   );
 }

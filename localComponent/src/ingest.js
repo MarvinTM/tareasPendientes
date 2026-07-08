@@ -123,6 +123,8 @@ function decodeReading(cache, hasBattery, hasMeter) {
 
     const bCurRaw = slice(cache, 37002, 1);
     r.battCurrent = bCurRaw ? Math.round(int16(bCurRaw, 0.01) * 100) / 100 : null;
+    // Flip sign: positive=discharging, negative=charging (matching display convention)
+    if (r.battCurrent != null) r.battCurrent = -r.battCurrent;
 
     const bVolRaw = slice(cache, 37003, 1);
     r.battVoltage = bVolRaw ? Math.round(uint16(bVolRaw, 0.01) * 100) / 100 : null;

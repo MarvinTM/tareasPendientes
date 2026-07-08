@@ -39,7 +39,7 @@ export const REGISTERS = [
 
   // ---- Battery (37000-37015, LUNA2000 live telemetry — Master only) ----
   { label: 'Batt Status',        addr: 37000, count: 1,  type: 'uint16', desc: 'Operating status', battery: true },
-  { label: 'Batt Current',       addr: 37002, count: 1,  type: 'int16',  unit: 'A',   scale: 0.01, desc: '−charge / +discharge', battery: true },
+  { label: 'Batt Current',       addr: 37002, count: 1,  type: 'int16',  unit: 'A',   scale: 0.01, desc: '−discharge / +charge', battery: true },
   { label: 'Batt Voltage',       addr: 37003, count: 1,  type: 'uint16', unit: 'V',   scale: 0.01, battery: true },
   { label: 'Batt SOC',           addr: 37004, count: 1,  type: 'uint16', unit: '%',   scale: 0.1,  desc: 'State of charge', battery: true },
   { label: 'Batt SOH',           addr: 37005, count: 1,  type: 'uint16', unit: '%',   scale: 0.1,  desc: 'State of health', battery: true },
