@@ -77,4 +77,41 @@ router.get('/latest', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/ingestion/today — 5-min aggregated intervals for today (JWT auth)
+router.get('/today', authenticateToken, async (req, res) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe(`
+      WITH combined AS (
+        SELECT
+          timestamp,
+          COALESCE(SUM("pvPower"), 0)            AS solar,
+          COALESCE(SUM("activePower"), 0)        AS total_ac,
+          MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END) AS meter,
+          MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END)  AS batt_pwr,
+          MAX(CASE WHEN "inverterId" = 'master' THEN "battSoc" END)    AS batt_soc
+        FROM "InverterReading"
+        WHERE timestamp >= NOW() - INTERVAL '24 hours'
+        GROUP BY timestamp
+      )
+      SELECT
+        date_trunc('day', timestamp)
+          + INTERVAL '5 min' * FLOOR(EXTRACT(EPOCH FROM (timestamp - date_trunc('day', timestamp))) / 300)
+          AS time,
+        ROUND(AVG(solar))::int                  AS "solarProduction",
+        ROUND(AVG(total_ac - COALESCE(meter, 0)))::int AS "houseConsumption",
+        ROUND(AVG(COALESCE(batt_pwr, 0)))::int  AS "batteryPower",
+        ROUND(AVG(COALESCE(batt_soc, 0))::numeric, 1)::float AS "batterySoc",
+        ROUND(AVG(COALESCE(meter, 0)))::int     AS "gridPower"
+      FROM combined
+      GROUP BY 1
+      ORDER BY 1
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Today query error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch today data' });
+  }
+});
+
 export default router;
