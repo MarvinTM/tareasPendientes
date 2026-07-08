@@ -171,3 +171,28 @@ model RiegoEvent {
   details    Json?
   timestamp  DateTime @default(now())
 }
+
+model InverterReading {
+  id            String   @id @default(uuid())
+  inverterId    String
+  timestamp     DateTime @default(now())
+
+  pv1Voltage    Float?
+  pv1Current    Float?
+  pv2Voltage    Float?
+  pv2Current    Float?
+  pvPower       Float?
+  activePower   Int?
+  gridVoltage   Float?
+  meterPower    Int?
+  battSoc       Float?
+  battCurrent   Float?
+  battVoltage   Float?
+  battPower     Float?
+  temperature   Float?
+  gridPwrLimit  Int?
+  runningState  Int?
+
+  @@index([inverterId, timestamp])
+  @@index([timestamp])
+}

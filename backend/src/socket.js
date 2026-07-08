@@ -25,3 +25,9 @@ export function emitRiegoUpdate(data) {
     io.emit('riego:updated', data);
   }
 }
+
+export function emitInverterData(data) {
+  if (io) {
+    io.emit('inverter:data', data);
+  }
+}

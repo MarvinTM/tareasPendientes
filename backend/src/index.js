@@ -19,6 +19,7 @@ import deviceRoutes from './routes/devices.js';
 import deviceActivationRoutes from './routes/deviceActivation.js';
 import riegoRoutes from './routes/riego.js';
 import activityRoutes from './routes/activity.js';
+import ingestionRoutes from './routes/ingestion.js';
 import { init as initRiego } from './services/riegoQueue.js';
 import { init as initScheduler } from './services/deviceScheduler.js';
 
@@ -104,6 +105,7 @@ app.use('/api/devices', deviceRoutes);
 app.use('/api/devices', deviceActivationRoutes);
 app.use('/api/riego', riegoRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/ingestion', ingestionRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
