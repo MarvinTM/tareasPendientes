@@ -31,8 +31,9 @@ function parseString(registers) {
 // ── Optimised polling blocks (compact, minimal reads) ───────────
 
 const OP_BLOCKS = [
-  { start: 32000, count: 125 },  // Status, PV, Yield, Grid, Active Pwr, Temp, Freq
-  { start: 32125, count: 26 },   // Remainder of 32000-32150
+  { start: 32000, count: 30 },  // Status + PV
+  { start: 32060, count: 30 },  // Yield + Grid Voltage + DC Bus
+  { start: 32080, count: 20 },  // Active Power + Grid Freq + Temp
 ];
 
 const MASTER_BLOCKS = [
@@ -65,11 +66,14 @@ async function readBlock(client, unitId, start, count) {
 
 async function readAll(client, unitId, blocks) {
   const cache = {};
+  const times = [];
   for (const b of blocks) {
+    const t0 = Date.now();
     const data = await readBlock(client, unitId, b.start, b.count);
+    times.push(`${b.start}:${Date.now()-t0}ms${data?'':'✗'}`);
     if (data) cache[b.start] = data;
   }
-  return cache;
+  return { cache, times };
 }
 
 // ── Decode a single reading for one inverter ────────────────────
@@ -173,7 +177,7 @@ async function postReading(readings) {
 // ── Identity (once at startup) ──────────────────────────────────
 
 async function readIdentity(client, unitId) {
-  const cache = await readAll(client, unitId, [{ start: 30000, count: 30 }]);
+  const { cache } = await readAll(client, unitId, [{ start: 30000, count: 30 }]);
   const modelRaw = slice(cache, 30000, 15);
   const snRaw = slice(cache, 30015, 10);
   return {
@@ -191,8 +195,19 @@ async function main() {
   }
 
   console.log('Connecting to ModBus...');
-  const client = new ModbusRTU({ timeout: TIMEOUT });
-  await client.connectTCP(HOST, { port: PORT });
+  let client;
+  try {
+    client = new ModbusRTU({ timeout: TIMEOUT });
+    console.log('TCP connecting...');
+    await Promise.race([
+      client.connectTCP(HOST, { port: PORT }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TCP connect timeout after 10s')), 10000)),
+    ]);
+    console.log('TCP connected.');
+  } catch (err) {
+    console.error(`Connection failed: ${err.message}`);
+    process.exit(1);
+  }
 
   // Read identity once
   const masterId = await readIdentity(client, 1);
@@ -211,18 +226,26 @@ async function main() {
   process.on('SIGTERM', () => { running = false; });
 
   while (running) {
+    const t0 = Date.now();
     try {
-      // Master: operational + battery + meter + power limit
-      const masterCache = await readAll(client, 1, MASTER_BLOCKS);
+      const { cache: masterCache, times: masterTimes } = await readAll(client, 1, MASTER_BLOCKS);
+      const t1 = Date.now();
       const masterReading = decodeReading(masterCache, true, true);
       masterReading.inverterId = 'master';
 
-      // Slave: operational only
-      const slaveCache = await readAll(client, 2, SLAVE_BLOCKS);
+      const { cache: slaveCache, times: slaveTimes } = await readAll(client, 2, SLAVE_BLOCKS);
+      const t2 = Date.now();
       const slaveReading = decodeReading(slaveCache, false, false);
       slaveReading.inverterId = 'slave';
 
-      await postReading([masterReading, slaveReading]);
+      const pvOk = masterReading.pv1Voltage != null || slaveReading.pv1Voltage != null;
+      if (pvOk) {
+        await postReading([masterReading, slaveReading]);
+        const t3 = Date.now();
+        process.stderr.write(`  [${new Date().toISOString()}] m[${masterTimes.join(' ')}] (${t1-t0}ms) s[${slaveTimes.join(' ')}] (${t2-t1}ms) post:${t3-t2}ms\n`);
+      } else {
+        process.stderr.write(`  [${new Date().toISOString()}] blocks failed m[${masterTimes.join(' ')}] s[${slaveTimes.join(' ')}] (${Date.now()-t0}ms)\n`);
+      }
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Cycle error: ${err.message}`);
     }
