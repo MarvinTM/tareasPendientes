@@ -224,12 +224,31 @@ export default function SolarPage() {
     if (!socket) return;
     const handler = (data) => {
       if (!Array.isArray(data) || data.length === 0) return;
-      setLatest({
-        master: data.find(r => r.inverterId === 'master') || {},
-        slave:  data.find(r => r.inverterId === 'slave')  || {},
-      });
+      const m = data.find(r => r.inverterId === 'master') || {};
+      const s = data.find(r => r.inverterId === 'slave')  || {};
+
+      setLatest({ master: m, slave: s });
       setLastUpdate(new Date().toISOString());
       setLoading(false);
+
+      // Prepend new row to table
+      const solarProd = (m.pvPower || 0) + (s.pvPower || 0);
+      const battPower = m.battPower != null ? m.battPower : 0;
+      const meterPower = m.meterPower != null ? m.meterPower : 0;
+      const ts = data[0].timestamp || new Date().toISOString();
+      const newRow = {
+        time: ts,
+        solarProduction: Math.round(solarProd),
+        houseConsumption: Math.max(0, Math.round(solarProd + battPower - meterPower)),
+        batteryPower: battPower,
+        batterySoc: m.battSoc != null ? m.battSoc : 0,
+        gridPower: meterPower,
+      };
+      setRawData(prev => {
+        // Avoid duplicates with same timestamp
+        if (prev.length > 0 && prev[0].time === ts) return prev;
+        return [newRow, ...prev];
+      });
     };
     socket.on('inverter:data', handler);
     return () => socket.off('inverter:data', handler);
