@@ -15,6 +15,7 @@ import RiegoPlansPage from './pages/RiegoPlansPage';
 import RiegoEventsPage from './pages/RiegoEventsPage';
 import ActivationPlansPage from './pages/ActivationPlansPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
+import SolarPage from './pages/SolarPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
@@ -88,6 +89,7 @@ function App() {
         <Route path="riego" element={<RiegoPage />} />
         <Route path="riego/planes" element={<RiegoPlansPage />} />
         <Route path="riego/eventos" element={<RiegoEventsPage />} />
+        <Route path="solar" element={<SolarPage />} />
         <Route
           path="admin"
           element={

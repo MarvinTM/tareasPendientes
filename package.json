@@ -4,12 +4,14 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "localComponent"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=backend",
     "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:local": "npm run dev --workspace=localComponent",
     "build": "npm run build --workspace=frontend",
     "start": "npm run start --workspace=backend",
     "test": "npm run test:backend && npm run test:frontend",

@@ -1,6 +1,7 @@
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import SolarPowerIcon from '@mui/icons-material/SolarPower';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
@@ -35,6 +36,15 @@ export const modules = [
       { label: 'Control', path: '/riego' },
       { label: 'Planes', path: '/riego/planes' },
       { label: 'Histórico de Riegos', path: '/riego/eventos' },
+    ],
+  },
+  {
+    id: 'solar',
+    label: 'Paneles Solares',
+    icon: SolarPowerIcon,
+    path: '/solar',
+    subNav: [
+      { label: 'Monitor', path: '/solar' },
     ],
   },
   {
