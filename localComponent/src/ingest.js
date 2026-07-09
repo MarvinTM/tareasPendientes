@@ -31,19 +31,18 @@ function parseString(registers) {
 // ── Optimised polling blocks (compact, minimal reads) ───────────
 
 const OP_BLOCKS = [
-  { start: 32000, count: 30 },  // Status + PV
-  { start: 32060, count: 30 },  // Yield + Grid Voltage + DC Bus
-  { start: 32080, count: 20 },  // Active Power + Grid Freq + Temp
+  { start: 32000, count: 90 },
 ];
 
 const MASTER_BLOCKS = [
-  ...OP_BLOCKS,
-  { start: 37000, count: 20 },   // Battery live telemetry
-  { start: 37100, count: 30 },   // Meter data
-  { start: 40100, count: 30 },   // Power limit
+  { start: 32000, count: 90 },
+  { start: 37000, count: 60 },
+  { start: 37060, count: 70 },
 ];
 
-const SLAVE_BLOCKS = OP_BLOCKS;
+const SLAVE_BLOCKS = [
+  { start: 32000, count: 90 },
+];
 
 // ── Register extraction from cache ──────────────────────────────
 
@@ -232,6 +231,9 @@ async function main() {
       const t1 = Date.now();
       const masterReading = decodeReading(masterCache, true, true);
       masterReading.inverterId = 'master';
+
+      // Warm-up slave: first read after setID(2) times out on this firmware
+      await readBlock(client, 2, 30070, 1);
 
       const { cache: slaveCache, times: slaveTimes } = await readAll(client, 2, SLAVE_BLOCKS);
       const t2 = Date.now();
