@@ -240,14 +240,18 @@ async function main() {
       const slaveReading = decodeReading(slaveCache, false, false);
       slaveReading.inverterId = 'slave';
 
-      const pvOk = masterReading.pv1Voltage != null || slaveReading.pv1Voltage != null;
-      if (pvOk) {
+      const pvOk = masterReading.pv1Voltage != null && slaveReading.pv1Voltage != null;
+      const battOk = masterReading.battPower != null;
+      const meterOk = masterReading.meterPower != null;
+      const allOk = pvOk && battOk && meterOk;
+      if (allOk) {
         await postReading([masterReading, slaveReading]);
         const t3 = Date.now();
         const bRaw = masterReading._battCurrentRaw ?? '?';
         process.stderr.write(`  [${new Date().toISOString()}] m[${masterTimes.join(' ')}] (${t1-t0}ms) s[${slaveTimes.join(' ')}] (${t2-t1}ms) post:${t3-t2}ms bRaw:${bRaw}\n`);
       } else {
-        process.stderr.write(`  [${new Date().toISOString()}] blocks failed m[${masterTimes.join(' ')}] s[${slaveTimes.join(' ')}] (${Date.now()-t0}ms)\n`);
+        const missing = [!pvOk&&'PV',!battOk&&'Batt',!meterOk&&'Meter'].filter(Boolean).join(',');
+        process.stderr.write(`  [${new Date().toISOString()}] skipped (missing: ${missing}) (${Date.now()-t0}ms)\n`);
       }
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Cycle error: ${err.message}`);
