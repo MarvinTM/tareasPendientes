@@ -125,15 +125,15 @@ function decodeReading(cache, hasBattery, hasMeter) {
     r.battSoc = socRaw ? Math.round(uint16(socRaw, 0.1) * 10) / 10 : null;
 
     const bCurRaw = slice(cache, 37002, 1);
+    r._battCurrentRaw = bCurRaw ? bCurRaw[0] : null;
     r.battCurrent = bCurRaw ? Math.round(int16(bCurRaw, 0.01) * 100) / 100 : null;
-    // Flip sign: positive=discharging, negative=charging (matching display convention)
     if (r.battCurrent != null) r.battCurrent = -r.battCurrent;
 
     const bVolRaw = slice(cache, 37003, 1);
     r.battVoltage = bVolRaw ? Math.round(uint16(bVolRaw, 0.01) * 100) / 100 : null;
 
     if (r.battCurrent != null && r.battVoltage != null)
-      r.battPower = Math.round(r.battCurrent * r.battVoltage);
+      r.battPower = Math.round(r.battCurrent * r.battVoltage * 2);
   }
 
   // Power Limit (40118)
@@ -244,7 +244,8 @@ async function main() {
       if (pvOk) {
         await postReading([masterReading, slaveReading]);
         const t3 = Date.now();
-        process.stderr.write(`  [${new Date().toISOString()}] m[${masterTimes.join(' ')}] (${t1-t0}ms) s[${slaveTimes.join(' ')}] (${t2-t1}ms) post:${t3-t2}ms\n`);
+        const bRaw = masterReading._battCurrentRaw ?? '?';
+        process.stderr.write(`  [${new Date().toISOString()}] m[${masterTimes.join(' ')}] (${t1-t0}ms) s[${slaveTimes.join(' ')}] (${t2-t1}ms) post:${t3-t2}ms bRaw:${bRaw}\n`);
       } else {
         process.stderr.write(`  [${new Date().toISOString()}] blocks failed m[${masterTimes.join(' ')}] s[${slaveTimes.join(' ')}] (${Date.now()-t0}ms)\n`);
       }
