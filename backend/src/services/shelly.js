@@ -267,6 +267,12 @@ export async function turnDeviceOn(deviceId) {
       const data = await response.json();
 
       if (response.ok && data.isok === true) {
+        const status = await fetchDeviceStatus(deviceId);
+        if (status.online && status.on !== true) {
+          console.warn(`Shelly turn on verification failed for ${deviceId} (attempt ${attempt + 1}), retrying`);
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
         return { on: true };
       }
 
@@ -322,6 +328,12 @@ export async function turnDeviceOff(deviceId) {
       const data = await response.json();
 
       if (response.ok && data.isok === true) {
+        const status = await fetchDeviceStatus(deviceId);
+        if (status.online && status.on !== false) {
+          console.warn(`Shelly turn off verification failed for ${deviceId} (attempt ${attempt + 1}), retrying`);
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
         return { on: false };
       }
 

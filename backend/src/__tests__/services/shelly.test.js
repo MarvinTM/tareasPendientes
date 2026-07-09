@@ -382,6 +382,10 @@ describe('Shelly Service', () => {
         ok: true,
         json: async () => ({ isok: true }),
       });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }] } } }),
+      });
 
       const { turnDeviceOn } = await import('../../services/shelly.js');
       const result = await turnDeviceOn('dev-1');
@@ -410,7 +414,7 @@ describe('Shelly Service', () => {
       const result = await turnDeviceOn('dev-1');
 
       expect(result).toEqual({ on: true });
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(3); // 1 rate-limit + 1 success + 1 status check
     });
 
     it('retries on network errors up to 3 times then throws', async () => {
@@ -438,6 +442,10 @@ describe('Shelly Service', () => {
         ok: true,
         json: async () => ({ isok: true }),
       });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }] } } }),
+      });
 
       const { turnDeviceOff } = await import('../../services/shelly.js');
       const result = await turnDeviceOff('dev-1');
@@ -463,7 +471,7 @@ describe('Shelly Service', () => {
       const result = await turnDeviceOff('dev-1');
 
       expect(result).toEqual({ on: false });
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(3); // 1 rate-limit + 1 success + 1 status check
     });
 
     it('throws when device not found', async () => {
