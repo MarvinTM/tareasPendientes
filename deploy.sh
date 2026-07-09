@@ -87,7 +87,14 @@ rsync_cmd "frontend/dist/" "$REMOTE_PATH/frontend/dist/"
 log_info "Frontend deployed"
 
 # ===========================================
-# Step 3: Deploy backend code (excluding node_modules)
+# Step 3: Deploy root ecosystem config
+# ===========================================
+log_info "Deploying ecosystem config..."
+rsync_cmd "ecosystem.config.cjs" "$REMOTE_PATH/ecosystem.config.cjs"
+log_info "Ecosystem config deployed"
+
+# ===========================================
+# Step 4: Deploy backend code (excluding node_modules)
 # ===========================================
 log_info "Deploying backend to server..."
 if [ -n "$SSH_KEY" ]; then
@@ -107,21 +114,21 @@ fi
 log_info "Backend deployed"
 
 # ===========================================
-# Step 4: Install backend dependencies on server
+# Step 5: Install backend dependencies on server
 # ===========================================
 log_info "Installing backend dependencies on server..."
 ssh_cmd "cd $REMOTE_PATH/backend && npm install --production"
 log_info "Dependencies installed"
 
 # ===========================================
-# Step 5: Run database migrations
+# Step 6: Run database migrations
 # ===========================================
 log_info "Running database migrations..."
 ssh_cmd "cd $REMOTE_PATH/backend && npm run db:push"
 log_info "Database updated"
 
 # ===========================================
-# Step 6: Restart backend with PM2
+# Step 7: Restart backend with PM2
 # ===========================================
 log_info "Restarting backend..."
 ssh_cmd "cd $REMOTE_PATH && pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs"

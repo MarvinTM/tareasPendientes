@@ -27,9 +27,13 @@ function getLocalTime(timezone) {
 export function computeSunTime(type) {
   const times = getTimes(new Date(), ALBERITE.lat, ALBERITE.lng);
   const date = type === 'sunrise' ? times.sunrise : times.sunset;
-  const h = String(date.getHours()).padStart(2, '0');
-  const m = String(date.getMinutes()).padStart(2, '0');
-  return `${h}:${m}`;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+  return parts;
 }
 
 function resolveTime(mode, fixedTime, sunTime) {
