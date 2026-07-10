@@ -124,19 +124,35 @@ export default function Layout() {
   const socket = useSocket();
   const [riegoState, setRiegoState] = useState({ current: null });
 
-  useEffect(() => {
-    if (!socket) return;
-
+  const fetchRiegoStatus = useCallback(() => {
     api.get('/riego/status')
       .then(res => setRiegoState({ current: res.data.current }))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    fetchRiegoStatus();
 
     const handleUpdate = (data) => {
       setRiegoState({ current: data.current });
     };
     socket.on('riego:updated', handleUpdate);
     return () => socket.off('riego:updated', handleUpdate);
-  }, [socket]);
+  }, [socket, fetchRiegoStatus]);
+
+  // Refresh riego status when the page becomes visible again so the banner
+  // progress bar reflects the actual elapsed time (no per-second server push).
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchRiegoStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchRiegoStatus]);
 
   const renderRiegoIcon = (icon) => (
     <Box sx={{ position: 'relative', display: 'inline-flex' }}>
