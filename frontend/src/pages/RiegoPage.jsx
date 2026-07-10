@@ -270,8 +270,8 @@ export default function RiegoPage() {
                   transition: 'background-color 0.3s ease, border-left 0.3s ease',
                 }}>
                   <CardContent sx={isMobile ? { p: 1.5, '&:last-child': { pb: 1.5 } } : undefined}>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={isMobile ? 0.5 : 1}>
-                      <Box display="flex" alignItems="center" gap={1}>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" gap={isMobile ? 0.5 : 1}>
+                      <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 0, flexShrink: 1 }}>
                         <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                           {isActive && <RainAnimation />}
                           <PhaseIcon sx={{
@@ -299,7 +299,7 @@ export default function RiegoPage() {
                           </Box>
                         </Box>
                         <Box>
-                          <Typography variant={isMobile ? 'body1' : 'subtitle1'} fontWeight="bold">
+                          <Typography variant={isMobile ? 'body1' : 'subtitle1'} fontWeight="bold" sx={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                             {phase.name}
                           </Typography>
                           {isActive && (
@@ -307,7 +307,7 @@ export default function RiegoPage() {
                           )}
                         </Box>
                       </Box>
-                      <Box display="flex" alignItems="center" gap={isMobile ? 0.5 : 1}>
+                      <Box display="flex" alignItems="center" gap={isMobile ? 0.5 : 1} sx={{ flexShrink: 0 }}>
                         <FormControl size="small" sx={{ minWidth: isMobile ? 90 : 110 }}>
                           <Select
                             value={durations[phase.id] !== undefined ? durations[phase.id] : DEFAULT_DURATION}
