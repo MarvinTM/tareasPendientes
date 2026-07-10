@@ -14,6 +14,7 @@ const router = express.Router();
 router.get('/status', authenticateToken, async (req, res) => {
   try {
     const state = getState();
+    res.set('Cache-Control', 'no-store');
     res.json(state);
   } catch (error) {
     console.error('Error getting riego state:', error);

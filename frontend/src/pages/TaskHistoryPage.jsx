@@ -64,7 +64,7 @@ export default function TaskHistoryPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 2, md: 0 } }}>
       <Button
         startIcon={<ArrowBackIcon />}
         onClick={() => navigate('/tareas')}

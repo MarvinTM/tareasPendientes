@@ -242,7 +242,7 @@ export default function TaskBoard({ tasks, users, categories, weeklyScores, onDr
           flexDirection: 'column',
           gap: 2,
           flexShrink: 0,
-          minHeight: 0, // Allow shrinking on small screens
+          minHeight: numColumns === 1 ? 200 : 0, // Ensure Completadas is reachable/scrollable on mobile
           flexBasis: numColumns === 1 ? '40%' : 'auto',
           '@media (min-width: 700px)': {
             width: 320,

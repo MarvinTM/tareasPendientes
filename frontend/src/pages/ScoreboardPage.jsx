@@ -187,7 +187,7 @@ export default function ScoreboardPage() {
   };
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 2, md: 0 } }}>
       <Box display="flex" alignItems="center" gap={1} mb={3}>
         <EmojiEventsIcon sx={{ fontSize: 32, color: '#FFD700' }} />
         <Typography variant="h4" component="h1">

@@ -121,6 +121,7 @@ export default function RiegoPage() {
   const [confirmPlan, setConfirmPlan] = useState(null);
   const [durations, setDurations] = useState(loadStoredDurations);
   const [starting, setStarting] = useState({});
+  const [localTick, setLocalTick] = useState(0);
 
   const fetchState = useCallback(async () => {
     try {
@@ -160,21 +161,31 @@ export default function RiegoPage() {
   }, [socket]);
 
   useEffect(() => {
-    if (!state.current) return;
+    // Reset local tick whenever the server sends a fresh remaining value
+    setLocalTick(0);
+  }, [state.current?.queueId, state.current?.remaining]);
+
+  useEffect(() => {
+    if (!state.current || state.current.status !== 'running') return;
 
     const interval = setInterval(() => {
-      setState(prev => {
-        if (!prev.current) return prev;
-        const remaining = Math.max(0, prev.current.remaining - 1);
-        return {
-          ...prev,
-          current: { ...prev.current, remaining },
-        };
-      });
+      setLocalTick(prev => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [state.current?.queueId]);
+  }, [state.current?.queueId, state.current?.status]);
+
+  // Refresh state when the page becomes visible again (e.g. returning from
+  // another browser tab) so the progress bar reflects the actual elapsed time.
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchState();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchState]);
 
   const handleStart = async (phaseId) => {
     const duration = durations[phaseId] || DEFAULT_DURATION;
@@ -345,8 +356,9 @@ export default function RiegoPage() {
               <List disablePadding>
                 {state.current && (() => {
                   const totalSeconds = state.current.durationMin * 60;
+                  const displayRemaining = Math.max(0, state.current.remaining - localTick);
                   const progress = state.current.status === 'running'
-                    ? Math.max(0, Math.min(1, 1 - (state.current.remaining / Math.max(1, totalSeconds))))
+                    ? Math.max(0, Math.min(1, 1 - (displayRemaining / Math.max(1, totalSeconds))))
                     : state.current.status === 'disconnecting' ? 1 : 0;
 
                   return (
@@ -375,7 +387,7 @@ export default function RiegoPage() {
                               <>
                                 <AccessTimeIcon sx={{ fontSize: 14 }} />
                                 <Typography variant="caption">
-                                  Quedan {formatRemaining(state.current.remaining)}
+                                  Quedan {formatRemaining(displayRemaining)}
                                 </Typography>
                               </>
                             ) : (

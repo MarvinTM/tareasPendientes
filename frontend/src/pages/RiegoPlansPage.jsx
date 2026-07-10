@@ -202,7 +202,7 @@ export default function RiegoPlansPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 2, md: 0 } }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FormatListBulletedIcon fontSize="large" color="primary" /> Planes de Riego

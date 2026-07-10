@@ -127,7 +127,7 @@ export default function AdminPage() {
   const approvedUsers = users.filter((u) => u.isApproved);
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 2, md: 0 } }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <PeopleIcon fontSize="large" color="primary" /> Gestión de Usuarios
       </Typography>

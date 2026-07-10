@@ -361,7 +361,7 @@ export default function SolarPage() {
   }
 
   return (
-    <Box>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: { xs: 2, md: 0 } }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" mb={2}>
         <Typography variant="h4">Paneles Solares</Typography>
         {lastUpdate && (

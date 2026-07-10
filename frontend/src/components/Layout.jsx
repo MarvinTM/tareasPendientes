@@ -232,14 +232,14 @@ export default function Layout() {
           display: 'flex',
           flexDirection: 'column',
           overscrollBehavior: 'none',
-          pb: 7
+          pb: { xs: 8, sm: 9 }
         }}>
           <Outlet />
         </Box>
 
         <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100, overflow: 'visible' }} elevation={3}>
           <BottomNavigation value={activeModule?.id || ''} onChange={handleBottomNavChange} showLabels>
-            {visibleModules.map(mod => (
+            {userModules.map(mod => (
               <BottomNavigationAction
                 key={mod.id}
                 value={mod.id}

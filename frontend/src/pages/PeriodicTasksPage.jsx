@@ -298,7 +298,7 @@ export default function PeriodicTasksPage() {
   }
 
   return (
-    <Box pb={8}>
+    <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pb: 8 }}>
       <Typography variant="h4" component="h1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <LoopIcon fontSize="large" color="primary" /> Tareas recurrentes
       </Typography>
