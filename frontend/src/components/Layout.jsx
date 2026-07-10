@@ -247,13 +247,12 @@ export default function Layout() {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          overscrollBehavior: 'none',
-          pb: { xs: 8, sm: 9 }
+          overscrollBehavior: 'none'
         }}>
           <Outlet />
         </Box>
 
-        <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100, overflow: 'visible' }} elevation={3}>
+        <Paper sx={{ flexShrink: 0, overflow: 'visible' }} elevation={3}>
           <BottomNavigation value={activeModule?.id || ''} onChange={handleBottomNavChange} showLabels>
             {userModules.map(mod => (
               <BottomNavigationAction
