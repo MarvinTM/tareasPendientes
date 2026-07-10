@@ -214,26 +214,35 @@ async function main() {
   console.log(`Master: ${masterId.model} [${masterId.serial}]`);
   console.log(`Slave:  ${slaveId.model} [${slaveId.serial}]`);
 
-  // Warm-up
-  try { await readBlock(client, 1, 30070, 1); } catch (e) {}
-  try { await readBlock(client, 2, 30070, 1); } catch (e) {}
+  // Warm-up: first reads after TCP connect often time out on this firmware.
+  // Do 3 rounds on the actual data range with delays to properly warm up.
+  for (let i = 0; i < 3; i++) {
+    try { await readBlock(client, 1, 32000, 10); } catch (e) {}
+    try { await readBlock(client, 2, 32000, 10); } catch (e) {}
+    await new Promise(r => setTimeout(r, 2000));
+  }
 
   console.log(`Polling every ${INTERVAL}ms → ${BACKEND}/api/ingestion/inverter`);
 
   let running = true;
   let failCount = 0;
   let lastSuccess = Date.now();
+  let reconnectBackoff = 0;
   const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
   async function reconnect() {
-    console.error(`[${new Date().toISOString()}] Reconnecting (failures: ${failCount}, age: ${Math.round((Date.now()-lastSuccess)/1000)}s)...`);
     try { client.close(); } catch (e) {}
     client = new ModbusRTU({ timeout: TIMEOUT });
     await client.connectTCP(HOST, { port: PORT });
-    try { await readBlock(client, 1, 30070, 1); } catch (e) {}
-    try { await readBlock(client, 2, 30070, 1); } catch (e) {}
+
+    // Warm-up: first reads after TCP connect often time out on this firmware
+    for (let i = 0; i < 3; i++) {
+      try { await readBlock(client, 1, 32000, 10); } catch (e) {}
+      try { await readBlock(client, 2, 32000, 10); } catch (e) {}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
     failCount = 0;
-    lastSuccess = Date.now();
     console.error(`[${new Date().toISOString()}] Reconnected.`);
   }
 
@@ -266,6 +275,7 @@ async function main() {
       if (allOk) {
         failCount = 0;
         lastSuccess = Date.now();
+        reconnectBackoff = 0;
         await postReading([masterReading, slaveReading]);
         const t3 = Date.now();
         const bRaw = masterReading._battCurrentRaw ?? '?';
@@ -280,8 +290,15 @@ async function main() {
       console.error(`[${new Date().toISOString()}] Cycle error: ${err.message}`);
     }
 
-    // Reconnect on 3+ consecutive failures or every 30 minutes
-    if (running && (failCount >= 3 || Date.now() - lastSuccess > REFRESH_MS)) {
+    // Reconnect after 5+ consecutive failures (with backoff) or every 30 min
+    if (running && failCount >= 5) {
+      reconnectBackoff++;
+      const delay = Math.min(reconnectBackoff * 10000, 60000);
+      console.error(`[${new Date().toISOString()}] Reconnecting (failures: ${failCount}, backoff: ${delay}ms)...`);
+      await new Promise(r => setTimeout(r, delay));
+      await reconnect();
+    } else if (running && Date.now() - lastSuccess > REFRESH_MS) {
+      console.error(`[${new Date().toISOString()}] Periodic reconnect (${Math.round(REFRESH_MS/60000)}m without success)...`);
       await reconnect();
     }
 
