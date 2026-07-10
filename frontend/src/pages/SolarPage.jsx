@@ -13,10 +13,14 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import WbCloudyIcon from '@mui/icons-material/WbCloudy';
+import CloudIcon from '@mui/icons-material/Cloud';
+import BedtimeIcon from '@mui/icons-material/Bedtime';
 import HomeIcon from '@mui/icons-material/Home';
 import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
 import PowerIcon from '@mui/icons-material/Power';
 import ScheduleIcon from '@mui/icons-material/Schedule';
+import SolarPowerIcon from '@mui/icons-material/SolarPower';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
@@ -47,6 +51,30 @@ function SystemDiagram({ master: m, slave: s, visibility, onToggle }) {
   const fill = (value, max) => Math.min(100, ((value || 0) / max) * 100);
   const gradient = (color, pct) => `linear-gradient(to top, ${color}40 0%, ${color}40 ${pct}%, transparent ${pct}%)`;
 
+  const hour = new Date().getHours();
+  const sunrise = 7, sunset = 22;
+  const isNight = hour < sunrise || hour >= sunset;
+  let SunIcon, sunIconColor;
+  if (isNight) {
+    SunIcon = BedtimeIcon;
+    sunIconColor = '#5c6bc0';
+  } else {
+    const progress = (hour - sunrise) / (sunset - sunrise);
+    const expectedPeak = Math.sin(Math.PI * Math.max(0, Math.min(1, progress)));
+    const expectedW = expectedPeak * 8000;
+    const ratio = expectedW > 100 ? solarProd / expectedW : 0;
+    if (ratio > 0.5) {
+      SunIcon = WbSunnyIcon;
+      sunIconColor = COLORS.solar;
+    } else if (ratio > 0.15) {
+      SunIcon = WbCloudyIcon;
+      sunIconColor = '#90a4ae';
+    } else {
+      SunIcon = CloudIcon;
+      sunIconColor = '#b0bec5';
+    }
+  }
+
   const solarFill = gradient(COLORS.solar, fill(solarProd, maxPower));
   const houseFill = gradient(COLORS.house, fill(houseLoad, maxPower));
   const battFill = gradient(COLORS.battery, battSoc || 0);
@@ -68,7 +96,10 @@ function SystemDiagram({ master: m, slave: s, visibility, onToggle }) {
             }}
           >
             <CardContent sx={{ textAlign: 'center', py: { xs: 1, sm: 2 }, '&:last-child': { pb: { xs: 1, sm: 2 } } }}>
-              <WbSunnyIcon sx={{ color: COLORS.solar, fontSize: { xs: 24, sm: 32 } }} />
+              <Box display="flex" justifyContent="center" gap={0.5}>
+                <SolarPowerIcon sx={{ color: COLORS.solar, fontSize: { xs: 24, sm: 32 } }} />
+                <SunIcon sx={{ color: sunIconColor, fontSize: { xs: 24, sm: 32 } }} />
+              </Box>
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Solar</Typography>
               <Typography variant="h6" fontWeight="bold" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 {solarProd > 0 ? solarProd.toLocaleString() : '—'} <Typography component="span" variant="caption">W</Typography>
