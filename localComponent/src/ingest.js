@@ -6,7 +6,7 @@ const PORT     = parseInt(process.env.MODBUS_PORT || '502', 10);
 const BACKEND  = (process.env.BACKEND_URL || 'http://localhost:3001').replace(/\/+$/, '');
 const API_KEY  = process.env.API_KEY || '';
 const INTERVAL = parseInt(process.env.POLL_INTERVAL || '5000', 10);
-const TIMEOUT  = 4000;
+const TIMEOUT  = 8000;
 
 // ── Decoding helpers ────────────────────────────────────────────
 
@@ -259,15 +259,12 @@ async function main() {
       const masterReading = decodeReading(masterCache, true, true);
       masterReading.inverterId = 'master';
 
-      // Warm-up slave on actual data range: first read after setID(2) may time out
-      await readBlock(client, 2, 32000, 10);
-
       const { cache: slaveCache, times: slaveTimes } = await readAll(client, 2, SLAVE_BLOCKS);
       const t2 = Date.now();
       const slaveReading = decodeReading(slaveCache, false, false);
       slaveReading.inverterId = 'slave';
 
-      const pvOk = masterReading.pv1Voltage != null && slaveReading.pv1Voltage != null;
+      const pvOk = masterReading.pv1Voltage != null;
       const battOk = masterReading.battPower != null;
       const meterOk = masterReading.meterPower != null;
       // Sanity: solar + battery(discharge) + grid(import) should be >= 0
@@ -296,6 +293,14 @@ async function main() {
     if (running && failCount >= 5) {
       reconnectBackoff++;
       const delay = Math.min(reconnectBackoff * 10000, 60000);
+
+      if (reconnectBackoff >= 3) {
+        console.error(`[${new Date().toISOString()}] Circuit breaker: pausing 2 minutes for inverter recovery...`);
+        try { client.close(); } catch (e) {}
+        await new Promise(r => setTimeout(r, 120000));
+        console.error(`[${new Date().toISOString()}] Circuit breaker: resuming...`);
+      }
+
       console.error(`[${new Date().toISOString()}] Reconnecting (failures: ${failCount}, backoff: ${delay}ms)...`);
       await new Promise(r => setTimeout(r, delay));
       await reconnect();
