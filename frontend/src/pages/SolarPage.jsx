@@ -27,6 +27,7 @@ const COLORS = {
   battery: '#43a047',
   grid: '#e53935',
   gridImport: '#ef6c00',
+  gridExport: '#00897b',
 };
 
 // ── System Diagram ──────────────────────────────────────────────
@@ -49,7 +50,7 @@ function SystemDiagram({ master: m, slave: s, visibility, onToggle }) {
   const solarFill = gradient(COLORS.solar, fill(solarProd, maxPower));
   const houseFill = gradient(COLORS.house, fill(houseLoad, maxPower));
   const battFill = gradient(COLORS.battery, battSoc || 0);
-  const gridColor = meterPower != null && meterPower < 0 ? COLORS.gridImport : COLORS.grid;
+  const gridColor = meterPower != null && meterPower < 0 ? COLORS.gridImport : COLORS.gridExport;
   const gridFill = gradient(gridColor, fill(Math.abs(meterPower || 0), maxPower));
 
   return (
