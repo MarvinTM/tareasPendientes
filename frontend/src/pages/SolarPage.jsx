@@ -280,15 +280,21 @@ export default function SolarPage() {
 
   const toggleLine = (key) => setLineVisibility(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // Fetch today's data (both aggregated for chart + raw for table)
+  // Fetch today's data (aggregated for chart, raw for table, latest for diagram)
   const fetchData = useCallback(async () => {
     try {
-      const [aggRes, rawRes] = await Promise.all([
+      const [aggRes, rawRes, latestRes] = await Promise.all([
         api.get('/ingestion/today'),
         api.get('/ingestion/today/raw'),
+        api.get('/ingestion/latest'),
       ]);
       if (Array.isArray(aggRes.data)) setTodayData(aggRes.data);
       if (Array.isArray(rawRes.data)) setRawData(rawRes.data);
+      if (Array.isArray(latestRes.data) && latestRes.data.length > 0) {
+        const m = latestRes.data.find(r => r.inverterId === 'master') || {};
+        const s = latestRes.data.find(r => r.inverterId === 'slave') || {};
+        setLatest({ master: m, slave: s });
+      }
     } catch (e) {
       // socket will provide live data
     } finally {
