@@ -23,9 +23,9 @@ import { useSocket } from '../contexts/SocketContext';
 
 const COLORS = {
   solar: '#f9a825',
-  house: '#e53935',
+  house: '#1565c0',
   battery: '#43a047',
-  grid: '#1565c0',
+  grid: '#e53935',
   gridImport: '#ef6c00',
 };
 
@@ -121,9 +121,11 @@ function DailyChart({ data }) {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const chartData = data.map(d => ({ ...d, batteryPower: -(d.batteryPower || 0) }));
+
   return (
     <ResponsiveContainer width="100%" height={350}>
-      <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+      <LineChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="time" tickFormatter={fmtTime} fontSize={11} interval={Math.max(0, Math.floor(data.length / 8))} />
         <YAxis tickFormatter={v => `${(v / 1000).toFixed(1)}kW`} fontSize={11} width={50} />
