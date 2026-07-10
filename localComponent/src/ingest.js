@@ -71,6 +71,8 @@ async function readAll(client, unitId, blocks) {
     const data = await readBlock(client, unitId, b.start, b.count);
     times.push(`${b.start}:${Date.now()-t0}ms${data?'':'✗'}`);
     if (data) cache[b.start] = data;
+    // Small pause between block reads to avoid overwhelming the inverter
+    await new Promise(r => setTimeout(r, 500));
   }
   return { cache, times };
 }
@@ -257,8 +259,8 @@ async function main() {
       const masterReading = decodeReading(masterCache, true, true);
       masterReading.inverterId = 'master';
 
-      // Warm-up slave: first read after setID(2) times out on this firmware
-      await readBlock(client, 2, 30070, 1);
+      // Warm-up slave on actual data range: first read after setID(2) may time out
+      await readBlock(client, 2, 32000, 10);
 
       const { cache: slaveCache, times: slaveTimes } = await readAll(client, 2, SLAVE_BLOCKS);
       const t2 = Date.now();
