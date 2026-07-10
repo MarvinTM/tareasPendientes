@@ -221,6 +221,22 @@ async function main() {
   console.log(`Polling every ${INTERVAL}ms → ${BACKEND}/api/ingestion/inverter`);
 
   let running = true;
+  let failCount = 0;
+  let lastSuccess = Date.now();
+  const REFRESH_MS = 30 * 60 * 1000; // 30 minutes
+
+  async function reconnect() {
+    console.error(`[${new Date().toISOString()}] Reconnecting (failures: ${failCount}, age: ${Math.round((Date.now()-lastSuccess)/1000)}s)...`);
+    try { client.close(); } catch (e) {}
+    client = new ModbusRTU({ timeout: TIMEOUT });
+    await client.connectTCP(HOST, { port: PORT });
+    try { await readBlock(client, 1, 30070, 1); } catch (e) {}
+    try { await readBlock(client, 2, 30070, 1); } catch (e) {}
+    failCount = 0;
+    lastSuccess = Date.now();
+    console.error(`[${new Date().toISOString()}] Reconnected.`);
+  }
+
   process.on('SIGINT', () => { running = false; });
   process.on('SIGTERM', () => { running = false; });
 
@@ -248,16 +264,25 @@ async function main() {
       const balOk = (solarProd + (masterReading.battPower || 0) - (masterReading.meterPower || 0)) >= 0;
       const allOk = pvOk && battOk && meterOk && balOk;
       if (allOk) {
+        failCount = 0;
+        lastSuccess = Date.now();
         await postReading([masterReading, slaveReading]);
         const t3 = Date.now();
         const bRaw = masterReading._battCurrentRaw ?? '?';
         process.stderr.write(`  [${new Date().toISOString()}] m[${masterTimes.join(' ')}] (${t1-t0}ms) s[${slaveTimes.join(' ')}] (${t2-t1}ms) post:${t3-t2}ms bRaw:${bRaw}\n`);
       } else {
+        failCount++;
         const missing = [!pvOk&&'PV',!battOk&&'Batt',!meterOk&&'Meter',!balOk&&'Balance'].filter(Boolean).join(',');
         process.stderr.write(`  [${new Date().toISOString()}] skipped (${missing || 'ok?'}) (${Date.now()-t0}ms)\n`);
       }
     } catch (err) {
+      failCount++;
       console.error(`[${new Date().toISOString()}] Cycle error: ${err.message}`);
+    }
+
+    // Reconnect on 3+ consecutive failures or every 30 minutes
+    if (running && (failCount >= 3 || Date.now() - lastSuccess > REFRESH_MS)) {
+      await reconnect();
     }
 
     if (running) await new Promise(r => setTimeout(r, INTERVAL));
