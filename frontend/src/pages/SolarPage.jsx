@@ -30,7 +30,7 @@ const COLORS = {
 };
 
 // ── System Diagram ──────────────────────────────────────────────
-function SystemDiagram({ master: m, slave: s }) {
+function SystemDiagram({ master: m, slave: s, visibility, onToggle }) {
   const master = m || {};
   const slave = s || {};
 
@@ -42,12 +42,30 @@ function SystemDiagram({ master: m, slave: s }) {
     ? Math.max(0, Math.round(solarProd + (battPower || 0) - (meterPower || 0)))
     : null;
 
+  const maxPower = 8000;
+  const fill = (value, max) => Math.min(100, ((value || 0) / max) * 100);
+  const gradient = (color, pct) => `linear-gradient(to top, ${color}40 0%, ${color}40 ${pct}%, transparent ${pct}%)`;
+
+  const solarFill = gradient(COLORS.solar, fill(solarProd, maxPower));
+  const houseFill = gradient(COLORS.house, fill(houseLoad, maxPower));
+  const battFill = gradient(COLORS.battery, battSoc || 0);
+  const gridColor = meterPower != null && meterPower < 0 ? COLORS.gridImport : COLORS.grid;
+  const gridFill = gradient(gridColor, fill(Math.abs(meterPower || 0), maxPower));
+
   return (
     <Box sx={{ position: 'relative', width: '100%', aspectRatio: '4/3', maxHeight: 380 }}>
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gridTemplateRows: '1fr 1fr 1fr', height: '100%', gap: 1, p: 1 }}>
         {/* Row 1: Solar (col 2) */}
         <Box sx={{ gridRow: 1, gridColumn: 2, display: 'flex' }}>
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Card
+            onClick={() => onToggle('solar')}
+            sx={{
+              flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              cursor: 'pointer', opacity: visibility.solar ? 1 : 0.45, transition: 'opacity 0.2s',
+              outline: visibility.solar ? `2px solid ${COLORS.solar}` : 'none',
+              background: solarFill,
+            }}
+          >
             <CardContent sx={{ textAlign: 'center', py: { xs: 1, sm: 2 }, '&:last-child': { pb: { xs: 1, sm: 2 } } }}>
               <WbSunnyIcon sx={{ color: COLORS.solar, fontSize: { xs: 24, sm: 32 } }} />
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Solar</Typography>
@@ -60,7 +78,15 @@ function SystemDiagram({ master: m, slave: s }) {
 
         {/* Row 2: Battery (col 1) */}
         <Box sx={{ gridRow: 2, gridColumn: 1, display: 'flex' }}>
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Card
+            onClick={() => onToggle('battery')}
+            sx={{
+              flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              cursor: 'pointer', opacity: visibility.battery ? 1 : 0.45, transition: 'opacity 0.2s',
+              outline: visibility.battery ? `2px solid ${COLORS.battery}` : 'none',
+              background: battFill,
+            }}
+          >
             <CardContent sx={{ textAlign: 'center', py: { xs: 1, sm: 2 }, '&:last-child': { pb: { xs: 1, sm: 2 } } }}>
               <BatteryChargingFullIcon sx={{ color: COLORS.battery, fontSize: { xs: 24, sm: 32 } }} />
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Batería</Typography>
@@ -78,7 +104,15 @@ function SystemDiagram({ master: m, slave: s }) {
 
         {/* Row 2: House (col 3) */}
         <Box sx={{ gridRow: 2, gridColumn: 3, display: 'flex' }}>
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Card
+            onClick={() => onToggle('casa')}
+            sx={{
+              flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              cursor: 'pointer', opacity: visibility.casa ? 1 : 0.45, transition: 'opacity 0.2s',
+              outline: visibility.casa ? `2px solid ${COLORS.house}` : 'none',
+              background: houseFill,
+            }}
+          >
             <CardContent sx={{ textAlign: 'center', py: { xs: 1, sm: 2 }, '&:last-child': { pb: { xs: 1, sm: 2 } } }}>
               <HomeIcon sx={{ color: COLORS.house, fontSize: { xs: 24, sm: 32 } }} />
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Casa</Typography>
@@ -91,7 +125,15 @@ function SystemDiagram({ master: m, slave: s }) {
 
         {/* Row 3: Grid (col 2) */}
         <Box sx={{ gridRow: 3, gridColumn: 2, display: 'flex' }}>
-          <Card sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <Card
+            onClick={() => onToggle('grid')}
+            sx={{
+              flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+              cursor: 'pointer', opacity: visibility.grid ? 1 : 0.45, transition: 'opacity 0.2s',
+              outline: visibility.grid ? `2px solid ${COLORS.grid}` : 'none',
+              background: gridFill,
+            }}
+          >
             <CardContent sx={{ textAlign: 'center', py: { xs: 1, sm: 2 }, '&:last-child': { pb: { xs: 1, sm: 2 } } }}>
               <PowerIcon sx={{ color: meterPower != null ? (meterPower < 0 ? COLORS.gridImport : COLORS.grid) : 'text.secondary', fontSize: { xs: 24, sm: 32 } }} />
               <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>Red</Typography>
@@ -111,7 +153,7 @@ function SystemDiagram({ master: m, slave: s }) {
 
 // ── Daily Chart ──────────────────────────────────────────────────
 
-function DailyChart({ data }) {
+function DailyChart({ data, visibility }) {
   if (!data || data.length === 0) {
     return <Box display="flex" justifyContent="center" alignItems="center" height={350}><CircularProgress size={30} /></Box>;
   }
@@ -131,10 +173,10 @@ function DailyChart({ data }) {
         <YAxis tickFormatter={v => `${(v / 1000).toFixed(1)}kW`} fontSize={11} width={50} />
         <Tooltip labelFormatter={fmtTime} formatter={(v, name) => [`${v?.toLocaleString()} W`, name]} />
         <Legend />
-        <Line type="monotone" dataKey="solarProduction" name="Solar" stroke={COLORS.solar} strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="houseConsumption" name="Casa" stroke={COLORS.house} strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="batteryPower" name="Batería" stroke={COLORS.battery} strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="gridPower" name="Red" stroke={COLORS.grid} strokeWidth={2} dot={false} />
+        {visibility.solar && <Line type="monotone" dataKey="solarProduction" name="Solar" stroke={COLORS.solar} strokeWidth={2} dot={false} />}
+        {visibility.casa && <Line type="monotone" dataKey="houseConsumption" name="Casa" stroke={COLORS.house} strokeWidth={2} dot={false} />}
+        {visibility.battery && <Line type="monotone" dataKey="batteryPower" name="Batería" stroke={COLORS.battery} strokeWidth={2} dot={false} />}
+        {visibility.grid && <Line type="monotone" dataKey="gridPower" name="Red" stroke={COLORS.grid} strokeWidth={2} dot={false} />}
       </LineChart>
     </ResponsiveContainer>
   );
@@ -201,7 +243,10 @@ export default function SolarPage() {
   const [loading, setLoading] = useState(true);
   const [pageSize, setPageSize] = useState(50);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [lineVisibility, setLineVisibility] = useState({ solar: true, casa: true, battery: true, grid: true });
   const loadMoreRef = useRef(null);
+
+  const toggleLine = (key) => setLineVisibility(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Fetch today's data (both aggregated for chart + raw for table)
   const fetchData = useCallback(async () => {
@@ -291,11 +336,11 @@ export default function SolarPage() {
 
       <Grid container spacing={2}>
         <Grid item md={6} xs={12}>
-          <SystemDiagram master={master} slave={slave} />
+          <SystemDiagram master={master} slave={slave} visibility={lineVisibility} onToggle={toggleLine} />
         </Grid>
         <Grid item md={6} xs={12}>
           <Typography variant="h6" gutterBottom>Últimas 24 horas</Typography>
-          <DailyChart data={todayData} />
+          <DailyChart data={todayData} visibility={lineVisibility} />
         </Grid>
       </Grid>
 
