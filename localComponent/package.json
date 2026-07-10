@@ -4,15 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/cli.js",
-    "ingest": "node src/ingest.js",
-    "dump": "node src/dump.js",
-    "scan": "node src/scanner.js",
-    "monitor": "node src/monitor.js",
-    "dev": "node --watch src/cli.js"
+    "start": "node src/forwarder.js",
+    "dev": "node --watch src/forwarder.js"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "modbus-serial": "^8.0.16"
+    "dotenv": "^16.4.5"
   }
 }

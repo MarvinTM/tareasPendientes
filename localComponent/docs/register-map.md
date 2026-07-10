@@ -6,8 +6,8 @@
 |---|---|
 | **Inverter Model** | 2x SUN2000-4KTL-L1 |
 | **Firmware** | V100R001C20B004 (Master) / V100R001C20B000 (Slave) |
-| **Topology** | Two inverters daisy-chained via RS485, connected through a WiFi dongle |
-| **Dongle IP** | `192.168.1.230` |
+| **Topology** | Two inverters daisy-chained via RS485, connected through a WiFi dongle (single Modbus connection at a time) |
+| **Dongle IP** | `192.168.1.230` (house-WiFi). The configuration web UI is only reachable on the dongle's own AP `192.168.200.1`; on house-WiFi only port 502 is open (confirmed by nmap). |
 | **ModBus Port** | `502` (TCP) |
 | **Unit IDs** | `1` = Master, `2` = Slave |
 | **Total Rated Power** | 8 KW (2 × 4 KW) |
@@ -211,26 +211,27 @@ Recorded on a sunny July day (~1 PM, Spain):
 
 The register map is implemented in:
 
-- **`localComponent/src/huawei-registers.js`** — Register definitions with addresses, types, and scaling, plus the `computeDerived()` function
-- **`localComponent/src/index.js`** — ModBus TCP client with safe block reads, per-unit filtering (battery/meter only on Master), and system-wide summary
+- **`localComponent/poller/internal/registers/registers.go`** — the single source of truth. Register definitions (address, type, scale, unit), per-unit block lists, typed decoders (uint16/int16/uint32/int32/string), and `ComputeDerived()` (MPPT1/2 Power, Total PV DC, Efficiency, pvPower, battPower).
+- **`localComponent/poller/internal/modbus/link.go`** — raw Modbus TCP client (built on `net.TCPConn`, with keepalive + real per-request deadlines + reconnect FSM + heartbeat).
+- **`localComponent/src/forwarder.js`** — Node forwarder that reshapes `/snapshot` into the backend `POST /api/ingestion/inverter` payload.
 
-### Running the scanner
+See `localComponent/README.md` for the full two-process architecture, the HTTP contract, deployment, and the battery sign/multiplier conventions.
+
+### Running it
 
 ```bash
-cd localComponent
-cp .env.example .env
-# Edit .env to set MODBUS_HOST
-
-npm start           # Clean output
-DEBUG=1 npm start   # With raw hex dumps
+./deploy-local.sh                    # builds + deploys both poller + forwarder to the Pi
+# or, locally for testing:
+go run ./localComponent/poller/cmd/huawei-poller -scan     # probe slave IDs and exit
+LINK_DISABLED=1 ./localComponent/poller/bin/huawei-poller-darwin  # observe-only HTTP server
 ```
 
 ### Key implementation details
 
-1. **Warm-up read**: Always read register `30070` first — the first `setID()` + read combination often times out
-2. **Safe block reads**: 18+ small blocks of 20–30 registers covering only known valid ranges. No gap-scanning, no exception-2 aborts.
-3. **32-bit parsing**: Registers like Active Power (32080–32081) and Meter Active Power (37113–37114) are read as `int32` combining both the high and low words
-4. **Per-unit filtering**: Slave (unit 2) skips battery and meter polling. The `battery` and `meter` flags on register definitions control this.
-5. **System summary**: After both inverters are scanned, a global summary computes Total AC Generation, Net Grid Interaction, House Consumption, and System-wide Efficiency.
-6. **Timeout**: 8-second timeout per ModBus request. `exception 2` (Illegal data address) and `exception 4` (Slave device failure) are caught silently per block.
-7. **Battery topology**: The battery is on Master (unit 1). Battery live telemetry is at 37000–37007, configuration at 47000–47499. Slave has no battery data.
+1. **Heartbeat + keepalive**: the poller reads register `30070` at the start of each inverter cycle; on failure it reconnects with exponential backoff. TCP keepalive (~15s) detects dead WiFi sockets.
+2. **Per-cadence block reads**: inverter blocks (~15s cadence) and the meter block (~3s cadence, master only). Blocks are 20–90 registers covering only known valid ranges — no gap-scanning, no exception-2 aborts.
+3. **32-bit parsing**: Active Power (32080–32081) and Meter Active Power (37113–37114) are `int32` combining high+low words.
+4. **Per-unit filtering**: Slave (unit 2) polls only the inverter block; battery + meter + power-limit blocks are master-only.
+5. **Power-limit fix**: block `40100–40129` is now polled (the old `MASTER_BLOCKS` list omitted it, so `40118` was always null). `gridPwrLimit` is now actually populated.
+6. **Per-field staleness**: a failed block read leaves the previous value in `/snapshot` with an increasing `ageMs`; the forwarder sends `null` for fields older than `MAX_AGE_MS` instead of discarding the whole reading.
+7. **Battery topology**: the battery is on Master (unit 1); live telemetry at 37000–37007, configuration at 47000–47499. Slave has no battery data. Sign/multiplier shaping for the backend payload is controlled in the forwarder via `BATTERY_CURRENT_NEGATE` and `BATTERY_POWER_MULTIPLIER` (see README).

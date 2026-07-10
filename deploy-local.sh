@@ -51,7 +51,7 @@ if [ "$REMOTE_HOST" = "192.168.1.240" ]; then
 fi
 
 # ===========================================
-# Get script directory (where the project is)
+# Get script directory (where this project is)
 # ===========================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -59,10 +59,25 @@ cd "$SCRIPT_DIR"
 log_info "Starting local component deployment from: $SCRIPT_DIR"
 
 # ===========================================
+# Step 0: Cross-compile the Go poller for the Pi (aarch64)
+# ===========================================
+if command -v go >/dev/null 2>&1; then
+    log_info "Building Go poller (linux/arm64)..."
+    ( cd "$SCRIPT_DIR/localComponent/poller" && \
+      GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o bin/huawei-poller ./cmd/huawei-poller ) \
+        || { log_error "Go build failed (install Go: brew install go)"; exit 1; }
+    chmod +x "$SCRIPT_DIR/localComponent/poller/bin/huawei-poller"
+    log_info "Poller built → localComponent/poller/bin/huawei-poller"
+else
+    log_warn "Go toolchain not found on this machine. Skipping poller build (rsyncing existing binary if present)."
+    log_warn "Install go (brew install go) to build the poller."
+fi
+
+# ===========================================
 # Step 1: Ensure remote directories exist
 # ===========================================
 log_info "Creating remote directories..."
-ssh_cmd "mkdir -p $REMOTE_PATH/localComponent $REMOTE_PATH/logs"
+ssh_cmd "mkdir -p $REMOTE_PATH/localComponent $REMOTE_PATH/localComponent/poller/bin $REMOTE_PATH/logs"
 
 # ===========================================
 # Step 2: Deploy root ecosystem config for local
@@ -85,20 +100,39 @@ rsync -avz --delete \
 log_info "localComponent deployed"
 
 # ===========================================
-# Step 4: Create .env from example on first deploy
+# Step 3b: Deploy the cross-compiled poller binary
 # ===========================================
-log_info "Checking for .env file on Raspberry Pi..."
+log_info "Deploying poller binary to Raspberry Pi..."
+rsync -avz \
+    "$SCRIPT_DIR/localComponent/poller/bin/huawei-poller" \
+    "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/localComponent/poller/bin/huawei-poller"
+log_info "Poller binary deployed"
+
+# ===========================================
+# Step 4: .env management — create or merge
+# ===========================================
+log_info "Checking .env file on Raspberry Pi..."
 if ssh_cmd "[ ! -f $REMOTE_PATH/localComponent/.env ]"; then
     log_warn ".env file not found. Creating from .env.example..."
     ssh_cmd "cp $REMOTE_PATH/localComponent/.env.example $REMOTE_PATH/localComponent/.env"
     log_warn "========================================="
     log_warn "IMPORTANT: Edit the .env file on the Pi before the process can run!"
     log_warn "  ssh $REMOTE_USER@$REMOTE_HOST 'nano $REMOTE_PATH/localComponent/.env'"
-    log_warn "Then run deploy again or:"
-    log_warn "  ssh $REMOTE_USER@$REMOTE_HOST 'cd $REMOTE_PATH && pm2 restart ecosystem.local.config.cjs'"
     log_warn "========================================="
 else
-    log_info ".env file already exists, skipping"
+    log_info ".env file exists — merging new variables if missing..."
+    # Append any new vars from .env.example that aren't already in .env.
+    # This preserves existing values (API_KEY, BACKEND_URL, etc.) while adding
+    # new ones introduced by the poller/forwarder migration (POLLER_URL, MAX_AGE_MS, etc.).
+    ssh_cmd "cd $REMOTE_PATH/localComponent && \
+        while IFS='=' read -r key defaultval; do \
+            case \"\$key\" in ''|'#'*) continue;; esac; \
+            if ! grep -q \"^\${key}=\" .env; then \
+                echo \"\${key}=\${defaultval}\" >> .env; \
+                echo \"  + added \${key}\"; \
+            fi; \
+        done < .env.example"
+    log_info ".env merge complete"
 fi
 
 # ===========================================
@@ -109,11 +143,23 @@ ssh_cmd "cd $REMOTE_PATH/localComponent && npm install --production"
 log_info "Dependencies installed"
 
 # ===========================================
-# Step 6: Restart local ingest with PM2
+# Step 6: Stop the old local-ingest process (if running)
+#         before starting the new poller + forwarder.
+#         Both the old ingest and the new poller would fight for the
+#         dongle's single Modbus connection, so the old one must be
+#         stopped first.
 # ===========================================
-log_info "Restarting local ingest..."
-ssh_cmd "cd $REMOTE_PATH && pm2 restart ecosystem.local.config.cjs --update-env || pm2 start ecosystem.local.config.cjs"
-log_info "Local ingest (re)started"
+log_info "Stopping old local-ingest (if running)..."
+ssh_cmd "pm2 delete local-ingest 2>/dev/null || true"
+log_info "Old local-ingest stopped (or was not running)"
+
+# ===========================================
+# Step 7: Start local poller + forwarder with PM2
+# ===========================================
+log_info "Starting local poller + forwarder..."
+ssh_cmd "cd $REMOTE_PATH && (pm2 restart ecosystem.local.config.cjs --update-env 2>/dev/null || pm2 start ecosystem.local.config.cjs)"
+ssh_cmd "pm2 save 2>/dev/null || true"
+log_info "Local poller + forwarder (re)started"
 
 # ===========================================
 # Done!
@@ -123,6 +169,8 @@ log_info "========================================="
 log_info "Deployment complete!"
 log_info "========================================="
 echo ""
-log_info "Check status with: ssh $REMOTE_USER@$REMOTE_HOST 'pm2 status'"
-log_info "View logs with:    ssh $REMOTE_USER@$REMOTE_HOST 'pm2 logs local-ingest'"
-log_info "Manual restart:    ssh $REMOTE_USER@$REMOTE_HOST 'pm2 restart local-ingest'"
+log_info "Check status with:     ssh $REMOTE_USER@$REMOTE_HOST 'pm2 status'"
+log_info "Poller snapshot:       ssh $REMOTE_USER@$REMOTE_HOST 'curl -s http://127.0.0.1:8765/snapshot | head -5'"
+log_info "View logs with:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 logs local-poller local-forwarder'"
+log_info "Manual restart:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 restart local-poller local-forwarder'"
+log_info "Verify old ingest gone: ssh $REMOTE_USER@$REMOTE_HOST 'pm2 list | grep local-ingest || echo OK'"

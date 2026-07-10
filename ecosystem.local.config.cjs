@@ -1,9 +1,30 @@
 module.exports = {
   apps: [
     {
-      name: 'local-ingest',
+      name: 'local-poller',
       cwd: './localComponent',
-      script: 'src/ingest.js',
+      script: './poller/bin/huawei-poller',
+      interpreter: 'none',
+      env: {
+        POLLER_HOST: '192.168.1.230',
+        POLLER_PORT: '502',
+        POLLER_LISTEN: '127.0.0.1:8765',
+      },
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_restarts: 50,
+      min_uptime: '10s',
+      restart_delay: 5000,
+      max_memory_restart: '100M',
+      error_file: './logs/poller-error.log',
+      out_file: './logs/poller-out.log',
+      time: true
+    },
+    {
+      name: 'local-forwarder',
+      cwd: './localComponent',
+      script: 'src/forwarder.js',
       node_args: '--dns-result-order=ipv4first',
       env: {
         NODE_ENV: 'production'
