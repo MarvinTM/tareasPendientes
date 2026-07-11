@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { SocketProvider } from './contexts/SocketContext';
+import { registerSW } from 'virtual:pwa-register';
 
 const theme = createTheme({
   palette: {
@@ -40,3 +41,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Register the service worker (autoUpdate: new versions apply on next visit)
+if ('serviceWorker' in navigator) {
+  registerSW({ immediate: true });
+}

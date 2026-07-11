@@ -385,7 +385,24 @@ tareasPendientes/
 └── README.md
 ```
 
-## Features
+## Installing as an App (PWA)
+
+The frontend is a Progressive Web App and can be installed on mobile devices and desktops for an app-like experience (icon on the home screen, standalone window, no browser chrome).
+
+### Android (Chrome / Edge)
+- Open the site in the browser.
+- Tap the menu (⋮) → **Install app** (or **Add to Home screen**).
+- Confirm. The app icon appears on the home screen.
+
+### iOS / iPadOS (Safari)
+- Open the site in Safari.
+- Tap the **Share** button (square with an up arrow).
+- Tap **Add to Home Screen**, then **Add**.
+
+### Desktop (Chrome / Edge)
+- Click the **install** icon (⊕) in the address bar, or open the menu → **Install Tareas Pendientes**.
+
+The app requires the site to be served over HTTPS (already configured for production). Updates are applied automatically on the next visit after a new build is deployed.
 
 - Google OAuth authentication
 - Three-column Kanban board (Nueva, En Progreso, Completada)
