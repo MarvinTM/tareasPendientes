@@ -12,6 +12,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import CircularProgress from '@mui/material/CircularProgress';
+import Chip from '@mui/material/Chip';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import WbCloudyIcon from '@mui/icons-material/WbCloudy';
 import CloudIcon from '@mui/icons-material/Cloud';
@@ -195,7 +196,7 @@ function DailyChart({ data, visibility }) {
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const chartData = data.map(d => ({ ...d, batteryPower: -(d.batteryPower || 0) }));
+  const chartData = data.map(d => ({ ...d, batteryPower: d.batteryPower == null ? null : -d.batteryPower }));
 
   return (
     <ResponsiveContainer width="100%" height={350}>
@@ -203,18 +204,24 @@ function DailyChart({ data, visibility }) {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="time" tickFormatter={fmtTime} fontSize={11} interval={Math.max(0, Math.floor(data.length / 8))} />
         <YAxis tickFormatter={v => `${(v / 1000).toFixed(1)}kW`} fontSize={11} width={50} />
-        <Tooltip labelFormatter={fmtTime} formatter={(v, name) => [`${v?.toLocaleString()} W`, name]} />
+        <Tooltip labelFormatter={fmtTime} formatter={(v, name) => [v == null || Number.isNaN(v) ? '— (sin lectura)' : `${v.toLocaleString()} W`, name]} />
         <Legend />
-        {visibility.solar && <Line type="monotone" dataKey="solarProduction" name="Solar" stroke={COLORS.solar} strokeWidth={2} dot={false} />}
-        {visibility.casa && <Line type="monotone" dataKey="houseConsumption" name="Casa" stroke={COLORS.house} strokeWidth={2} dot={false} />}
-        {visibility.battery && <Line type="monotone" dataKey="batteryPower" name="Batería" stroke={COLORS.battery} strokeWidth={2} dot={false} />}
-        {visibility.grid && <Line type="monotone" dataKey="gridPower" name="Red" stroke={COLORS.grid} strokeWidth={2} dot={false} />}
+        {visibility.solar && <Line connectNulls={false} type="monotone" dataKey="solarProduction" name="Solar" stroke={COLORS.solar} strokeWidth={2} dot={false} />}
+        {visibility.casa && <Line connectNulls={false} type="monotone" dataKey="houseConsumption" name="Casa" stroke={COLORS.house} strokeWidth={2} dot={false} />}
+        {visibility.battery && <Line connectNulls={false} type="monotone" dataKey="batteryPower" name="Batería" stroke={COLORS.battery} strokeWidth={2} dot={false} />}
+        {visibility.grid && <Line connectNulls={false} type="monotone" dataKey="gridPower" name="Red" stroke={COLORS.grid} strokeWidth={2} dot={false} />}
       </LineChart>
     </ResponsiveContainer>
   );
 }
 
 // ── Daily Table ──────────────────────────────────────────────────
+
+// Small badge shown in table cells when a reading is missing/invalid (null)
+// so a failed read is visually distinct from a legitimate 0.
+function ErrorChip() {
+  return <Chip label="Error lectura" size="small" color="error" variant="outlined" sx={{ height: 20, '& .MuiChip-label': { fontSize: '0.65rem', px: 0.5 } }} />;
+}
 
 function DailyTable({ data, loadMoreRef, pageSize }) {
   if (!data || data.length === 0) return null;
@@ -239,18 +246,18 @@ function DailyTable({ data, loadMoreRef, pageSize }) {
           {visibleRows.map((row) => (
             <TableRow key={row.time} hover>
               <TableCell>{fmtTime(row.time)}</TableCell>
-              <TableCell align="right">{row.solarProduction?.toLocaleString() || '—'}</TableCell>
-              <TableCell align="right">{row.houseConsumption?.toLocaleString() || '—'}</TableCell>
+              <TableCell align="right">{row.solarProduction != null ? row.solarProduction.toLocaleString() : <ErrorChip />}</TableCell>
+              <TableCell align="right">{row.houseConsumption != null ? row.houseConsumption.toLocaleString() : <ErrorChip />}</TableCell>
               <TableCell align="right">
-                <Typography component="span" variant="body2" color={row.batteryPower > 0 ? 'error.main' : 'success.main'}>
-                  {row.batteryPower != null ? `${row.batteryPower > 0 ? '−' : '+'}${Math.abs(row.batteryPower).toLocaleString()}` : '—'}
-                </Typography>
+                {row.batteryPower != null
+                  ? <Typography component="span" variant="body2" color={row.batteryPower > 0 ? 'error.main' : 'success.main'}>{`${row.batteryPower > 0 ? '−' : '+'}${Math.abs(row.batteryPower).toLocaleString()}`}</Typography>
+                  : <ErrorChip />}
               </TableCell>
-              <TableCell align="right">{row.batterySoc != null ? row.batterySoc.toFixed(1) : '—'}</TableCell>
+              <TableCell align="right">{row.batterySoc != null ? row.batterySoc.toFixed(1) : <ErrorChip />}</TableCell>
               <TableCell align="right">
-                <Typography component="span" variant="body2" color={row.gridPower < 0 ? 'warning.main' : 'info.main'}>
-                  {row.gridPower != null ? `${row.gridPower.toLocaleString()} ${row.gridPower > 0 ? 'exp' : 'imp'}` : '—'}
-                </Typography>
+                {row.gridPower != null
+                  ? <Typography component="span" variant="body2" color={row.gridPower < 0 ? 'warning.main' : 'info.main'}>{`${row.gridPower.toLocaleString()} ${row.gridPower > 0 ? 'exp' : 'imp'}`}</Typography>
+                  : <ErrorChip />}
               </TableCell>
             </TableRow>
           ))}
@@ -316,17 +323,21 @@ export default function SolarPage() {
       setLastUpdate(new Date().toISOString());
       setLoading(false);
 
-      // Prepend new row to table
-      const solarProd = (m.pvPower || 0) + (s.pvPower || 0);
-      const battPower = m.battPower != null ? m.battPower : 0;
-      const meterPower = m.meterPower != null ? m.meterPower : 0;
+      // Prepend new row to table. Preserve null for missing/invalid fields so
+      // the table shows an "Error lectura" chip rather than a misleading 0.
+      const solarProd = (m.pvPower ?? 0) + (s.pvPower ?? 0);
+      const solarProdValid = (m.pvPower != null) || (s.pvPower != null);
+      const battPower = m.battPower ?? null;
+      const meterPower = m.meterPower ?? null;
       const ts = data[0].timestamp || new Date().toISOString();
       const newRow = {
         time: ts,
-        solarProduction: Math.round(solarProd),
-        houseConsumption: Math.max(0, Math.round(solarProd + battPower - meterPower)),
+        solarProduction: solarProdValid ? Math.round(solarProd) : null,
+        houseConsumption: meterPower != null
+          ? Math.max(0, Math.round(solarProd + (battPower ?? 0) - meterPower))
+          : null,
         batteryPower: battPower,
-        batterySoc: m.battSoc != null ? m.battSoc : 0,
+        batterySoc: m.battSoc ?? null,
         gridPower: meterPower,
       };
       setRawData(prev => {

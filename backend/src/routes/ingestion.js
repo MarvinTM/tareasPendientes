@@ -84,8 +84,8 @@ router.get('/today', authenticateToken, async (req, res) => {
       WITH combined AS (
         SELECT
           timestamp,
-          COALESCE(SUM("pvPower"), 0)            AS solar,
-          COALESCE(SUM("activePower"), 0)        AS total_ac,
+          SUM("pvPower")                         AS solar,
+          SUM("activePower")                      AS total_ac,
           MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END) AS meter,
           MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END)  AS batt_pwr,
           MAX(CASE WHEN "inverterId" = 'master' THEN "battSoc" END)    AS batt_soc
@@ -98,10 +98,16 @@ router.get('/today', authenticateToken, async (req, res) => {
           + INTERVAL '5 min' * FLOOR(EXTRACT(EPOCH FROM (timestamp - date_trunc('day', timestamp))) / 300)
           AS time,
         ROUND(AVG(solar))::int                  AS "solarProduction",
-        GREATEST(0, ROUND(AVG(solar + COALESCE(batt_pwr, 0) - COALESCE(meter, 0))))::int AS "houseConsumption",
-        ROUND(AVG(COALESCE(batt_pwr, 0)))::int  AS "batteryPower",
-        ROUND(AVG(COALESCE(batt_soc, 0))::numeric, 1)::float AS "batterySoc",
-        ROUND(AVG(COALESCE(meter, 0)))::int     AS "gridPower"
+        -- houseConsumption = solar + batt - meter. Only computable when the
+        -- master meter reading is present; otherwise NULL so the chart shows
+        -- a gap rather than a misleading 0 (degraded reads must not be
+        -- rendered as a sudden 0-W spike).
+        CASE WHEN AVG(meter) IS NULL THEN NULL
+             ELSE GREATEST(0, ROUND(AVG(solar + COALESCE(batt_pwr, 0) - meter)))::int
+        END AS "houseConsumption",
+        ROUND(AVG(batt_pwr))::int                AS "batteryPower",
+        ROUND(AVG(batt_soc)::numeric, 1)::float  AS "batterySoc",
+        ROUND(AVG(meter))::int                   AS "gridPower"
       FROM combined
       GROUP BY 1
       ORDER BY 1
@@ -120,15 +126,18 @@ router.get('/today/raw', authenticateToken, async (req, res) => {
     const rows = await prisma.$queryRawUnsafe(`
       SELECT
         timestamp AS time,
-        COALESCE(SUM("pvPower"), 0)::int AS "solarProduction",
-        GREATEST(0,
-          COALESCE(SUM("pvPower"), 0)
-          + COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END), 0)
-          - COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END), 0)
-        )::int AS "houseConsumption",
-        COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END), 0)::int AS "batteryPower",
-        COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battSoc" END), 0)::float AS "batterySoc",
-        COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END), 0)::int AS "gridPower"
+        SUM("pvPower")::int AS "solarProduction",
+        CASE
+          WHEN MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END) IS NULL THEN NULL
+          ELSE GREATEST(0,
+            COALESCE(SUM("pvPower"), 0)
+            + COALESCE(MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END), 0)
+            - MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END)
+          )::int
+        END AS "houseConsumption",
+        MAX(CASE WHEN "inverterId" = 'master' THEN "battPower" END)::int   AS "batteryPower",
+        MAX(CASE WHEN "inverterId" = 'master' THEN "battSoc" END)::float  AS "batterySoc",
+        MAX(CASE WHEN "inverterId" = 'master' THEN "meterPower" END)::int AS "gridPower"
       FROM "InverterReading"
       WHERE timestamp >= NOW() - INTERVAL '24 hours'
       GROUP BY timestamp
