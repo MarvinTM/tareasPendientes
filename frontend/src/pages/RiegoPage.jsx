@@ -121,6 +121,7 @@ export default function RiegoPage() {
   const [confirmPlan, setConfirmPlan] = useState(null);
   const [durations, setDurations] = useState(loadStoredDurations);
   const [starting, setStarting] = useState({});
+  const [stopping, setStopping] = useState(false);
   const [localTick, setLocalTick] = useState(0);
 
   const fetchState = useCallback(async () => {
@@ -203,10 +204,14 @@ export default function RiegoPage() {
   };
 
   const handleStop = async () => {
+    if (stopping) return;
+    setStopping(true);
     try {
       await api.post('/riego/stop');
     } catch {
       setSnackbar('Error al detener el riego');
+    } finally {
+      setStopping(false);
     }
   };
 
@@ -401,8 +406,8 @@ export default function RiegoPage() {
                         sx={{ position: 'relative', zIndex: 1 }}
                       />
                       {state.current.status === 'running' && (
-                        <IconButton onClick={handleStop} sx={{ position: 'relative', zIndex: 1 }}>
-                          <StopIcon />
+                        <IconButton onClick={handleStop} disabled={stopping} sx={{ position: 'relative', zIndex: 1 }}>
+                          {stopping ? <CircularProgress size={20} /> : <StopIcon />}
                         </IconButton>
                       )}
                     </ListItem>

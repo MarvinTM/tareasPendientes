@@ -5,12 +5,15 @@ const mockLogRiegoEvent = jest.fn().mockResolvedValue();
 
 const mockLoadConfig = jest.fn();
 
+const mockGetRelayStatus = jest.fn();
+
 jest.unstable_mockModule('../../socket.js', () => ({
   emitRiegoUpdate: mockEmitRiegoUpdate,
 }));
 
 jest.unstable_mockModule('../../services/shelly.js', () => ({
   loadConfig: mockLoadConfig,
+  getRelayStatus: mockGetRelayStatus,
 }));
 
 jest.unstable_mockModule('../../services/riegoEvent.js', () => ({
@@ -40,6 +43,7 @@ describe('RiegoQueue', () => {
     jest.resetModules();
     jest.clearAllMocks();
     mockFetch.mockReset();
+    mockGetRelayStatus.mockReset();
     mockLoadConfig.mockReturnValue(validConfig);
 
     const { _reset } = await import('../../services/riegoQueue.js');
@@ -287,6 +291,116 @@ describe('RiegoQueue', () => {
       const { getState } = await import('../../services/riegoQueue.js');
       const state = getState();
       expect(state.phases).toHaveLength(0);
+    });
+  });
+
+  describe('stopCurrent race condition', () => {
+    it('handles concurrent stopCurrent calls without leaving relay ON', async () => {
+      const { enqueue, stopCurrent, getState } = await import('../../services/riegoQueue.js');
+      enqueue('fase-1', 1);
+      await flush();
+      enqueue('fase-2', 5);
+
+      expect(getState().current.phaseId).toBe('fase-1');
+      expect(getState().queue).toHaveLength(1);
+
+      // Fire two stopCurrent calls concurrently (simulating fast double-click)
+      const p1 = stopCurrent();
+      const p2 = stopCurrent();
+      await Promise.all([p1, p2]);
+      await flush();
+
+      const state = getState();
+      expect(state.current).toBeNull();
+      expect(state.queue).toHaveLength(0);
+
+      // fase-2 is on shelly-1, channel 1 — verify its relay was turned OFF
+      const offCalls = mockFetch.mock.calls.filter(call => {
+        const body = call[1]?.body?.toString() || '';
+        return body.includes('turn=off') && body.includes('channel=1');
+      });
+      expect(offCalls.length).toBeGreaterThan(0);
+    }, 30000);
+
+    it('does not stop next phase when timer fires during manual stop', async () => {
+      const { enqueue, stopCurrent, getState } = await import('../../services/riegoQueue.js');
+      enqueue('fase-1', 1);
+      await flush();
+      enqueue('fase-2', 5);
+
+      // Manually stop (which starts fase-2), then immediately trigger fase-1's timer
+      // via a second stop — the expectedQueueId guard prevents fase-2 from being
+      // incorrectly stopped by a stale timeout.
+      await stopCurrent();
+      await flush();
+
+      const state = getState();
+      // fase-2 should now be running
+      expect(state.current).not.toBeNull();
+      expect(state.current.phaseId).toBe('fase-2');
+    }, 30000);
+  });
+
+  describe('orphan recovery', () => {
+    it('detects and stops orphaned relays', async () => {
+      mockGetRelayStatus.mockResolvedValue(true);
+
+      const {
+        _testAddTrackedRelay,
+        _testGetTrackedRelays,
+        _testRecoverOrphanedRelays,
+      } = await import('../../services/riegoQueue.js');
+
+      _testAddTrackedRelay('shelly-1', 1);
+      expect(_testGetTrackedRelays().size).toBe(1);
+
+      mockFetch.mockClear();
+      await _testRecoverOrphanedRelays();
+      await flush();
+
+      const offCalls = mockFetch.mock.calls.filter(call => {
+        const body = call[1]?.body?.toString() || '';
+        return body.includes('turn=off') && body.includes('channel=1');
+      });
+      expect(offCalls.length).toBeGreaterThan(0);
+      expect(_testGetTrackedRelays().size).toBe(0);
+    });
+
+    it('removes relay from tracking when already off without sending stop', async () => {
+      mockGetRelayStatus.mockResolvedValue(false);
+
+      const {
+        _testAddTrackedRelay,
+        _testGetTrackedRelays,
+        _testRecoverOrphanedRelays,
+      } = await import('../../services/riegoQueue.js');
+
+      _testAddTrackedRelay('shelly-1', 1);
+      expect(_testGetTrackedRelays().size).toBe(1);
+
+      mockFetch.mockClear();
+      await _testRecoverOrphanedRelays();
+      await flush();
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(_testGetTrackedRelays().size).toBe(0);
+    });
+
+    it('does nothing when there are no tracked relays', async () => {
+      mockGetRelayStatus.mockResolvedValue(true);
+
+      const {
+        _testGetTrackedRelays,
+        _testRecoverOrphanedRelays,
+      } = await import('../../services/riegoQueue.js');
+
+      expect(_testGetTrackedRelays().size).toBe(0);
+
+      mockFetch.mockClear();
+      await _testRecoverOrphanedRelays();
+      await flush();
+
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 });

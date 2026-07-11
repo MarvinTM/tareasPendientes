@@ -184,6 +184,14 @@ async function fetchStatusForShellyId(shellyId) {
   return null;
 }
 
+export async function getRelayStatus(shellyId, channel) {
+  const status = await fetchStatusForShellyId(shellyId);
+  if (!status || !status.online) return null;
+  const relay = status.relays?.[channel];
+  if (!relay) return null;
+  return relay.on;
+}
+
 function extractRelays(deviceStatus) {
   if (!deviceStatus) return [];
 

@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { emitRiegoUpdate } from '../socket.js';
-import { loadConfig } from './shelly.js';
+import { loadConfig, getRelayStatus } from './shelly.js';
 import { logRiegoEvent } from './riegoEvent.js';
 
 const MAX_DURATION_MIN = 120;
@@ -18,6 +18,9 @@ let durationMemory = new Map();
 let initialized = false;
 let sigtermHandler = null;
 let sigintHandler = null;
+let stopChain = Promise.resolve();
+const relaysStartedByRiego = new Set();
+let idleTickCount = 0;
 
 function getPhases() {
   const config = loadConfig();
@@ -196,34 +199,9 @@ async function startPhaseItem(item) {
 
   const durationMs = item.durationMin * 60 * 1000;
 
-  const timerId = setTimeout(async () => {
-    try {
-      const config = loadConfig();
-      const phase = findPhase(item.phaseId);
-      if (state.current) {
-        setCurrentStatus('disconnecting', 0);
-      }
-      let offSuccess = true;
-      if (phase) {
-        console.log(`Riego: phase ${item.phaseId} (${item.name}) timer expired, stopping Shelly`);
-        offSuccess = await stopShelly(phase.shellyId, phase.channel, config.server, config.apiKey);
-      }
-      if (!offSuccess) {
-        logRiegoEvent('ERROR', item.phaseId, item.name, {
-          error: `Shelly OFF failed after ${STOP_RETRY_COUNT} attempts`,
-        }).catch(err => console.error('Failed to log riego event:', err));
-      }
-      logRiegoEvent('STOPPED', item.phaseId, item.name, {
-        stopReason: 'timeout',
-      }).catch(err => console.error('Failed to log riego event:', err));
-      await new Promise(r => setTimeout(r, 2000));
-      await advanceQueue();
-    } catch (error) {
-      console.error(`Riego: timer callback error for phase ${item.phaseId}:`, error);
-      logRiegoEvent('ERROR', item.phaseId, item.name, {
-        error: error.message,
-      }).catch(err => console.error('Failed to log riego event:', err));
-    }
+  const timerId = setTimeout(() => {
+    console.log(`Riego: phase ${item.phaseId} (${item.name}) timer expired, stopping Shelly`);
+    enqueueStopAdvance('timeout', null, item.queueId);
   }, durationMs);
 
   state.current = {
@@ -246,6 +224,7 @@ async function startPhaseItem(item) {
   console.log(`Riego: phase ${item.phaseId} (${item.name}) Shelly ON ${success ? 'OK' : 'FAILED'}`);
 
   if (success) {
+    relaysStartedByRiego.add(`${phase.shellyId}:${phase.channel}`);
     logRiegoEvent('STARTED', item.phaseId, item.name)
       .catch(err => console.error('Failed to log riego event:', err));
   } else {
@@ -313,31 +292,94 @@ export function dequeue(queueId) {
   return true;
 }
 
-export async function stopCurrent(userId = null) {
+async function stopAndAdvance({ reason, userId = null, expectedQueueId = null }) {
   if (!state.current) return;
+
+  if (expectedQueueId && state.current.queueId !== expectedQueueId) {
+    return;
+  }
 
   const phaseId = state.current.phaseId;
   const phaseName = state.current.name;
+  const shellyId = state.current.shellyId;
+  const channel = state.current.channel;
 
-  setCurrentStatus('disconnecting', 0);
+  try {
+    setCurrentStatus('disconnecting', 0);
+    clearTimer();
 
-  const config = loadConfig();
-  const success = await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
-  await new Promise(r => setTimeout(r, 2000));
+    const config = loadConfig();
+    const success = await stopShelly(shellyId, channel, config.server, config.apiKey);
+    await new Promise(r => setTimeout(r, 2000));
 
-  if (!success) {
-    logRiegoEvent('ERROR', phaseId, phaseName, {
-      error: `Shelly OFF failed after ${STOP_RETRY_COUNT} attempts`,
+    if (success) {
+      relaysStartedByRiego.delete(`${shellyId}:${channel}`);
+    } else {
+      logRiegoEvent('ERROR', phaseId, phaseName, {
+        error: `Shelly OFF failed after ${STOP_RETRY_COUNT} attempts`,
+        userId,
+      }).catch(err => console.error('Failed to log riego event:', err));
+    }
+
+    logRiegoEvent('STOPPED', phaseId, phaseName, {
+      stopReason: reason,
       userId,
     }).catch(err => console.error('Failed to log riego event:', err));
+
+    await advanceQueue();
+  } catch (error) {
+    console.error(`Riego: stopAndAdvance error for phase ${phaseId}:`, error);
+    logRiegoEvent('ERROR', phaseId, phaseName, {
+      error: error.message,
+    }).catch(err => console.error('Failed to log riego event:', err));
+    try {
+      await advanceQueue();
+    } catch (e) {
+      console.error('Riego: advanceQueue failed after error:', e);
+    }
   }
+}
 
-  logRiegoEvent('STOPPED', phaseId, phaseName, {
-    stopReason: 'manual',
-    userId,
-  }).catch(err => console.error('Failed to log riego event:', err));
+function enqueueStopAdvance(reason, userId = null, expectedQueueId = null) {
+  stopChain = stopChain.then(() => stopAndAdvance({ reason, userId, expectedQueueId })).catch(err => {
+    console.error('Riego: stopChain error:', err);
+  });
+  return stopChain;
+}
 
-  await advanceQueue();
+async function recoverOrphanedRelays() {
+  if (relaysStartedByRiego.size === 0) return;
+
+  const config = loadConfig();
+  const phases = getPhases();
+  const keys = [...relaysStartedByRiego];
+
+  for (const key of keys) {
+    const colonIdx = key.indexOf(':');
+    const shellyId = key.slice(0, colonIdx);
+    const channel = parseInt(key.slice(colonIdx + 1), 10);
+
+    const isOn = await getRelayStatus(shellyId, channel);
+    if (isOn !== true) {
+      relaysStartedByRiego.delete(key);
+      continue;
+    }
+
+    console.warn(`Riego watchdog: orphaned relay ${shellyId} ch${channel} still ON, force-stopping`);
+    const success = await stopShelly(shellyId, channel, config.server, config.apiKey);
+    if (success) {
+      relaysStartedByRiego.delete(key);
+    }
+
+    const phase = phases.find(p => p.shellyId === shellyId && p.channel === channel);
+    logRiegoEvent('STOPPED', phase?.id || shellyId, phase?.name || shellyId, {
+      stopReason: 'orphan-recovery',
+    }).catch(err => console.error('Failed to log riego event:', err));
+  }
+}
+
+export function stopCurrent(userId = null) {
+  return enqueueStopAdvance('manual', userId);
 }
 
 export async function startupSafetyCheck() {
@@ -387,6 +429,7 @@ export async function emergencyStopAll() {
 
   await Promise.allSettled(promises);
   state.queue = [];
+  relaysStartedByRiego.clear();
   emitState();
   console.log('Riego: emergency stop completed');
 }
@@ -395,22 +438,18 @@ function startWatchdog() {
   if (watchdogTimer) clearInterval(watchdogTimer);
 
   watchdogTimer = setInterval(async () => {
-    if (!state.current) return;
+    if (!state.current) {
+      idleTickCount++;
+      if (idleTickCount % 4 !== 0) return;
+      await recoverOrphanedRelays();
+      return;
+    }
+
+    idleTickCount = 0;
 
     if (Date.now() > state.current.endTime + WATCHDOG_INTERVAL) {
-      const phaseId = state.current.phaseId;
-      const phaseName = state.current.name;
-
-      console.warn(`Riego watchdog: phase ${phaseId} overrun, force-stopping`);
-      setCurrentStatus('disconnecting', 0);
-      const config = loadConfig();
-      await stopShelly(state.current.shellyId, state.current.channel, config.server, config.apiKey);
-
-      logRiegoEvent('STOPPED', phaseId, phaseName, {
-        stopReason: 'watchdog',
-      }).catch(err => console.error('Failed to log riego event:', err));
-
-      await advanceQueue();
+      console.warn(`Riego watchdog: phase ${state.current.phaseId} overrun, force-stopping`);
+      enqueueStopAdvance('watchdog');
     }
   }, WATCHDOG_INTERVAL);
 }
@@ -442,6 +481,9 @@ export function _reset() {
   clearTimer();
   state = { current: null, queue: [] };
   durationMemory = new Map();
+  relaysStartedByRiego.clear();
+  stopChain = Promise.resolve();
+  idleTickCount = 0;
   if (watchdogTimer) {
     clearInterval(watchdogTimer);
     watchdogTimer = null;
@@ -455,4 +497,16 @@ export function _reset() {
     sigintHandler = null;
   }
   initialized = false;
+}
+
+export function _testGetTrackedRelays() {
+  return relaysStartedByRiego;
+}
+
+export function _testAddTrackedRelay(shellyId, channel) {
+  relaysStartedByRiego.add(`${shellyId}:${channel}`);
+}
+
+export async function _testRecoverOrphanedRelays() {
+  return recoverOrphanedRelays();
 }
