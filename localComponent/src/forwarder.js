@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { exec } from 'node:child_process';
 
 const POLLER_URL   = (process.env.POLLER_URL   || 'http://127.0.0.1:8765').replace(/\/+$/, '');
 const BACKEND      = (process.env.BACKEND_URL  || 'http://localhost:3001').replace(/\/+$/, '');
@@ -6,6 +7,56 @@ const API_KEY      = process.env.API_KEY || '';
 const INTERVAL     = parseInt(process.env.POLL_INTERVAL || '5000', 10);
 const MAX_AGE_MS   = parseInt(process.env.MAX_AGE_MS || '60000', 10);
 const CONCURRENCY  = parseInt(process.env.POST_WORKERS || '1', 10);
+
+// ── Forwarder-side poller watchdog (Phase 2.5) ──────────────────────
+// The poller has its own in-process self-healing (consecutive-timeout
+// circuit breaker + last-success watchdog). This is the second layer:
+// if the poller's *process* is wedged (Go runtime stall, scheduler
+// goroutine death, allocator hang, or the poller's own self-heal
+// failed to recover within its threshold) the forwarder — a separate
+// PM2 process — restarts the poller process. Layered defense so a
+// single stuck process never requires a human to SSH in, exactly the
+// failure mode seen on 2026-07-12 when the link hung from 16:01–17:21.
+//
+// Two trip conditions, both restarts throttle to one per cooldown:
+//   1. /snapshot still reachable but poller link.lastSuccess is older
+//      than POLLER_STALE_MS — poller is alive enough to serve HTTP but
+//      hasn't completed a Modbus read in too long.
+//   2. /snapshot itself unreachable for POLLER_DOWN_CYCLES consecutive
+//      fetches — poller HTTP server dead = process wedge.
+//
+// Defaults intentionally generous so a normal degraded window (where
+// the poller still gets *some* reads through every few seconds) does
+// NOT trip the forwarder — only a true prolonged stall does.
+const POLLER_STALE_MS          = parseInt(process.env.POLLER_STALE_MS          || '120000', 10);
+const POLLER_STALE_CYCLES      = parseInt(process.env.POLLER_STALE_CYCLES      || '2', 10);
+const POLLER_DOWN_CYCLES       = parseInt(process.env.POLLER_DOWN_CYCLES       || '6', 10);
+const POLLER_RESTART_COOLDOWN_MS = parseInt(process.env.POLLER_RESTART_COOLDOWN_MS || '300000', 10);
+const POLLER_RESTART_CMD       = process.env.POLLER_RESTART_CMD || 'pm2 restart local-poller --update-env';
+
+let lastPollerRestart = 0;
+let pollerStaleCycles = 0;
+
+function maybeRestartPoller(reason) {
+  const now = Date.now();
+  if (now - lastPollerRestart < POLLER_RESTART_COOLDOWN_MS) {
+    process.stderr.write(`  [${new Date().toISOString()}] poller ${reason}, but restart cooldown active (${Math.ceil((POLLER_RESTART_COOLDOWN_MS - (now - lastPollerRestart)) / 1000)}s left), skipping\n`);
+    return;
+  }
+  lastPollerRestart = now;
+  pollerStaleCycles = 0;
+  process.stderr.write(`  [${new Date().toISOString()}] poller ${reason} → restarting: ${POLLER_RESTART_CMD}\n`);
+  // Use a login shell so the user's profile (which adds npm-global to
+  // PATH, where pm2 lives on the Pi) is sourced.
+  exec(`bash -lc '${POLLER_RESTART_CMD}'`, (err, stdout, stderr) => {
+    if (err) {
+      console.error(`[${new Date().toISOString()}] poller restart FAILED: ${err.message}`);
+      return;
+    }
+    if (stdout) console.error(`[${new Date().toISOString()}] poller restart stdout: ${stdout.trim()}`);
+    if (stderr) console.error(`[${new Date().toISOString()}] poller restart stderr: ${stderr.trim()}`);
+  });
+}
 
 // ── Plausibility validation ──────────────────────────────────────
 // A "successful" Modbus read can still return a well-formed frame whose
@@ -209,6 +260,7 @@ async function main() {
   console.log(`Forwarder → ${POLLER_URL}/snapshot every ${INTERVAL}ms → ${BACKEND}/api/ingestion/inverter`);
   console.log(`maxAge=${MAX_AGE_MS}ms  batteryMult=${BATTERY_POWER_MULTIPLIER}  negateBattCurrent=${BATTERY_CURRENT_NEGATE}`);
   console.log(`plausibility: bounds=${Object.keys(BOUNDS).join(',')}  battPresentV=${BATT_PRESENT_VOLTAGE}  meterDeadband=${METER_ZERO_DEADBAND}W  meterFlow=${METER_FLOW_THRESHOLD}W`);
+  console.log(`poller watchdog: staleAfter=${POLLER_STALE_MS}ms/${POLLER_STALE_CYCLES}cyc  downAfter=${POLLER_DOWN_CYCLES}cyc  restartCooldown=${POLLER_RESTART_COOLDOWN_MS}ms  cmd="${POLLER_RESTART_CMD}"`);
 
   let snapDown = 0;
   while (running) {
@@ -222,6 +274,11 @@ async function main() {
       snapDown++;
       if (snapDown <= 3 || snapDown % 20 === 0)
         console.error(`[${new Date().toISOString()}] snapshot fetch failed (${snapDown}): ${err.message}`);
+      // Watchdog trip #2: /snapshot unreachable for too many consecutive
+      // cycles → poller HTTP server is dead → process wedge → restart.
+      if (snapDown >= POLLER_DOWN_CYCLES) {
+        maybeRestartPoller(`HTTP /snapshot unreachable for ${snapDown} consecutive cycles (≥ ${POLLER_DOWN_CYCLES})`);
+      }
       await new Promise(r => setTimeout(r, Math.min(INTERVAL, 2000 * snapDown)));
       continue;
     }
@@ -238,6 +295,26 @@ async function main() {
       process.stderr.write(`  [${new Date().toISOString()}] poller not ready (link: ${snap.link?.state || '?'}), skipping...\n`);
       await new Promise(r => setTimeout(r, INTERVAL));
       continue;
+    }
+
+    // Watchdog trip #1: /snapshot is reachable (poller process is alive
+    // enough to serve HTTP) but link.lastSuccess is older than
+    // POLLER_STALE_MS → the poller's own in-process self-heal (circuit
+    // breaker + last-success watchdog) has NOT recovered the Modbus link
+    // within its threshold, so the forwarder escalates to a process
+    // restart. Requires POLLER_STALE_CYCLES consecutive stale snapshots
+    // to confirm (avoids thrashing on a single missed update).
+    const lsMs = snap.link?.lastSuccess ? Date.parse(snap.link.lastSuccess) : 0;
+    if (lsMs > 0) {
+      const ageMs = Date.now() - lsMs;
+      if (ageMs > POLLER_STALE_MS) {
+        pollerStaleCycles++;
+        if (pollerStaleCycles >= POLLER_STALE_CYCLES) {
+          maybeRestartPoller(`stale link (lastSuccess ${Math.round(ageMs / 1000)}s old, threshold ${POLLER_STALE_MS / 1000}s, ${pollerStaleCycles} consecutive stale cycles)`);
+        }
+      } else {
+        pollerStaleCycles = 0;
+      }
     }
 
     const readings = [];

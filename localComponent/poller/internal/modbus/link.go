@@ -42,6 +42,15 @@ type Link struct {
 	warmupUnitIDs   []byte
 	warmupMaxTries  int
 	warmupRetryDelay time.Duration
+	// maxTimeouts is the consecutive-timeout circuit breaker
+	// threshold. When this many ErrTimeouts accrue on the same
+	// connection without an intervening successful read, the
+	// connection is force-closed so the next exchange() triggers
+	// connectWithBackoff. 0 disables the breaker (legacy behaviour).
+	// Warm-up reads (rawExchangeRead) are exempt by design: the
+	// Huawei dongle's "no response to first read after TCP connect"
+	// quirk requires keeping the socket alive across warm-up timeouts.
+	maxTimeouts int
 
 	mu        sync.Mutex
 	connectMu sync.Mutex
@@ -49,11 +58,15 @@ type Link struct {
 	txnID     uint16
 	state     State
 	lastSuccess time.Time
+	// consecutiveTimeouts counts ErrTimeouts on the current
+	// connection since the last successful read. Reset to 0 by
+	// markSuccess(). Protected by l.mu.
+	consecutiveTimeouts int
 
 	stats Stats
 }
 
-func New(host string, port int, dialTimeout, readTimeout, keepAlive, recMin, recMax time.Duration) *Link {
+func New(host string, port int, dialTimeout, readTimeout, keepAlive, recMin, recMax time.Duration, maxTimeouts int) *Link {
 	return &Link{
 		host: host, port: port,
 		dialTimeout:     dialTimeout,
@@ -65,6 +78,7 @@ func New(host string, port int, dialTimeout, readTimeout, keepAlive, recMin, rec
 		warmupUnitIDs:   []byte{1, 2},
 		warmupMaxTries:  5,
 		warmupRetryDelay: 2 * time.Second,
+		maxTimeouts:     maxTimeouts,
 		state:           StateDisconnected,
 	}
 }
@@ -73,7 +87,12 @@ func (l *Link) Host() string            { return l.host }
 func (l *Link) State() State            { l.mu.Lock(); defer l.mu.Unlock(); return l.state }
 func (l *Link) LastSuccess() time.Time  { l.mu.Lock(); defer l.mu.Unlock(); return l.lastSuccess }
 func (l *Link) StatsPtr() *Stats        { return &l.stats }
-func (l *Link) markSuccess()            { l.mu.Lock(); l.lastSuccess = time.Now(); l.mu.Unlock() }
+func (l *Link) markSuccess() {
+	l.mu.Lock()
+	l.lastSuccess = time.Now()
+	l.consecutiveTimeouts = 0
+	l.mu.Unlock()
+}
 
 // dial opens a TCP connection. Caller must NOT hold l.mu — dial acquires it
 // internally to set l.conn.
@@ -385,6 +404,22 @@ func (l *Link) exchange(unit byte, req []byte, expectLen func(byteCount byte) in
 	resp, err := l.doTransactionLocked(unit, req, expectLen)
 	if err != nil && errors.Is(err, ErrTimeout) {
 		l.drainLocked()
+		// Consecutive-timeout circuit breaker: a TCP-alive-but-Modbus-dead
+		// socket (the "connection reset by peer" → redial → silent second
+		// socket failure mode) produces an unbounded stream of ErrTimeouts
+		// that never trigger closeLocked (see doTransactionLocked). After
+		// maxTimeouts consecutive timeouts with no successful read in
+		// between, force-close so the next exchange() redials. Without this
+		// the link stalls forever and only a manual pm2 restart recovers it.
+		if l.maxTimeouts > 0 {
+			l.consecutiveTimeouts++
+			if l.consecutiveTimeouts >= l.maxTimeouts {
+				log.Printf("modbus: %d consecutive timeouts (max %d), closing conn to force reconnect",
+					l.consecutiveTimeouts, l.maxTimeouts)
+				l.closeLocked()
+				l.consecutiveTimeouts = 0
+			}
+		}
 	}
 	return resp, err
 }

@@ -134,6 +134,13 @@ All knobs live in `localComponent/.env` (see `.env.example`).
 | `CADENCE_INVERTER_MS` | `15000` | poller: PV/status/grid/battery block cadence |
 | `CADENCE_METER_MS` | `3000` | poller: smart-meter block cadence (faster-moving) |
 | `LINK_DISABLED` | `0` | poller observe-only mode (opens no connection; used for A/B overlap) |
+| `LINK_MAX_TIMEOUTS` | `3` | poller: consecutive-timeout circuit breaker. After this many `ErrTimeout`s in a row on the same connection with no successful read in between, force-close so the next read redials. 0 disables (legacy "keep alive forever" behaviour that caused the 2026-07-12 80-min hang). Warm-up reads are exempt by design. |
+| `LINK_FRESHNESS_MS` | `45000` | poller: last-success watchdog. If no successful Modbus read has occurred in this duration, force-close the connection. Catches stalls the per-read breaker can't (slow-but-succeeding reads, scheduler goroutine death). Complements `LINK_MAX_TIMEOUTS`; does NOT replace it. |
+| `POLLER_STALE_MS` | `120000` | forwarder: poller-watchdog trip #1. If `/snapshot` is reachable but `link.lastSuccess` is older than this for `POLLER_STALE_CYCLES` consecutive fetches, the forwarder runs `POLLER_RESTART_CMD` to restart the poller process. |
+| `POLLER_STALE_CYCLES` | `2` | forwarder: number of consecutive stale snapshots required to trip the poller watchdog (avoids thrashing on a single missed update). |
+| `POLLER_DOWN_CYCLES` | `6` | forwarder: poller-watchdog trip #2. If `/snapshot` itself is unreachable for this many consecutive fetches (poller HTTP server dead = process wedge), run `POLLER_RESTART_CMD`. |
+| `POLLER_RESTART_COOLDOWN_MS` | `300000` | forwarder: minimum interval between poller restarts. One restart per cooldown regardless of which trip fired, so a stuck poller doesn't get hammered. |
+| `POLLER_RESTART_CMD` | `pm2 restart local-poller --update-env` | forwarder: command the watchdog runs when it decides to restart the poller. Override if `pm2` is not on the default PATH (the forwarder runs it via `bash -lc` so the user's profile is sourced). |
 
 Poller-only knobs (`LINK_KEEPALIVE_MS`, `LINK_READ_TIMEOUT_MS`, etc.) can also
 be set in the pm2 ecosystem env block.

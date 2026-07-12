@@ -13,13 +13,23 @@ type Config struct {
 	UnitMaster byte
 	UnitSlave  byte
 
-	LinkDialTimeout  time.Duration
+LinkDialTimeout  time.Duration
 	LinkReadTimeout time.Duration
 	LinkKeepAlive   time.Duration
 	ReconnectMin    time.Duration
-	ReconnectMax     time.Duration
+	ReconnectMax    time.Duration
 	HeartbeatReg    uint16
 	StartupWarmups  int
+	// LinkMaxTimeouts is the consecutive-timeout circuit breaker
+	// threshold (see modbus.Link). 3 means: after 3 ErrTimeouts in a
+	// row with no successful read, force-close and reconnect.
+	LinkMaxTimeouts int
+	// LinkFreshness is the last-success watchdog threshold. If no
+	// successful Modbus read has occurred in this duration, the poller
+	// force-closes the connection to trigger reconnect — catches stalls
+	// that don't surface as ErrTimeout (half-up sockets, scheduler
+	// goroutine death, etc.).
+	LinkFreshness time.Duration
 
 	CadenceInverter time.Duration
 	CadenceMeter    time.Duration
@@ -39,13 +49,15 @@ func Defaults() Config {
 		UnitMaster: 1,
 		UnitSlave:  2,
 
-		LinkDialTimeout:  5 * time.Second,
-		LinkReadTimeout: 8 * time.Second,
-		LinkKeepAlive:   15 * time.Second,
-		ReconnectMin:    1 * time.Second,
-		ReconnectMax:    60 * time.Second,
-		HeartbeatReg:    30070,
-		StartupWarmups:  0,
+		LinkDialTimeout:   5 * time.Second,
+		LinkReadTimeout:   8 * time.Second,
+		LinkKeepAlive:     15 * time.Second,
+		ReconnectMin:      1 * time.Second,
+		ReconnectMax:      60 * time.Second,
+		HeartbeatReg:      30070,
+		StartupWarmups:   0,
+		LinkMaxTimeouts:   3,
+		LinkFreshness:     45 * time.Second,
 
 		CadenceInverter: 15 * time.Second,
 		CadenceMeter:    3 * time.Second,
@@ -98,6 +110,16 @@ func FromEnv() Config {
 	if v := os.Getenv("LINK_READ_TIMEOUT_MS"); v != "" {
 		if d, err := time.ParseDuration(v + "ms"); err == nil {
 			c.LinkReadTimeout = d
+		}
+	}
+	if v := os.Getenv("LINK_MAX_TIMEOUTS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.LinkMaxTimeouts = n
+		}
+	}
+	if v := os.Getenv("LINK_FRESHNESS_MS"); v != "" {
+		if d, err := time.ParseDuration(v + "ms"); err == nil {
+			c.LinkFreshness = d
 		}
 	}
 	return c
