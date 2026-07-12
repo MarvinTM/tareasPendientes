@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -135,12 +136,25 @@ func (s *Scheduler) pollCadence(unit registers.UnitKey, cad registers.Cadence) e
 	}
 	now := time.Now()
 	numeric := map[string]float64{}
+	// Sort blocks by staleness so the oldest block is read first. This
+	// prevents any single block from being starved across multiple
+	// cadence cycles when the dongle is slow (e.g., 6-10s per read
+	// with a 30s cadence can only fit ~3 blocks per cycle for a unit
+	// that has 4-5 blocks — without sorting, the same 2 blocks would
+	// be skipped every cycle). With per-block timestamps, each block
+	// rotates through the lead position naturally.
+	sort.SliceStable(blocks, func(i, j int) bool {
+		ti := s.store.BlockLastRead(string(unit), blocks[i].Start)
+		tj := s.store.BlockLastRead(string(unit), blocks[j].Start)
+		return ti.Before(tj)
+	})
 	for _, b := range blocks {
 		raw, err := s.readWithRTT(byteUnit, b.Start, b.Count, unit)
 		if err != nil || raw == nil {
 			log.Printf("poll(%s): block %d-%d failed: %v", unit, b.Start, b.Start+uint16(b.Count)-1, err)
 			continue
 		}
+		s.store.SetBlockTime(string(unit), b.Start, time.Now())
 		for _, f := range registers.UnitFields(unit) {
 			rslice := rawSlice(raw, f.Addr, f.Count, b.Start)
 			if rslice == nil {

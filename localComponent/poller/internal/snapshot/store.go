@@ -71,6 +71,10 @@ type unitStore struct {
 	serial  string
 	fields  map[string]fieldEntry
 	derived Derived
+	// blockTimes tracks the last time each register-block start was
+	// successfully read. Used by the scheduler to sort blocks by
+	// staleness so no block gets starved across cadence cycles.
+	blockTimes map[uint16]time.Time
 }
 
 type Store struct {
@@ -89,7 +93,7 @@ type rttAvg struct {
 func NewStore(unitIDs ...string) *Store {
 	s := &Store{units: make(map[string]*unitStore, len(unitIDs))}
 	for _, id := range unitIDs {
-		s.units[id] = &unitStore{id: id, fields: make(map[string]fieldEntry)}
+		s.units[id] = &unitStore{id: id, fields: make(map[string]fieldEntry), blockTimes: make(map[uint16]time.Time)}
 	}
 	return s
 }
@@ -119,6 +123,25 @@ func (s *Store) SetDerived(unitID string, d Derived) {
 	if us, ok := s.units[unitID]; ok {
 		us.derived = d
 	}
+}
+
+func (s *Store) SetBlockTime(unitID string, blockStart uint16, t time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if us, ok := s.units[unitID]; ok {
+		us.blockTimes[blockStart] = t
+	}
+}
+
+func (s *Store) BlockLastRead(unitID string, blockStart uint16) time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if us, ok := s.units[unitID]; ok {
+		if t, ok := us.blockTimes[blockStart]; ok {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 func (s *Store) SetLink(state LinkState, lastSuccess time.Time) {

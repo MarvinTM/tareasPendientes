@@ -174,7 +174,10 @@ function buildPayload(unitSnap) {
   let meterPower = withinBounds('meterPower', (f.meterPower && fresh(f.meterPower)) ? val(f.meterPower) : null);
   // Cross-field: "meter claims 0 while energy is clearly flowing" → the
   // meter read is almost certainly a failed/stale block, not a real 0 W.
-  if (meterPower != null && Math.abs(meterPower) < METER_ZERO_DEADBAND) {
+  // Skip entirely when METER_FLOW_THRESHOLD <= 0 — near-zero meter
+  // readings with active inverter flow are normal when solar production
+  // matches household consumption (net import/export near zero).
+  if (METER_FLOW_THRESHOLD > 0 && meterPower != null && Math.abs(meterPower) < METER_ZERO_DEADBAND) {
     const flow = Math.abs(activePower || 0) > METER_FLOW_THRESHOLD
               || (pvPower != null && pvPower > METER_FLOW_THRESHOLD);
     if (flow) {
