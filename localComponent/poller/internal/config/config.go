@@ -30,6 +30,11 @@ LinkDialTimeout  time.Duration
 	// that don't surface as ErrTimeout (half-up sockets, scheduler
 	// goroutine death, etc.).
 	LinkFreshness time.Duration
+	// LinkCoolOff is the post-reconnect sleep: after a successful dial
+	// + warm-up, the poller waits this long before the scheduler starts
+	// issuing regular reads. Gives the dongle's RS485 bus time to drain
+	// cloud traffic (FusionSolar) before we compete for it. 0 disables.
+	LinkCoolOff time.Duration
 
 	CadenceInverter time.Duration
 	CadenceMeter    time.Duration
@@ -58,6 +63,7 @@ func Defaults() Config {
 		StartupWarmups:   0,
 		LinkMaxTimeouts:   3,
 		LinkFreshness:     45 * time.Second,
+		LinkCoolOff:       5 * time.Second,
 
 		CadenceInverter: 15 * time.Second,
 		CadenceMeter:    3 * time.Second,
@@ -120,6 +126,11 @@ func FromEnv() Config {
 	if v := os.Getenv("LINK_FRESHNESS_MS"); v != "" {
 		if d, err := time.ParseDuration(v + "ms"); err == nil {
 			c.LinkFreshness = d
+		}
+	}
+	if v := os.Getenv("LINK_COOLOFF_MS"); v != "" {
+		if d, err := time.ParseDuration(v + "ms"); err == nil {
+			c.LinkCoolOff = d
 		}
 	}
 	return c

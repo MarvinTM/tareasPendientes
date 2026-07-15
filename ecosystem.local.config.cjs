@@ -12,6 +12,7 @@ module.exports = {
         LINK_MAX_TIMEOUTS: '6',
         LINK_READ_TIMEOUT_MS: '10000',
         LINK_FRESHNESS_MS: '120000',
+        LINK_COOLOFF_MS: '5000',
         CADENCE_INVERTER_MS: '30000',
         CADENCE_METER_MS: '10000',
       },

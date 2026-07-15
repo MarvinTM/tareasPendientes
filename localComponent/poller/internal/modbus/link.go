@@ -51,6 +51,12 @@ type Link struct {
 	// Huawei dongle's "no response to first read after TCP connect"
 	// quirk requires keeping the socket alive across warm-up timeouts.
 	maxTimeouts int
+	// coolOff is the post-reconnect pause: after a successful dial +
+	// warm-up, the poller sleeps this long before the scheduler
+	// starts issuing regular reads. Gives the dongle's RS485 bus
+	// time to drain any queued FusionSolar/cloud traffic before
+	// we contend for it. 0 disables.
+	coolOff time.Duration
 
 	mu        sync.Mutex
 	connectMu sync.Mutex
@@ -66,7 +72,7 @@ type Link struct {
 	stats Stats
 }
 
-func New(host string, port int, dialTimeout, readTimeout, keepAlive, recMin, recMax time.Duration, maxTimeouts int) *Link {
+func New(host string, port int, dialTimeout, readTimeout, keepAlive, recMin, recMax time.Duration, maxTimeouts int, coolOff time.Duration) *Link {
 	return &Link{
 		host: host, port: port,
 		dialTimeout:     dialTimeout,
@@ -79,6 +85,7 @@ func New(host string, port int, dialTimeout, readTimeout, keepAlive, recMin, rec
 		warmupMaxTries:  5,
 		warmupRetryDelay: 2 * time.Second,
 		maxTimeouts:     maxTimeouts,
+		coolOff:         coolOff,
 		state:           StateDisconnected,
 	}
 }
@@ -201,6 +208,10 @@ for _, unit := range l.warmupUnitIDs {
 		}
 
 		if warmupDone {
+			if l.coolOff > 0 {
+				log.Printf("modbus: cool-off %s after warm-up before releasing to scheduler", l.coolOff)
+				time.Sleep(l.coolOff)
+			}
 			return nil
 		}
 
