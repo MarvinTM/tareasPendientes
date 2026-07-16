@@ -19,6 +19,7 @@ docs/
 │   └── dependencies.md          # Dependencies and libraries
 └── diagrams/                    # Visual diagrams
     ├── architecture.md          # Architecture diagrams
+    ├── system-overview.md       # Complete deployed system and device flows
     ├── database.md              # Database schema diagrams
     └── data-flow.md             # Data flow diagrams
 ```
@@ -55,6 +56,7 @@ docs/
 | Document | Description |
 |----------|-------------|
 | [Architecture Diagrams](diagrams/architecture.md) | System and component diagrams |
+| [Whole-System Design](diagrams/system-overview.md) | Current deployment topology, devices, and communication flows |
 | [Database Diagrams](diagrams/database.md) | ER diagrams and schema |
 | [Data Flow Diagrams](diagrams/data-flow.md) | Request/response flows |
 
