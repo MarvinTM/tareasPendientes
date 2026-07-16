@@ -167,10 +167,14 @@ async function _doFetchAllStatuses() {
   const statusPromises = [...uniqueShellyIds.keys()].map(async (sid) => {
     const local = getShellyStatus(sid);
     if (local) {
-      statusMap.set(sid, local);
+      statusMap.set(sid, { ...local, source: 'local' });
     } else {
       const status = await fetchStatusForShellyId(sid);
-      statusMap.set(sid, status);
+      if (status) {
+        statusMap.set(sid, { ...status, source: 'cloud' });
+      } else {
+        statusMap.set(sid, { online: false, relays: [], source: 'unknown' });
+      }
     }
   });
 
@@ -178,12 +182,9 @@ async function _doFetchAllStatuses() {
 
   return devices.map(device => {
     const sid = config.devices.find(d => d.id === device.id)?.shellyId || device.id;
-    const status = statusMap.get(sid);
-    if (status) {
-      const isOn = status.relays?.[device.channel]?.on ?? null;
-      return { ...device, on: isOn, online: status.online };
-    }
-    return { ...device, on: null, online: false };
+    const status = statusMap.get(sid) || { online: false, relays: [], source: 'unknown' };
+    const isOn = status.relays?.[device.channel]?.on ?? null;
+    return { ...device, on: isOn, online: status.online, source: status.source };
   });
 }
 

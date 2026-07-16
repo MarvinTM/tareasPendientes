@@ -213,9 +213,9 @@ describe('Shelly Service', () => {
       const results = await fetchAllStatuses();
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true, source: 'cloud' });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true, source: 'cloud' });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true, source: 'cloud' });
     });
 
     it('handles mixed online and offline devices', async () => {
@@ -232,10 +232,13 @@ describe('Shelly Service', () => {
       expect(results).toHaveLength(3);
       expect(results[0].on).toBe(true);
       expect(results[0].online).toBe(true);
+      expect(results[0].source).toBe('cloud');
       expect(results[1].on).toBeNull();
       expect(results[1].online).toBe(false);
+      expect(results[1].source).toBe('unknown');
       expect(results[2].on).toBeNull();
       expect(results[2].online).toBe(false);
+      expect(results[2].source).toBe('unknown');
     });
 
     it('uses local cache for fresh shellyId, skipping cloud calls for it', async () => {
@@ -256,9 +259,9 @@ describe('Shelly Service', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: false, online: true });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: false, online: true, source: 'local' });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true, source: 'cloud' });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true, source: 'cloud' });
     });
 
     it('falls back to cloud when local cache is stale (not fresh enough)', async () => {
@@ -285,7 +288,7 @@ describe('Shelly Service', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true, source: 'cloud' });
     });
   });
 

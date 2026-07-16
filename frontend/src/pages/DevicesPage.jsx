@@ -11,6 +11,7 @@ import FormControl from '@mui/material/FormControl';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import Tooltip from '@mui/material/Tooltip';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
@@ -23,6 +24,18 @@ function formatPlanLabel(plan) {
   const deactLabel = deactMode === 'sunrise' ? 'Amanecer' : deactMode === 'sunset' ? 'Anochecer' : plan.deactivationTime;
   return `${plan.name} (${actLabel} — ${deactLabel})`;
 }
+
+const sourceColor = {
+  local: '#4caf50',
+  cloud: '#ff9800',
+  unknown: '#9e9e9e',
+};
+
+const sourceLabel = {
+  local: 'Datos del dispositivo local (localComponent)',
+  cloud: 'Datos de la nube (Shelly Cloud)',
+  unknown: 'Origen de datos desconocido',
+};
 
 export default function DevicesPage() {
   const socket = useSocket();
@@ -63,7 +76,7 @@ export default function DevicesPage() {
 
     const handleDeviceUpdate = (data) => {
       setDevices(prev =>
-        prev.map(d => (d.id === data.id ? { ...d, on: data.on, online: data.online !== undefined ? data.online : d.online } : d))
+        prev.map(d => (d.id === data.id ? { ...d, on: data.on, online: data.online !== undefined ? data.online : d.online, source: data.source !== undefined ? data.source : d.source } : d))
       );
     };
 
@@ -174,6 +187,17 @@ export default function DevicesPage() {
                               sx={{ color: device.on ? '#fdd835' : 'text.secondary' }}
                             />
                           ) : null}
+                          <Tooltip title={sourceLabel[device.source] || sourceLabel.unknown} arrow>
+                            <Box
+                              sx={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: '50%',
+                                backgroundColor: sourceColor[device.source] || sourceColor.unknown,
+                                flexShrink: 0,
+                              }}
+                            />
+                          </Tooltip>
                           <Box minWidth={0} flex={1}>
                             <Typography variant="subtitle1" fontWeight="bold" noWrap>
                               {device.name}

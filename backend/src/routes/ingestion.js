@@ -87,6 +87,7 @@ router.post('/device', apiKeyAuth, async (req, res) => {
             id: devConfig.id,
             on: relay?.on ?? null,
             online,
+            source: 'local',
           });
         }
       }

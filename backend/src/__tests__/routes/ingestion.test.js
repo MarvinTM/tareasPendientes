@@ -108,8 +108,8 @@ describe('Ingestion Routes', () => {
       expect(res.body.stored).toBe(1);
 
       expect(mockEmitDeviceUpdate).toHaveBeenCalledTimes(2);
-      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'focos-explanada', on: true, online: true });
-      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'luces-entrada', on: false, online: true });
+      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'focos-explanada', on: true, online: true, source: 'local' });
+      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'luces-entrada', on: false, online: true, source: 'local' });
     });
 
     it('handles unknown shellyId gracefully (no emit)', async () => {
@@ -137,8 +137,8 @@ describe('Ingestion Routes', () => {
         });
 
       expect(res.status).toBe(200);
-      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'focos-explanada', on: null, online: false });
-      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'luces-entrada', on: null, online: false });
+      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'focos-explanada', on: null, online: false, source: 'local' });
+      expect(mockEmitDeviceUpdate).toHaveBeenCalledWith({ id: 'luces-entrada', on: null, online: false, source: 'local' });
     });
 
     it('accepts timestamp field', async () => {
