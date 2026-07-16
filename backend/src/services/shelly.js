@@ -7,6 +7,27 @@ const CONFIG_PATH = resolve(__dirname, '../../config/shelly.json');
 
 let cachedConfig = null;
 
+let lastShellyRequestTime = 0;
+const MIN_SPACING_MS = 1200;
+
+async function shellyThrottle() {
+  const now = Date.now();
+  const wait = Math.max(0, MIN_SPACING_MS - (now - lastShellyRequestTime));
+  if (wait > 0) {
+    await new Promise(resolve => setTimeout(resolve, wait));
+  }
+  lastShellyRequestTime = Date.now();
+}
+
+let statusCache = null;
+let statusCacheTime = 0;
+const STATUS_CACHE_TTL = 8000;
+
+export function invalidateStatusCache() {
+  statusCache = null;
+  statusCacheTime = 0;
+}
+
 export function loadConfig() {
   if (cachedConfig) {
     return cachedConfig;
@@ -112,6 +133,24 @@ export async function fetchDeviceStatus(deviceId) {
 }
 
 export async function fetchAllStatuses() {
+  const now = Date.now();
+  if (statusCache && statusCacheTime + STATUS_CACHE_TTL > now) {
+    return statusCache;
+  }
+
+  const promise = _doFetchAllStatuses();
+  statusCache = promise;
+  statusCacheTime = now;
+
+  promise.catch(() => {
+    statusCache = null;
+    statusCacheTime = 0;
+  });
+
+  return promise;
+}
+
+async function _doFetchAllStatuses() {
   const devices = getDevices();
   const config = loadConfig();
 
@@ -146,6 +185,8 @@ async function fetchStatusForShellyId(shellyId) {
   const config = loadConfig();
   const url = `${config.server}/device/status?id=${encodeURIComponent(shellyId)}&auth_key=${encodeURIComponent(config.apiKey)}`;
 
+  await shellyThrottle();
+
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -154,21 +195,25 @@ async function fetchStatusForShellyId(shellyId) {
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        console.error(`Shelly status error for ${shellyId}: HTTP ${response.status} (attempt ${attempt + 1})`);
-        continue;
+        if (response.status >= 500 && attempt < 2) {
+          console.error(`Shelly status error for ${shellyId}: HTTP ${response.status} (attempt ${attempt + 1})`);
+          continue;
+        }
+        console.error(`Shelly status error for ${shellyId}: HTTP ${response.status}`);
+        return null;
       }
 
       const data = await response.json();
 
       if (!data.isok) {
         console.error(`Shelly status error for ${shellyId}:`, data);
-        continue;
+        return null;
       }
 
       const online = data.data?.online ?? false;
       if (!online) {
-        console.warn(`Shelly device ${shellyId} reported offline (attempt ${attempt + 1})`);
-        continue;
+        console.warn(`Shelly device ${shellyId} reported offline`);
+        return { online: false, relays: [] };
       }
 
       const deviceStatus = data.data?.device_status;
@@ -210,6 +255,7 @@ function extractRelays(deviceStatus) {
 }
 
 export async function toggleDevice(deviceId) {
+  invalidateStatusCache();
   const config = loadConfig();
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {
@@ -248,6 +294,7 @@ export async function toggleDevice(deviceId) {
 }
 
 export async function turnDeviceOn(deviceId) {
+  invalidateStatusCache();
   const config = loadConfig();
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {
@@ -309,6 +356,7 @@ export async function turnDeviceOn(deviceId) {
 }
 
 export async function turnDeviceOff(deviceId) {
+  invalidateStatusCache();
   const config = loadConfig();
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {

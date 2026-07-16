@@ -72,12 +72,9 @@ export default function DevicesPage() {
   }, [socket]);
 
   useEffect(() => {
-    const hasOffline = devices.some(d => d.online === false);
-    if (!hasOffline) return;
-
-    const interval = setInterval(fetchData, 10000);
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [devices, fetchData]);
+  }, [fetchData]);
 
   const handleToggle = async (deviceId) => {
     setDevices(prev =>
