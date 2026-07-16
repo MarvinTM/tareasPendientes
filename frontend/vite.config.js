@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  build: {
+    emptyOutDir: true,
+  },
   plugins: [
     react(),
     VitePWA({
@@ -41,7 +44,7 @@ export default defineConfig({
       },
       includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-512x512-maskable.png'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        globPatterns: ['**/*.{html,svg,png,ico,woff,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],
         runtimeCaching: [
@@ -52,6 +55,14 @@ export default defineConfig({
               cacheName: 'api-cache',
               networkTimeoutSeconds: 10,
               expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+            },
+          },
+          {
+            urlPattern: ({ url }) => url.pathname.match(/\.(?:js|css)$/),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'asset-cache',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
         ],

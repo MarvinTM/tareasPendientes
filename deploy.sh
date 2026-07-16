@@ -75,6 +75,7 @@ log_info "Starting deployment from: $SCRIPT_DIR"
 # ===========================================
 log_info "Building frontend..."
 cd frontend
+rm -rf dist node_modules/.vite
 npm run build
 cd ..
 log_info "Frontend build complete"
