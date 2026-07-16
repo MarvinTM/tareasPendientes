@@ -63,7 +63,7 @@ export default function DevicesPage() {
 
     const handleDeviceUpdate = (data) => {
       setDevices(prev =>
-        prev.map(d => (d.id === data.id ? { ...d, on: data.on } : d))
+        prev.map(d => (d.id === data.id ? { ...d, on: data.on, online: data.online !== undefined ? data.online : d.online } : d))
       );
     };
 

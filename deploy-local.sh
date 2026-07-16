@@ -96,6 +96,7 @@ rsync -avz --delete \
     --exclude '.env' \
     --exclude 'logs' \
     --exclude 'data' \
+    --exclude 'shelly.json' \
     "$SCRIPT_DIR/localComponent/" "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/localComponent/"
 log_info "localComponent deployed"
 
@@ -136,6 +137,21 @@ else
 fi
 
 # ===========================================
+# Step 4b: shelly.json management — create from example if missing
+# ===========================================
+log_info "Checking shelly.json on Raspberry Pi..."
+if ssh_cmd "[ ! -f $REMOTE_PATH/localComponent/shelly.json ]"; then
+    log_warn "shelly.json not found. Creating from shelly.example.json..."
+    ssh_cmd "cp $REMOTE_PATH/localComponent/shelly.example.json $REMOTE_PATH/localComponent/shelly.json"
+    log_warn "========================================="
+    log_warn "IMPORTANT: Edit shelly.json on the Pi with real Shelly LAN IPs!"
+    log_warn "  ssh $REMOTE_USER@$REMOTE_HOST 'nano $REMOTE_PATH/localComponent/shelly.json'"
+    log_warn "========================================="
+else
+    log_info "shelly.json exists — preserving"
+fi
+
+# ===========================================
 # Step 5: Install dependencies on the Pi
 # ===========================================
 log_info "Installing dependencies on Raspberry Pi..."
@@ -171,6 +187,7 @@ log_info "========================================="
 echo ""
 log_info "Check status with:     ssh $REMOTE_USER@$REMOTE_HOST 'pm2 status'"
 log_info "Poller snapshot:       ssh $REMOTE_USER@$REMOTE_HOST 'curl -s http://127.0.0.1:8765/snapshot | head -5'"
-log_info "View logs with:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 logs local-poller local-forwarder'"
-log_info "Manual restart:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 restart local-poller local-forwarder'"
+log_info "Shelly status:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 logs local-shelly-forwarder --lines 20'"
+log_info "View logs with:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 logs local-poller local-forwarder local-shelly-forwarder'"
+log_info "Manual restart:         ssh $REMOTE_USER@$REMOTE_HOST 'pm2 restart local-poller local-forwarder local-shelly-forwarder'"
 log_info "Verify old ingest gone: ssh $REMOTE_USER@$REMOTE_HOST 'pm2 list | grep local-ingest || echo OK'"

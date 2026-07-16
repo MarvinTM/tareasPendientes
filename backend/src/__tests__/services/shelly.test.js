@@ -237,6 +237,56 @@ describe('Shelly Service', () => {
       expect(results[2].on).toBeNull();
       expect(results[2].online).toBe(false);
     });
+
+    it('uses local cache for fresh shellyId, skipping cloud calls for it', async () => {
+      const { updateShellyStatus, _reset } = await import('../../services/shellyLocalStatus.js');
+      _reset();
+      updateShellyStatus([
+        { shellyId: 'dev-1', online: true, relays: [{ on: false }] },
+      ]);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }, { ison: true }] } } }),
+      });
+
+      const { fetchAllStatuses } = await import('../../services/shelly.js');
+      const results = await fetchAllStatuses();
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: false, online: true });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true });
+    });
+
+    it('falls back to cloud when local cache is stale (not fresh enough)', async () => {
+      const { updateShellyStatus, markStale, _reset } = await import('../../services/shellyLocalStatus.js');
+      _reset();
+      updateShellyStatus([
+        { shellyId: 'dev-1', online: true, relays: [{ on: false }] },
+      ]);
+      markStale('dev-1');
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }] } } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: false }, { ison: true }] } } }),
+        });
+
+      const { fetchAllStatuses } = await import('../../services/shelly.js');
+      const results = await fetchAllStatuses();
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      expect(results).toHaveLength(3);
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true });
+    });
   });
 
   describe('toggleDevice', () => {

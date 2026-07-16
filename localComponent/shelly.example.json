@@ -1,0 +1,18 @@
+{
+  "pollIntervalMs": 10000,
+  "requestTimeoutMs": 3000,
+  "devices": [
+    {
+      "shellyId": "30c6f78a406c",
+      "ip": "192.168.1.102",
+      "channels": [0, 1],
+      "name": "Luces Entrada + Focos Explanada"
+    },
+    {
+      "shellyId": "ac15186d2a38",
+      "ip": "192.168.1.111",
+      "channels": [0, 1],
+      "name": "Bomba Piscina + Luces Piscina"
+    }
+  ]
+}

@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { apiKeyAuth } from '../middleware/apiKeyAuth.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { emitInverterData } from '../socket.js';
+import { emitInverterData, emitDeviceUpdate } from '../socket.js';
+import { updateShellyStatus } from '../services/shellyLocalStatus.js';
+import { loadConfig } from '../services/shelly.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -49,6 +51,51 @@ router.post('/inverter', apiKeyAuth, async (req, res) => {
   } catch (err) {
     console.error('Ingestion error:', err.message);
     res.status(500).json({ error: 'Failed to store readings' });
+  }
+});
+
+// POST /api/ingestion/device — receive Shelly device statuses from local component (API key auth)
+router.post('/device', apiKeyAuth, async (req, res) => {
+  try {
+    const { devices } = req.body;
+
+    if (!Array.isArray(devices) || devices.length === 0) {
+      return res.status(400).json({ error: 'devices must be a non-empty array' });
+    }
+
+    let config;
+    try {
+      config = loadConfig();
+    } catch (configErr) {
+      console.error('Device ingestion: cannot load shelly config:', configErr.message);
+      return res.status(200).json({ stored: 0, warned: 'shelly config unavailable' });
+    }
+
+    updateShellyStatus(devices);
+
+    for (const entry of devices) {
+      const shellyId = entry.shellyId;
+      const online = entry.online ?? false;
+      const relays = entry.relays ?? [];
+
+      let channelIndex = 0;
+      for (const relay of relays) {
+        const ch = channelIndex++;
+        const devConfig = config.devices.find(d => (d.shellyId || d.id) === shellyId && (d.channel ?? 0) === ch);
+        if (devConfig) {
+          emitDeviceUpdate({
+            id: devConfig.id,
+            on: relay?.on ?? null,
+            online,
+          });
+        }
+      }
+    }
+
+    res.status(200).json({ stored: devices.length });
+  } catch (err) {
+    console.error('Device ingestion error:', err.message);
+    res.status(500).json({ error: 'Failed to process device status' });
   }
 });
 

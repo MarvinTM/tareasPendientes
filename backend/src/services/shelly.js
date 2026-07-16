@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { getShellyStatus, markStale } from './shellyLocalStatus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = resolve(__dirname, '../../config/shelly.json');
@@ -164,8 +165,13 @@ async function _doFetchAllStatuses() {
 
   const statusMap = new Map();
   const statusPromises = [...uniqueShellyIds.keys()].map(async (sid) => {
-    const status = await fetchStatusForShellyId(sid);
-    statusMap.set(sid, status);
+    const local = getShellyStatus(sid);
+    if (local) {
+      statusMap.set(sid, local);
+    } else {
+      const status = await fetchStatusForShellyId(sid);
+      statusMap.set(sid, status);
+    }
   });
 
   await Promise.allSettled(statusPromises);
@@ -263,6 +269,7 @@ export async function toggleDevice(deviceId) {
   }
 
   const shellyId = device.shellyId || device.id;
+  markStale(shellyId);
   const channel = device.channel ?? 0;
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
@@ -302,6 +309,7 @@ export async function turnDeviceOn(deviceId) {
   }
 
   const shellyId = device.shellyId || device.id;
+  markStale(shellyId);
   const channel = device.channel ?? 0;
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
@@ -364,6 +372,7 @@ export async function turnDeviceOff(deviceId) {
   }
 
   const shellyId = device.shellyId || device.id;
+  markStale(shellyId);
   const channel = device.channel ?? 0;
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
