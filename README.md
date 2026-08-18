@@ -64,6 +64,21 @@ VITE_API_URL=http://localhost:3001
 VITE_GOOGLE_CLIENT_ID=your-google-client-id
 ```
 
+#### Shelly device behavior
+
+The backend device definitions live in `backend/config/shelly.json`. Devices normally use persistent on/off control. A momentary relay can be marked as a pulse device and optionally shown on the Portada page:
+
+```json
+{
+  "id": "puerta-garaje",
+  "name": "Puerta Garaje",
+  "controlMode": "pulse",
+  "showOnHome": true
+}
+```
+
+Pulse devices receive a one-shot `turn=on` command and are not treated as persistent on/off devices. They cannot be assigned activation plans.
+
 ### 4. Set up the database
 
 ```bash

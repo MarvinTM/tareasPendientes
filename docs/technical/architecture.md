@@ -338,3 +338,7 @@ EMAIL_APP_PASSWORD=...   # Optional
 VITE_API_URL=https://yourdomain.com
 VITE_GOOGLE_CLIENT_ID=...
 ```
+
+### Shelly device metadata
+
+`backend/config/shelly.json` is the source of truth for application-level device behavior. Devices default to persistent toggle control. Momentary relays use `controlMode: "pulse"`; the backend sends a one-shot `turn=on` command and does not interpret the relay's brief `on` state as a persistent device state. Set `showOnHome: true` to include a device on the Portada overview. Pulse devices cannot be assigned activation plans.

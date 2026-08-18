@@ -71,6 +71,7 @@ export default function Layout() {
     : false;
 
   const userModules = modules.filter(m => !m.adminOnly);
+  const bottomModules = userModules.filter(m => m.id !== 'usuario');
   const adminModules = modules.filter(m => m.adminOnly);
   const visibleModules = modules.filter(m => !m.adminOnly || user?.isAdmin);
 
@@ -122,11 +123,11 @@ export default function Layout() {
   const drawerWidth = drawerExpanded ? DRAWER_EXPANDED : DRAWER_COLLAPSED;
 
   const socket = useSocket();
-  const [riegoState, setRiegoState] = useState({ current: null });
+  const [riegoState, setRiegoState] = useState({ current: null, queue: [] });
 
   const fetchRiegoStatus = useCallback(() => {
     api.get('/riego/status')
-      .then(res => setRiegoState({ current: res.data.current }))
+      .then(res => setRiegoState(res.data))
       .catch(() => {});
   }, []);
 
@@ -136,7 +137,7 @@ export default function Layout() {
     fetchRiegoStatus();
 
     const handleUpdate = (data) => {
-      setRiegoState({ current: data.current });
+      setRiegoState(data);
     };
     socket.on('riego:updated', handleUpdate);
     return () => socket.off('riego:updated', handleUpdate);
@@ -237,7 +238,7 @@ export default function Layout() {
           </Toolbar>
         </AppBar>
 
-        <RiegoBanner key={riegoState.current?.queueId} current={riegoState.current} />
+        {location.pathname !== '/portada' && <RiegoBanner key={riegoState.current?.queueId} current={riegoState.current} />}
 
         {userMenu}
 
@@ -249,12 +250,12 @@ export default function Layout() {
           flexDirection: 'column',
           overscrollBehavior: 'none'
         }}>
-          <Outlet />
+          <Outlet context={{ riegoState, refreshRiegoStatus: fetchRiegoStatus }} />
         </Box>
 
         <Paper sx={{ flexShrink: 0, overflow: 'visible' }} elevation={3}>
           <BottomNavigation value={activeModule?.id || ''} onChange={handleBottomNavChange} showLabels>
-            {userModules.map(mod => (
+            {bottomModules.map(mod => (
               <BottomNavigationAction
                 key={mod.id}
                 value={mod.id}
@@ -356,9 +357,9 @@ export default function Layout() {
                 cursor: 'pointer',
                 minWidth: 0,
               }}
-              onClick={() => navigate('/tareas')}
+              onClick={() => navigate('/portada')}
             >
-              <AppLogo sx={{ fontSize: 28, flexShrink: 0 }} />
+            <AppLogo sx={{ fontSize: 28, flexShrink: 0 }} />
               {drawerExpanded && (
                 <Typography variant="subtitle2" fontWeight="bold" color="primary.main" sx={{ lineHeight: 1.2 }}>
                   Tareas Pendientes
@@ -396,7 +397,7 @@ export default function Layout() {
           <Toolbar sx={{ minHeight: { xs: 56, sm: 64 }, px: { xs: 1, sm: 2 } }}>
             <Box
               sx={{ display: 'flex', alignItems: 'center', gap: 1, flexGrow: 0, cursor: 'pointer', minWidth: 0, mr: 2 }}
-              onClick={() => navigate('/tareas')}
+              onClick={() => navigate('/portada')}
             >
               <AppLogo sx={{ fontSize: { xs: 28, sm: 32 }, flexShrink: 0 }} />
               <Typography
@@ -434,7 +435,7 @@ export default function Layout() {
           </Toolbar>
         </AppBar>
 
-        <RiegoBanner key={riegoState.current?.queueId} current={riegoState.current} />
+        {location.pathname !== '/portada' && <RiegoBanner key={riegoState.current?.queueId} current={riegoState.current} />}
 
         {userMenu}
 
@@ -446,7 +447,7 @@ export default function Layout() {
           flexDirection: 'column',
           overscrollBehavior: 'none'
         }}>
-          <Outlet />
+          <Outlet context={{ riegoState, refreshRiegoStatus: fetchRiegoStatus }} />
         </Box>
       </Box>
     </Box>

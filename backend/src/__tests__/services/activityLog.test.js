@@ -32,8 +32,8 @@ describe('ActivityLog Service', () => {
       expect(ACTIONS).toHaveProperty('RIEGO_PLAN_TRIGGERED');
     });
 
-    it('has exactly 8 action types', () => {
-      expect(Object.keys(ACTIONS)).toHaveLength(8);
+    it('has exactly 9 action types', () => {
+      expect(Object.keys(ACTIONS)).toHaveLength(9);
     });
 
     it('has unique action values', () => {

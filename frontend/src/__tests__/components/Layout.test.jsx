@@ -88,11 +88,11 @@ describe('Layout', () => {
     expect(logos).toHaveLength(2);
   });
 
-  it('navigates to /tareas when logo/title is clicked', async () => {
+  it('navigates to /portada when logo/title is clicked', async () => {
     useAuth.mockReturnValue({ user: { id: 'usr-1', email: 'test@test.com', name: 'Test', isAdmin: false }, loading: false, login: vi.fn(), logout: vi.fn() });
     renderWithProviders(<Layout />);
     await userEvent.click(screen.getByText('Tareas Pendientes'));
-    expect(mockNavigate).toHaveBeenCalledWith('/tareas');
+    expect(mockNavigate).toHaveBeenCalledWith('/portada');
   });
 
   it('calls logout and navigates to login on logout', async () => {

@@ -7,14 +7,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import api from '../services/api';
-
-function formatRemaining(seconds) {
-  if (seconds <= 0) return '0 seg';
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
-  if (m === 0) return `${s} seg`;
-  return `${m}m ${s}s`;
-}
+import { formatRemaining } from '../utils/riego';
 
 export default function RiegoBanner({ current }) {
   const [localTick, setLocalTick] = useState(0);

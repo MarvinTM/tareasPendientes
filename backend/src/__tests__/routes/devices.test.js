@@ -6,20 +6,24 @@ const authenticatedUser = { id: 'usr-1', email: 'test@test.com', name: 'Test Use
 
 const mockFetchAllStatuses = jest.fn();
 const mockToggleDevice = jest.fn();
+const mockPulseDevice = jest.fn();
 const mockGetDeviceById = jest.fn();
 const mockEmitDeviceUpdate = jest.fn();
+const mockEmitDevicePulse = jest.fn();
 const mockLogActivity = jest.fn().mockResolvedValue();
 const mockGetGroups = jest.fn().mockReturnValue([]);
 
 jest.unstable_mockModule('../../services/shelly.js', () => ({
   fetchAllStatuses: mockFetchAllStatuses,
   toggleDevice: mockToggleDevice,
+  pulseDevice: mockPulseDevice,
   getDeviceById: mockGetDeviceById,
   getGroups: mockGetGroups,
 }));
 
 jest.unstable_mockModule('../../socket.js', () => ({
   emitDeviceUpdate: mockEmitDeviceUpdate,
+  emitDevicePulse: mockEmitDevicePulse,
 }));
 
 jest.unstable_mockModule('../../services/activityLog.js', () => ({
@@ -27,6 +31,7 @@ jest.unstable_mockModule('../../services/activityLog.js', () => ({
   ACTIONS: {
     DEVICE_TURNED_ON: 'DEVICE_TURNED_ON',
     DEVICE_TURNED_OFF: 'DEVICE_TURNED_OFF',
+    DEVICE_PULSED: 'DEVICE_PULSED',
   },
 }));
 
@@ -170,6 +175,39 @@ describe('Devices Routes', () => {
       const res = await request(app).post('/api/devices/dev-1/toggle');
 
       expect(res.status).toBe(500);
+    });
+
+    it('rejects toggle control for pulse devices', async () => {
+      mockGetDeviceById.mockReturnValueOnce({ id: 'garage', name: 'Garage', controlMode: 'pulse' });
+
+      const res = await request(app).post('/api/devices/garage/toggle');
+
+      expect(res.status).toBe(400);
+      expect(mockToggleDevice).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/devices/:deviceId/pulse', () => {
+    it('triggers a pulse and emits a pulse event', async () => {
+      mockGetDeviceById.mockReturnValueOnce({ id: 'garage', name: 'Garage', controlMode: 'pulse' });
+      mockPulseDevice.mockResolvedValueOnce({ triggered: true });
+
+      const res = await request(app).post('/api/devices/garage/pulse');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ id: 'garage', triggered: true });
+      expect(mockPulseDevice).toHaveBeenCalledWith('garage');
+      expect(mockLogActivity).toHaveBeenCalledWith('usr-1', 'DEVICE_PULSED', 'garage', 'Garage', { controlMode: 'pulse' });
+      expect(mockEmitDevicePulse).toHaveBeenCalledWith({ id: 'garage', triggeredAt: expect.any(String) });
+    });
+
+    it('rejects pulse control for normal devices', async () => {
+      mockGetDeviceById.mockReturnValueOnce({ id: 'dev-1', name: 'Light', controlMode: 'toggle' });
+
+      const res = await request(app).post('/api/devices/dev-1/pulse');
+
+      expect(res.status).toBe(400);
+      expect(mockPulseDevice).not.toHaveBeenCalled();
     });
   });
 

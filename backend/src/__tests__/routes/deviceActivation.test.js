@@ -29,7 +29,7 @@ jest.unstable_mockModule('../../middleware/auth.js', () => ({
 }));
 
 jest.unstable_mockModule('../../services/shelly.js', () => ({
-  getDeviceById: jest.fn().mockReturnValue(null),
+  getDeviceById: jest.fn().mockReturnValue({ id: 'dev-1', controlMode: 'toggle' }),
   turnDeviceOn: jest.fn(),
   turnDeviceOff: jest.fn(),
   loadConfig: jest.fn().mockReturnValue({ devices: [], groups: [] }),
@@ -255,6 +255,18 @@ describe('Device Activation Routes', () => {
       const res = await request(app).delete('/api/devices/activation-plans/non-existent');
 
       expect(res.status).toBe(404);
+    });
+
+    it('rejects activation plans for pulse devices', async () => {
+      const { getDeviceById } = await import('../../services/shelly.js');
+      getDeviceById.mockReturnValueOnce({ id: 'garage', controlMode: 'pulse' });
+
+      const res = await request(app)
+        .post('/api/devices/garage/activation')
+        .send({ planId: 'p-1' });
+
+      expect(res.status).toBe(400);
+      expect(mockPlan.findUnique).not.toHaveBeenCalled();
     });
   });
 

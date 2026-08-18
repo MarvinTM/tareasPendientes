@@ -210,6 +210,14 @@ router.post('/:deviceId/activation', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'planId is required' });
     }
 
+    const device = getDeviceById(deviceId);
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    if (device.controlMode === 'pulse') {
+      return res.status(400).json({ error: 'Pulse devices cannot have activation plans' });
+    }
+
     const plan = await prisma.deviceActivationPlan.findUnique({ where: { id: planId } });
     if (!plan) {
       return res.status(404).json({ error: 'Plan not found' });

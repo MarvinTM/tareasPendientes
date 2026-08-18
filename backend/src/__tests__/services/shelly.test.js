@@ -72,9 +72,9 @@ describe('Shelly Service', () => {
       const devices = getDevices();
 
       expect(devices).toHaveLength(3);
-      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights' });
-      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights' });
-      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights' });
+      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle' });
+      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle' });
+      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle' });
     });
     it('defaults room to empty string when missing', async () => {
       writeFileSync(CONFIG_FILE, JSON.stringify({
@@ -213,9 +213,9 @@ describe('Shelly Service', () => {
       const results = await fetchAllStatuses();
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true, source: 'cloud' });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true, source: 'cloud' });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true, source: 'cloud' });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: false, online: true, source: 'cloud' });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
     });
 
     it('handles mixed online and offline devices', async () => {
@@ -259,9 +259,9 @@ describe('Shelly Service', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: false, online: true, source: 'local' });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', on: false, online: true, source: 'cloud' });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', on: true, online: true, source: 'cloud' });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: false, online: true, source: 'local' });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: false, online: true, source: 'cloud' });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
     });
 
     it('falls back to cloud when local cache is stale (not fresh enough)', async () => {
@@ -288,7 +288,7 @@ describe('Shelly Service', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', on: true, online: true, source: 'cloud' });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
     });
   });
 
@@ -395,6 +395,28 @@ describe('Shelly Service', () => {
 
       const { toggleDevice } = await import('../../services/shelly.js');
       await expect(toggleDevice('dev-1')).rejects.toThrow('unsuccessful response');
+    });
+  });
+
+  describe('pulseDevice', () => {
+    it('sends turn on without polling for a persistent state', async () => {
+      writeFileSync(CONFIG_FILE, JSON.stringify({
+        ...validConfig,
+        devices: [{ id: 'garage', shellyId: 'garage-shelly', name: 'Garage', controlMode: 'pulse' }],
+      }));
+      mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ isok: true }) });
+
+      const { pulseDevice } = await import('../../services/shelly.js');
+      const result = await pulseDevice('garage');
+
+      expect(result).toEqual({ triggered: true });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(mockFetch.mock.calls[0][1].body.toString()).toContain('turn=on');
+    });
+
+    it('rejects pulse control for normal devices', async () => {
+      const { pulseDevice } = await import('../../services/shelly.js');
+      await expect(pulseDevice('dev-1')).rejects.toThrow('not configured for pulse control');
     });
   });
 

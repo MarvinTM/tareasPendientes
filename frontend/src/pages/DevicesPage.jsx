@@ -16,6 +16,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
 import { getGroupIcon } from '../utils/iconMap';
+import PulseDeviceButton from '../components/PulseDeviceButton';
 
 function formatPlanLabel(plan) {
   const actMode = plan.activationMode || 'fixed';
@@ -215,20 +216,30 @@ export default function DevicesPage() {
                           </Box>
                         </Box>
 
-                        <Box display="flex" alignItems="center">
-                          {device.toggling ? (
-                            <CircularProgress size={24} />
-                          ) : (
-                            <Switch
-                              checked={device.on === true}
-                              disabled={device.online === false || device.on === null}
-                              onChange={() => handleToggle(device.id)}
-                            />
-                          )}
-                        </Box>
+                        {device.controlMode === 'pulse' ? (
+                          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right', maxWidth: 120 }}>
+                            Accionamiento momentáneo
+                          </Typography>
+                        ) : (
+                          <Box display="flex" alignItems="center">
+                            {device.toggling ? (
+                              <CircularProgress size={24} />
+                            ) : (
+                              <Switch
+                                checked={device.on === true}
+                                disabled={device.online === false || device.on === null}
+                                onChange={() => handleToggle(device.id)}
+                              />
+                            )}
+                          </Box>
+                        )}
                       </Box>
 
-                      {plans.length > 0 && (
+                      {device.controlMode === 'pulse' ? (
+                        <Box sx={{ mt: 1.5 }}>
+                          <PulseDeviceButton device={device} />
+                        </Box>
+                      ) : plans.length > 0 && (
                         <Box sx={{ mt: 1 }}>
                           <FormControl size="small" fullWidth>
                             <Select

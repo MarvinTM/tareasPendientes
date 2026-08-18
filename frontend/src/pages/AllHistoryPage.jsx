@@ -27,6 +27,7 @@ const actionLabels = {
   CATEGORY_CHANGED: { label: 'Categoría Cambiada', color: 'secondary' },
   DEVICE_TURNED_ON: { label: 'Dispositivo Encendido', color: 'success' },
   DEVICE_TURNED_OFF: { label: 'Dispositivo Apagado', color: 'default' },
+  DEVICE_PULSED: { label: 'Pulso Enviado', color: 'info' },
   RIEGO_PHASE_STARTED: { label: 'Fase de Riego Iniciada', color: 'info' },
   RIEGO_PHASE_STOPPED: { label: 'Fase de Riego Detenida', color: 'warning' },
   RIEGO_PLAN_CREATED: { label: 'Plan de Riego Creado', color: 'success' },

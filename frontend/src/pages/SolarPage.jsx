@@ -25,28 +25,22 @@ import SolarPowerIcon from '@mui/icons-material/SolarPower';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
+import { getSolarMetrics, SOLAR_COLORS } from '../utils/solarMetrics';
 
-const COLORS = {
-  solar: '#f9a825',
-  house: '#1565c0',
-  battery: '#43a047',
-  grid: '#e53935',
-  gridImport: '#ef6c00',
-  gridExport: '#00897b',
-};
+const COLORS = SOLAR_COLORS;
 
 // ── System Diagram ──────────────────────────────────────────────
 function SystemDiagram({ master: m, slave: s, visibility, onToggle }) {
   const master = m || {};
   const slave = s || {};
 
-  const solarProd = Math.round((master.pvPower || 0) + (slave.pvPower || 0));
-  const meterPower = master.meterPower != null ? master.meterPower : null;
-  const battPower = master.battPower != null ? master.battPower : null;
-  const battSoc = master.battSoc != null ? master.battSoc : null;
-  const houseLoad = meterPower != null
-    ? Math.max(0, Math.round(solarProd + (battPower || 0) - (meterPower || 0)))
-    : null;
+  const {
+    solarProduction: solarProd,
+    houseConsumption: houseLoad,
+    batteryPower: battPower,
+    batterySoc: battSoc,
+    gridPower: meterPower,
+  } = getSolarMetrics(master, slave);
 
   const maxPower = 8000;
   const fill = (value, max) => Math.min(100, ((value || 0) / max) * 100);

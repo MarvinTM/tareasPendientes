@@ -1,8 +1,9 @@
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { emitDeviceUpdate } from '../socket.js';
+import { emitDevicePulse, emitDeviceUpdate } from '../socket.js';
 import {
   fetchAllStatuses,
+  pulseDevice,
   toggleDevice,
   getDeviceById,
   getGroups,
@@ -44,6 +45,9 @@ router.post('/:deviceId/toggle', authenticateToken, async (req, res) => {
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
+    if (device.controlMode === 'pulse') {
+      return res.status(400).json({ error: 'Pulse devices must use the pulse action' });
+    }
 
     const result = await toggleDevice(deviceId);
 
@@ -61,6 +65,38 @@ router.post('/:deviceId/toggle', authenticateToken, async (req, res) => {
     }
     console.error(`Toggle error for ${deviceId}:`, error);
     res.status(500).json({ error: 'Failed to toggle device' });
+  }
+});
+
+router.post('/:deviceId/pulse', authenticateToken, async (req, res) => {
+  const { deviceId } = req.params;
+
+  try {
+    const device = getDeviceById(deviceId);
+    if (!device) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
+    if (device.controlMode !== 'pulse') {
+      return res.status(400).json({ error: 'Device is not configured for pulse control' });
+    }
+
+    const result = await pulseDevice(deviceId);
+    logActivity(req.user.id, ACTIONS.DEVICE_PULSED, deviceId, device.name, { controlMode: 'pulse' })
+      .catch(err => console.error('Failed to log device pulse:', err));
+
+    emitDevicePulse({
+      id: deviceId,
+      triggeredAt: new Date().toISOString(),
+    });
+
+    res.json({ id: deviceId, ...result });
+  } catch (error) {
+    if (error.message?.includes('Shelly API error') || error.message?.includes('Shelly API returned')) {
+      console.error(`Pulse error for ${deviceId}:`, error.message);
+      return res.status(502).json({ error: 'Shelly device unreachable' });
+    }
+    console.error(`Pulse error for ${deviceId}:`, error);
+    res.status(500).json({ error: 'Failed to pulse device' });
   }
 });
 

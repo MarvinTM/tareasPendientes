@@ -20,6 +20,12 @@ export function emitDeviceUpdate(data) {
   }
 }
 
+export function emitDevicePulse(data) {
+  if (io) {
+    io.emit('device:pulsed', data);
+  }
+}
+
 export function emitRiegoUpdate(data) {
   if (io) {
     io.emit('riego:updated', data);

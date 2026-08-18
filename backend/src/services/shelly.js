@@ -68,6 +68,8 @@ export function getDevices() {
     room: d.room || '',
     channel: d.channel ?? 0,
     group: d.group || 'lights',
+    showOnHome: d.showOnHome === true,
+    controlMode: d.controlMode || 'toggle',
   }));
 }
 
@@ -84,6 +86,8 @@ export function getDeviceById(deviceId) {
     ...device,
     shellyId: device.shellyId || device.id,
     channel: device.channel ?? 0,
+    showOnHome: device.showOnHome === true,
+    controlMode: device.controlMode || 'toggle',
   };
 }
 
@@ -268,6 +272,9 @@ export async function toggleDevice(deviceId) {
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
   }
+  if ((device.controlMode || 'toggle') === 'pulse') {
+    throw new Error(`Device ${deviceId} is configured for pulse control`);
+  }
 
   const shellyId = device.shellyId || device.id;
   markStale(shellyId);
@@ -301,12 +308,57 @@ export async function toggleDevice(deviceId) {
   return { on: targetOn };
 }
 
+export async function pulseDevice(deviceId) {
+  invalidateStatusCache();
+  const config = loadConfig();
+  const device = config.devices.find(d => d.id === deviceId);
+  if (!device) {
+    throw new Error(`Device not found: ${deviceId}`);
+  }
+  if ((device.controlMode || 'toggle') !== 'pulse') {
+    throw new Error(`Device ${deviceId} is not configured for pulse control`);
+  }
+
+  const shellyId = device.shellyId || device.id;
+  markStale(shellyId);
+  const channel = device.channel ?? 0;
+  const url = `${config.server}/device/relay/control`;
+  const body = new URLSearchParams({
+    id: shellyId,
+    channel: String(channel),
+    turn: 'on',
+    auth_key: config.apiKey,
+  });
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    console.error(`Shelly pulse error for ${deviceId}: HTTP ${response.status}`);
+    throw new Error(`Shelly API error: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (!data.isok) {
+    console.error(`Shelly pulse error for ${deviceId}:`, data);
+    throw new Error('Shelly API returned unsuccessful response');
+  }
+
+  return { triggered: true };
+}
+
 export async function turnDeviceOn(deviceId) {
   invalidateStatusCache();
   const config = loadConfig();
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
+  }
+  if ((device.controlMode || 'toggle') === 'pulse') {
+    throw new Error(`Device ${deviceId} is configured for pulse control`);
   }
 
   const shellyId = device.shellyId || device.id;
@@ -370,6 +422,9 @@ export async function turnDeviceOff(deviceId) {
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
+  }
+  if ((device.controlMode || 'toggle') === 'pulse') {
+    throw new Error(`Device ${deviceId} is configured for pulse control`);
   }
 
   const shellyId = device.shellyId || device.id;

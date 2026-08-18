@@ -12,7 +12,9 @@
       "name": "Luz del salón",
       "room": "Salón",
       "channel": 0,
-      "group": "lights"
+      "group": "lights",
+      "showOnHome": false,
+      "controlMode": "toggle"
     },
     {
       "id": "lampara-salon",

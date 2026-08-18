@@ -4,8 +4,16 @@ import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import SolarPowerIcon from '@mui/icons-material/SolarPower';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import HomeIcon from '@mui/icons-material/Home';
 
 export const modules = [
+  {
+    id: 'portada',
+    label: 'Portada',
+    icon: HomeIcon,
+    path: '/portada',
+    subNav: [],
+  },
   {
     id: 'tareas',
     label: 'Tareas',

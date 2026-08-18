@@ -16,6 +16,7 @@ import RiegoEventsPage from './pages/RiegoEventsPage';
 import ActivationPlansPage from './pages/ActivationPlansPage';
 import ConfiguracionPage from './pages/ConfiguracionPage';
 import SolarPage from './pages/SolarPage';
+import PortadaPage from './pages/PortadaPage';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 
@@ -76,7 +77,8 @@ function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/tareas" replace />} />
+        <Route index element={<Navigate to="/portada" replace />} />
+        <Route path="portada" element={<PortadaPage />} />
         <Route path="tareas" element={<MainPage />} />
         <Route path="tareas/recurrentes" element={<PeriodicTasksPage />} />
         <Route path="tareas/puntuacion" element={<ScoreboardPage />} />
