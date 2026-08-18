@@ -250,7 +250,7 @@ export default function Layout() {
           flexDirection: 'column',
           overscrollBehavior: 'none'
         }}>
-          <Outlet context={{ riegoState, refreshRiegoStatus: fetchRiegoStatus }} />
+          <Outlet context={{ user, riegoState, refreshRiegoStatus: fetchRiegoStatus }} />
         </Box>
 
         <Paper sx={{ flexShrink: 0, overflow: 'visible' }} elevation={3}>
@@ -447,7 +447,7 @@ export default function Layout() {
           flexDirection: 'column',
           overscrollBehavior: 'none'
         }}>
-          <Outlet context={{ riegoState, refreshRiegoStatus: fetchRiegoStatus }} />
+          <Outlet context={{ user, riegoState, refreshRiegoStatus: fetchRiegoStatus }} />
         </Box>
       </Box>
     </Box>

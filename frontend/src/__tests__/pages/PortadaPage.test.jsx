@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import PortadaPage from '../../pages/PortadaPage';
 
 const theme = createTheme();
 const mockApiGet = vi.fn();
 const mockApiPost = vi.fn();
+const originalMatchMedia = window.matchMedia;
 
 vi.mock('../../services/api', () => ({
   default: {
@@ -20,11 +21,28 @@ vi.mock('../../contexts/SocketContext', () => ({
   useSocket: () => null,
 }));
 
-function renderPage() {
+function mockLandscape(matches) {
+  window.matchMedia = vi.fn(() => ({
+    matches,
+    media: '(min-width:900px)',
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+function renderPage(context = {}) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/']}>
       <ThemeProvider theme={theme}>
-        <PortadaPage />
+        <Routes>
+          <Route element={<Outlet context={context} />}>
+            <Route path="/" element={<PortadaPage />} />
+          </Route>
+        </Routes>
       </ThemeProvider>
     </MemoryRouter>,
   );
@@ -33,6 +51,7 @@ function renderPage() {
 describe('PortadaPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLandscape(false);
     mockApiGet.mockImplementation((url) => {
       if (url === '/devices') {
         return Promise.resolve({ data: [
@@ -51,6 +70,10 @@ describe('PortadaPage', () => {
     mockApiPost.mockResolvedValue({ data: { triggered: true } });
   });
 
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia;
+  });
+
   it('renders the three overview sections and only featured devices', async () => {
     renderPage();
 
@@ -61,6 +84,7 @@ describe('PortadaPage', () => {
     });
 
     expect(screen.queryByText('Hidden')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tus tareas')).not.toBeInTheDocument();
     expect(screen.getByText(/2[.,]000 W/)).toBeInTheDocument();
   });
 
@@ -71,5 +95,37 @@ describe('PortadaPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /Puerta Garaje: accionar/i }));
 
     expect(mockApiPost).toHaveBeenCalledWith('/devices/puerta-garaje/pulse');
+  });
+
+  it('shows only the current user pending tasks in landscape', async () => {
+    mockLandscape(true);
+    mockApiGet.mockImplementation((url) => {
+      if (url === '/devices') return Promise.resolve({ data: [] });
+      if (url === '/ingestion/latest') return Promise.resolve({ data: [] });
+      if (url === '/tasks') {
+        return Promise.resolve({ data: {
+          Nueva: [
+            { id: 'mine-1', title: 'Recoger paquete', status: 'Nueva', assignedTo: { id: 'user-1' }, category: { emoji: '📦' } },
+            { id: 'other-1', title: 'Tarea de otra persona', status: 'Nueva', assignedTo: { id: 'user-2' } },
+          ],
+          EnProgreso: [
+            { id: 'mine-2', title: 'Revisar garaje', status: 'EnProgreso', assignedTo: { id: 'user-1' } },
+          ],
+          Completada: [],
+        } });
+      }
+      return Promise.reject(new Error(`Unknown URL: ${url}`));
+    });
+
+    renderPage({ user: { id: 'user-1' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Tus tareas')).toBeInTheDocument();
+      expect(screen.getByText('Recoger paquete')).toBeInTheDocument();
+      expect(screen.getByText('Revisar garaje')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Tienes 2 tareas pendientes.')).toBeInTheDocument();
+    expect(screen.queryByText('Tarea de otra persona')).not.toBeInTheDocument();
   });
 });

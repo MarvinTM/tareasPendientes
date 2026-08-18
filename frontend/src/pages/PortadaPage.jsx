@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -11,6 +13,8 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import BatteryChargingFullIcon from '@mui/icons-material/BatteryChargingFull';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import HomeIcon from '@mui/icons-material/Home';
 import PowerIcon from '@mui/icons-material/Power';
 import SolarPowerIcon from '@mui/icons-material/SolarPower';
@@ -125,10 +129,78 @@ function RiegoSummary({ state, onOpen }) {
   );
 }
 
+function TasksSummary({ tasks, loading, error, onOpen }) {
+  const visibleTasks = tasks.slice(0, 4);
+
+  return (
+    <Card>
+      <CardActionArea onClick={onOpen} sx={{ height: '100%' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
+          {loading && (
+            <Box display="flex" justifyContent="center" py={1}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+
+          {error && <Alert severity="warning">{error}</Alert>}
+
+          {!loading && !error && tasks.length === 0 && (
+            <Box display="flex" alignItems="center" gap={1}>
+              <CheckCircleOutlineIcon color="success" />
+              <Typography color="text.secondary" fontWeight="medium">
+                No tienes tareas pendientes.
+              </Typography>
+            </Box>
+          )}
+
+          {!loading && !error && tasks.length > 0 && (
+            <>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Tienes {tasks.length} tarea{tasks.length !== 1 ? 's' : ''} pendiente{tasks.length !== 1 ? 's' : ''}.
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={0.75}>
+                {visibleTasks.map(task => (
+                  <Box key={task.id} display="flex" alignItems="center" gap={1} minWidth={0}>
+                    <Typography component="span" sx={{ fontSize: '1.1rem', flexShrink: 0 }}>
+                      {task.category?.emoji || '📋'}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    >
+                      {task.title}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                      {task.status === 'EnProgreso' ? 'En progreso' : 'Nueva'}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+              {tasks.length > visibleTasks.length && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Y {tasks.length - visibleTasks.length} más…
+                </Typography>
+              )}
+            </>
+          )}
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            Pulsa para abrir el tablero de tareas
+          </Typography>
+        </CardContent>
+      </CardActionArea>
+    </Card>
+  );
+}
+
 export default function PortadaPage() {
   const navigate = useNavigate();
   const socket = useSocket();
   const outletContext = useOutletContext() || {};
+  const theme = useTheme();
+  const isLandscape = useMediaQuery(theme.breakpoints.up('md'));
+  const user = outletContext.user;
   const riegoState = outletContext.riegoState || { current: null, queue: [] };
   const [devices, setDevices] = useState([]);
   const [devicesLoading, setDevicesLoading] = useState(true);
@@ -138,6 +210,9 @@ export default function PortadaPage() {
   const [solarLoading, setSolarLoading] = useState(true);
   const [solarError, setSolarError] = useState(null);
   const [lastSolarUpdate, setLastSolarUpdate] = useState(null);
+  const [myTasks, setMyTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksError, setTasksError] = useState(null);
 
   const fetchDevices = useCallback(async () => {
     try {
@@ -171,10 +246,37 @@ export default function PortadaPage() {
     }
   }, []);
 
+  const fetchMyTasks = useCallback(async () => {
+    if (!isLandscape || !user?.id) return;
+
+    setTasksLoading(true);
+    try {
+      const response = await api.get('/tasks');
+      const data = response.data || {};
+      const pendingTasks = [...(data.Nueva || []), ...(data.EnProgreso || [])];
+      setMyTasks(pendingTasks.filter(task => task.assignedTo?.id === user.id));
+      setTasksError(null);
+    } catch {
+      setTasksError('No se pudieron cargar tus tareas');
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [isLandscape, user?.id]);
+
   useEffect(() => {
     fetchDevices();
     fetchSolar();
   }, [fetchDevices, fetchSolar]);
+
+  useEffect(() => {
+    if (!isLandscape || !user?.id) {
+      setMyTasks([]);
+      setTasksLoading(false);
+      setTasksError(null);
+      return;
+    }
+    fetchMyTasks();
+  }, [fetchMyTasks, isLandscape, user?.id]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -200,6 +302,20 @@ export default function PortadaPage() {
       socket.off('inverter:data', handleInverterData);
     };
   }, [socket]);
+
+  useEffect(() => {
+    if (!socket || !isLandscape || !user?.id) return undefined;
+
+    const handleTaskUpdate = () => fetchMyTasks();
+    socket.on('task:created', handleTaskUpdate);
+    socket.on('task:updated', handleTaskUpdate);
+    socket.on('task:deleted', handleTaskUpdate);
+    return () => {
+      socket.off('task:created', handleTaskUpdate);
+      socket.off('task:updated', handleTaskUpdate);
+      socket.off('task:deleted', handleTaskUpdate);
+    };
+  }, [fetchMyTasks, isLandscape, socket, user?.id]);
 
   const handleFeaturedToggle = async (deviceId) => {
     setDevices(previous => previous.map(device => device.id === deviceId ? { ...device, toggling: true } : device));
@@ -241,13 +357,20 @@ export default function PortadaPage() {
             {featuredDevices.map(device => (
               <Grid item xs={12} sm={6} md={3} key={device.id}>
                 {device.controlMode === 'pulse'
-                  ? <PulseDeviceButton device={device} square />
-                  : <DeviceShortcutButton device={device} onToggle={handleFeaturedToggle} />}
+                  ? <PulseDeviceButton device={device} square compact={isLandscape} />
+                  : <DeviceShortcutButton device={device} onToggle={handleFeaturedToggle} compact={isLandscape} />}
               </Grid>
             ))}
           </Grid>
         )}
       </Box>
+
+      {isLandscape && (
+        <Box sx={{ mb: { xs: 3, md: 4 } }}>
+          <SectionHeader title="Tus tareas" icon={<AssignmentIcon color="primary" />} onOpen={() => navigate('/tareas')} />
+          <TasksSummary tasks={myTasks} loading={tasksLoading} error={tasksError} onOpen={() => navigate('/tareas')} />
+        </Box>
+      )}
 
       <Box sx={{ mb: { xs: 3, md: 4 } }}>
         <SectionHeader title="Paneles Solares" icon={<SolarPowerIcon sx={{ color: SOLAR_COLORS.solar }} />} onOpen={() => navigate('/solar')} />

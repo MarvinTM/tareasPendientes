@@ -11,7 +11,7 @@ import { useSocket } from '../contexts/SocketContext';
 
 const FEEDBACK_MS = 1800;
 
-export default function PulseDeviceButton({ device, square = false }) {
+export default function PulseDeviceButton({ device, square = false, compact = false }) {
   const socket = useSocket();
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState(null);
@@ -70,31 +70,31 @@ export default function PulseDeviceButton({ device, square = false }) {
         onClick={handlePulse}
         aria-label={`${device.name}: accionar`}
         sx={{
-          width: square ? { xs: 160, sm: '100%' } : '100%',
-          height: square ? { xs: 160, sm: 'auto' } : undefined,
-          minHeight: square ? { xs: 160, sm: 230 } : 56,
+          width: square ? (compact ? 140 : { xs: 160, sm: '100%' }) : '100%',
+          height: square ? (compact ? 140 : { xs: 160, sm: 'auto' }) : undefined,
+          minHeight: square ? (compact ? 140 : { xs: 160, sm: 230 }) : 56,
           aspectRatio: square ? '1 / 1' : undefined,
           display: 'flex',
           flexDirection: square ? 'column' : 'row',
-          gap: square ? { xs: 0.5, sm: 1 } : 0.75,
+          gap: square ? (compact ? 0.25 : { xs: 0.5, sm: 1 }) : 0.75,
           justifyContent: 'center',
           textTransform: 'none',
           borderWidth: square ? 2 : undefined,
           '&:hover': { borderWidth: square ? 2 : undefined },
         }}
       >
-        {isSending ? <CircularProgress size={square ? 38 : 22} /> : isSent ? <CheckCircleIcon sx={{ fontSize: square ? { xs: 48, sm: 52 } : 24 }} /> : <Icon sx={{ fontSize: square ? { xs: 48, sm: 58 } : 28 }} />}
+        {isSending ? <CircularProgress size={compact ? 34 : square ? 38 : 22} /> : isSent ? <CheckCircleIcon sx={{ fontSize: square ? (compact ? 40 : { xs: 48, sm: 52 }) : 24 }} /> : <Icon sx={{ fontSize: square ? (compact ? 40 : { xs: 48, sm: 58 }) : 28 }} />}
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           {square && (
-            <Typography variant="body2" fontWeight="bold" sx={{ lineHeight: 1.2, textAlign: 'center' }}>
-            {device.name}
+            <Typography variant="body2" fontWeight="bold" sx={{ fontSize: compact ? '0.75rem' : undefined, lineHeight: 1.15, textAlign: 'center' }}>
+              {device.name}
             </Typography>
           )}
-          <Typography fontWeight="bold" sx={{ fontSize: square ? { xs: '1rem', sm: '1.25rem' } : undefined, lineHeight: square ? 1.2 : undefined, textAlign: 'center' }}>
+          <Typography fontWeight="bold" sx={{ fontSize: square ? (compact ? '0.85rem' : { xs: '1rem', sm: '1.25rem' }) : undefined, lineHeight: square ? 1.15 : undefined, textAlign: 'center' }}>
             {isSending ? 'Enviando pulso…' : isSent ? 'Pulso enviado' : 'Accionar puerta'}
           </Typography>
           {square && (
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: compact ? '0.65rem' : undefined, lineHeight: 1.15, textAlign: 'center' }}>
               {isSending ? 'Un momento' : isSent ? 'Acción recibida' : 'Pulsa para abrir/cerrar'}
             </Typography>
           )}
