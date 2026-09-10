@@ -19,6 +19,12 @@
       "ip": "192.168.1.118",
       "channels": [0],
       "name": "Puerta Garaje"
+    },
+    {
+      "shellyId": "shelly-plus-uni-id",
+      "ip": "192.168.1.120",
+      "name": "Caudal depósito",
+      "inputs": [{ "id": 2, "type": "count" }]
     }
   ]
 }

@@ -268,6 +268,18 @@ describe('Device Activation Routes', () => {
       expect(res.status).toBe(400);
       expect(mockPlan.findUnique).not.toHaveBeenCalled();
     });
+
+    it('returns 400 when assigning a plan to a sensor device', async () => {
+      const { getDeviceById } = await import('../../services/shelly.js');
+      getDeviceById.mockReturnValueOnce({ id: 'caudal-deposito', kind: 'sensor' });
+
+      const res = await request(app)
+        .post('/api/devices/caudal-deposito/activation')
+        .send({ planId: 'p-1' });
+
+      expect(res.status).toBe(400);
+      expect(mockPlan.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe('GET /activation-status', () => {

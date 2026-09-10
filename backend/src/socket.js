@@ -37,3 +37,9 @@ export function emitInverterData(data) {
     io.emit('inverter:data', data);
   }
 }
+
+export function emitFlowData(data) {
+  if (io) {
+    io.emit('flow:data', data);
+  }
+}

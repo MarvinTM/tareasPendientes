@@ -260,8 +260,24 @@ export default function Layout() {
                 key={mod.id}
                 value={mod.id}
                 icon={mod.id === 'riego' && riegoState.current ? renderRiegoIcon(<mod.icon />) : <mod.icon />}
-                label={mod.label}
-                sx={mod.id === 'riego' && riegoState.current ? { overflow: 'visible' } : {}}
+                label={mod.shortLabel || mod.label}
+                sx={{
+                  // MUI defaults each action to min-width 80px, which overflows a
+                  // phone screen once there are six modules — and because the bar
+                  // centres its children, the overflow clips the first and last
+                  // icons. Let them shrink and share the width instead.
+                  minWidth: 0,
+                  px: 0.5,
+                  '& .MuiBottomNavigationAction-label': {
+                    fontSize: '0.7rem',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '100%',
+                    '&.Mui-selected': { fontSize: '0.75rem' },
+                  },
+                  ...(mod.id === 'riego' && riegoState.current ? { overflow: 'visible' } : {}),
+                }}
               />
             ))}
           </BottomNavigation>

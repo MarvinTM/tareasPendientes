@@ -23,6 +23,7 @@ import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
 import PulseDeviceButton from '../components/PulseDeviceButton';
 import DeviceShortcutButton from '../components/DeviceShortcutButton';
+import FlowSensorCard from '../components/FlowSensorCard';
 import RainAnimation from '../components/RainAnimation';
 import { getSolarMetrics, SOLAR_COLORS, formatWatts } from '../utils/solarMetrics';
 import { formatRemaining, getRiegoDisplay } from '../utils/riego';
@@ -286,6 +287,22 @@ export default function PortadaPage() {
         ? { ...device, on: data.on ?? device.on, online: data.online ?? device.online, source: data.source ?? device.source }
         : device));
     };
+    const handleFlowData = (summaries) => {
+      if (!Array.isArray(summaries) || summaries.length === 0) return;
+      setDevices(previous => previous.map(device => {
+        const update = summaries.find(summary => summary.sensorId === device.id);
+        if (!update) return device;
+        return {
+          ...device,
+          online: update.online ?? device.online,
+          sensorStatus: {
+            rateLpm: update.rateLpm ?? null,
+            todayLitres: update.todayLitres ?? device.sensorStatus?.todayLitres ?? null,
+            lastReadingAt: update.lastReadingAt ?? device.sensorStatus?.lastReadingAt ?? null,
+          },
+        };
+      }));
+    };
     const handleInverterData = (data) => {
       if (!Array.isArray(data) || data.length === 0) return;
       const master = data.find(reading => reading.inverterId === 'master') || {};
@@ -297,9 +314,11 @@ export default function PortadaPage() {
 
     socket.on('device:updated', handleDeviceUpdate);
     socket.on('inverter:data', handleInverterData);
+    socket.on('flow:data', handleFlowData);
     return () => {
       socket.off('device:updated', handleDeviceUpdate);
       socket.off('inverter:data', handleInverterData);
+      socket.off('flow:data', handleFlowData);
     };
   }, [socket]);
 
@@ -356,9 +375,11 @@ export default function PortadaPage() {
           <Grid container spacing={2}>
             {featuredDevices.map(device => (
               <Grid item xs={12} sm={6} md={3} key={device.id}>
-                {device.controlMode === 'pulse'
-                  ? <PulseDeviceButton device={device} square compact={isLandscape} />
-                  : <DeviceShortcutButton device={device} onToggle={handleFeaturedToggle} compact={isLandscape} />}
+                {device.kind === 'sensor'
+                  ? <FlowSensorCard device={device} onOpen={() => navigate('/agua')} compact={isLandscape} />
+                  : device.controlMode === 'pulse'
+                    ? <PulseDeviceButton device={device} square compact={isLandscape} />
+                    : <DeviceShortcutButton device={device} onToggle={handleFeaturedToggle} compact={isLandscape} />}
               </Grid>
             ))}
           </Grid>

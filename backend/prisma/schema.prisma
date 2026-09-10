@@ -196,3 +196,18 @@ model InverterReading {
   @@index([inverterId, timestamp])
   @@index([timestamp])
 }
+
+model FlowReading {
+  id            String   @id @default(uuid())
+  sensorId      String
+  timestamp     DateTime @default(now())
+
+  pulsesTotal   Int                       // counts.total as reported by the Shelly
+  pulsesDelta   Int                       // pulses since the previous reading (>= 0)
+  freqHz        Float?                    // Shelly freq, null when unavailable
+  counterReset  Boolean  @default(false)  // true when total < previous total (reboot / reset)
+  online        Boolean  @default(true)
+
+  @@index([sensorId, timestamp])
+  @@index([timestamp])
+}

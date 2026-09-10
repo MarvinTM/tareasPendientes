@@ -214,6 +214,9 @@ router.post('/:deviceId/activation', authenticateToken, async (req, res) => {
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
+    if (device.kind === 'sensor') {
+      return res.status(400).json({ error: 'Sensor devices cannot have activation plans' });
+    }
     if (device.controlMode === 'pulse') {
       return res.status(400).json({ error: 'Pulse devices cannot have activation plans' });
     }

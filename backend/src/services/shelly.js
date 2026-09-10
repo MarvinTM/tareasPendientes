@@ -2,11 +2,57 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { getShellyStatus, markStale } from './shellyLocalStatus.js';
+import { getFlowStatus } from './flowStatus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CONFIG_PATH = resolve(__dirname, '../../config/shelly.json');
 
 let cachedConfig = null;
+
+// Devices are either relays (controlMode toggle/pulse) or read-only sensors.
+// "kind" is orthogonal to controlMode and defaults to "relay", so every
+// existing entry in shelly.json keeps working untouched.
+function deviceKind(device) {
+  return device.kind === 'sensor' ? 'sensor' : 'relay';
+}
+
+function sensorConfig(device) {
+  if (deviceKind(device) !== 'sensor' || !device.sensor) return null;
+  const s = device.sensor;
+  return {
+    type: s.type || 'flow',
+    input: s.input ?? 2,
+    pulsesPerLitre: Number(s.pulsesPerLitre) || 0,
+    maxLitresPerMinute: Number(s.maxLitresPerMinute) || 0,
+  };
+}
+
+// Resolve a declared sensor from the shellyId + input pair the forwarder sends.
+export function getSensorDevice(shellyId, input) {
+  const config = loadConfig();
+  const device = config.devices.find(d =>
+    deviceKind(d) === 'sensor' &&
+    (d.shellyId || d.id) === shellyId &&
+    (d.sensor?.input ?? 2) === input
+  );
+  if (!device) return null;
+  return { ...device, kind: 'sensor', sensor: sensorConfig(device) };
+}
+
+export function getSensorDevices() {
+  const config = loadConfig();
+  return config.devices
+    .filter(d => deviceKind(d) === 'sensor')
+    .map(d => ({
+      id: d.id,
+      name: d.name,
+      room: d.room || '',
+      group: d.group || 'lights',
+      showOnHome: d.showOnHome === true,
+      kind: 'sensor',
+      sensor: sensorConfig(d),
+    }));
+}
 
 let lastShellyRequestTime = 0;
 const MIN_SPACING_MS = 1200;
@@ -70,6 +116,8 @@ export function getDevices() {
     group: d.group || 'lights',
     showOnHome: d.showOnHome === true,
     controlMode: d.controlMode || 'toggle',
+    kind: deviceKind(d),
+    sensor: sensorConfig(d),
   }));
 }
 
@@ -88,6 +136,8 @@ export function getDeviceById(deviceId) {
     channel: device.channel ?? 0,
     showOnHome: device.showOnHome === true,
     controlMode: device.controlMode || 'toggle',
+    kind: deviceKind(device),
+    sensor: sensorConfig(device),
   };
 }
 
@@ -161,6 +211,9 @@ async function _doFetchAllStatuses() {
 
   const uniqueShellyIds = new Map();
   for (const raw of config.devices) {
+    // Sensors have no relays: polling their Shelly for switch state would only
+    // burn cloud requests. Their status comes from the flow reading cache.
+    if (deviceKind(raw) === 'sensor') continue;
     const sid = raw.shellyId || raw.id;
     if (!uniqueShellyIds.has(sid)) {
       uniqueShellyIds.set(sid, true);
@@ -185,6 +238,20 @@ async function _doFetchAllStatuses() {
   await Promise.allSettled(statusPromises);
 
   return devices.map(device => {
+    if (device.kind === 'sensor') {
+      const flow = getFlowStatus(device.id);
+      return {
+        ...device,
+        on: null,
+        online: flow?.online ?? false,
+        source: flow ? 'local' : 'unknown',
+        sensorStatus: {
+          rateLpm: flow?.rateLpm ?? null,
+          todayLitres: flow?.todayLitres ?? null,
+          lastReadingAt: flow?.lastReadingAt ?? null,
+        },
+      };
+    }
     const sid = config.devices.find(d => d.id === device.id)?.shellyId || device.id;
     const status = statusMap.get(sid) || { online: false, relays: [], source: 'unknown' };
     const isOn = status.relays?.[device.channel]?.on ?? null;
@@ -272,6 +339,9 @@ export async function toggleDevice(deviceId) {
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
   }
+  if (deviceKind(device) === 'sensor') {
+    throw new Error(`Device ${deviceId} is a sensor and cannot be toggled`);
+  }
   if ((device.controlMode || 'toggle') === 'pulse') {
     throw new Error(`Device ${deviceId} is configured for pulse control`);
   }
@@ -315,6 +385,9 @@ export async function pulseDevice(deviceId) {
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
   }
+  if (deviceKind(device) === 'sensor') {
+    throw new Error(`Device ${deviceId} is a sensor and cannot be pulsed`);
+  }
   if ((device.controlMode || 'toggle') !== 'pulse') {
     throw new Error(`Device ${deviceId} is not configured for pulse control`);
   }
@@ -356,6 +429,9 @@ export async function turnDeviceOn(deviceId) {
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
+  }
+  if (deviceKind(device) === 'sensor') {
+    throw new Error(`Device ${deviceId} is a sensor and cannot be turned on`);
   }
   if ((device.controlMode || 'toggle') === 'pulse') {
     throw new Error(`Device ${deviceId} is configured for pulse control`);
@@ -422,6 +498,9 @@ export async function turnDeviceOff(deviceId) {
   const device = config.devices.find(d => d.id === deviceId);
   if (!device) {
     throw new Error(`Device not found: ${deviceId}`);
+  }
+  if (deviceKind(device) === 'sensor') {
+    throw new Error(`Device ${deviceId} is a sensor and cannot be turned off`);
   }
   if ((device.controlMode || 'toggle') === 'pulse') {
     throw new Error(`Device ${deviceId} is configured for pulse control`);

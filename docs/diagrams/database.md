@@ -154,6 +154,29 @@ erDiagram
 | key | String | UNIQUE, NOT NULL | Log key identifier |
 | timestamp | DateTime | DEFAULT now() | Log timestamp |
 
+### FlowReading
+
+Telemetry table for pulse water meters (Shelly Plus Uni counter input). It has
+no foreign keys: `sensorId` is the device id declared in
+`backend/config/shelly.json`, not a database row.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| id | UUID | PK, DEFAULT uuid() | Unique identifier |
+| sensorId | String | NOT NULL | Device id from `shelly.json` (e.g. `caudal-deposito`) |
+| timestamp | DateTime | DEFAULT now() | Reading time reported by the forwarder |
+| pulsesTotal | Int | NOT NULL | `counts.total` exactly as reported by the device |
+| pulsesDelta | Int | NOT NULL | Pulses since the previous reading (≥ 0); `0` for an offline or implausible reading |
+| freqHz | Float | NULL | Device-measured frequency, source of the instantaneous rate |
+| counterReset | Boolean | DEFAULT false | The counter went backwards (reboot / `Input.ResetCounters`) |
+| online | Boolean | DEFAULT true | `false` when the device was unreachable at poll time |
+
+Litres are **not** stored: they are derived at read time as
+`pulsesDelta / pulsesPerLitre`, so recalibrating the sensor recomputes the whole
+history instead of leaving a step in it. At one reading every 30 s the table
+grows by roughly 2,900 rows/day (~1 M/year) — less than `InverterReading` — so
+no rollup or purge is in place yet.
+
 ## Enumerations
 
 ### TaskStatus
@@ -194,6 +217,8 @@ The following indexes are automatically created by Prisma:
 | TaskHistory | userId | FK INDEX |
 | PeriodicTask | categoryId | FK INDEX |
 | PeriodicTask | assignedToId | FK INDEX |
+| FlowReading | (sensorId, timestamp) | INDEX |
+| FlowReading | timestamp | INDEX |
 
 ## Cascade Rules
 

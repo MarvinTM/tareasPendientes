@@ -72,9 +72,9 @@ describe('Shelly Service', () => {
       const devices = getDevices();
 
       expect(devices).toHaveLength(3);
-      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle' });
-      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle' });
-      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle' });
+      expect(devices[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null });
+      expect(devices[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null });
+      expect(devices[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null });
     });
     it('defaults room to empty string when missing', async () => {
       writeFileSync(CONFIG_FILE, JSON.stringify({
@@ -213,9 +213,9 @@ describe('Shelly Service', () => {
       const results = await fetchAllStatuses();
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: false, online: true, source: 'cloud' });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: true, online: true, source: 'cloud' });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: false, online: true, source: 'cloud' });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: true, online: true, source: 'cloud' });
     });
 
     it('handles mixed online and offline devices', async () => {
@@ -259,9 +259,9 @@ describe('Shelly Service', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: false, online: true, source: 'local' });
-      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: false, online: true, source: 'cloud' });
-      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: false, online: true, source: 'local' });
+      expect(results[1]).toEqual({ id: 'dev-2', name: 'Luz de la cocina', room: 'Cocina', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: false, online: true, source: 'cloud' });
+      expect(results[2]).toEqual({ id: 'dev-3', name: 'Lámpara de la cocina', room: 'Cocina', channel: 1, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: true, online: true, source: 'cloud' });
     });
 
     it('falls back to cloud when local cache is stale (not fresh enough)', async () => {
@@ -288,7 +288,7 @@ describe('Shelly Service', () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
 
       expect(results).toHaveLength(3);
-      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', on: true, online: true, source: 'cloud' });
+      expect(results[0]).toEqual({ id: 'dev-1', name: 'Luz del salón', room: 'Salón', channel: 0, group: 'lights', showOnHome: false, controlMode: 'toggle', kind: 'relay', sensor: null, on: true, online: true, source: 'cloud' });
     });
   });
 
@@ -553,6 +553,129 @@ describe('Shelly Service', () => {
       const { turnDeviceOff } = await import('../../services/shelly.js');
 
       await expect(turnDeviceOff('non-existent')).rejects.toThrow('Device not found');
+    });
+  });
+  describe('sensor devices (kind: "sensor")', () => {
+    const sensorConfig = {
+      ...validConfig,
+      devices: [
+        ...validConfig.devices,
+        {
+          id: 'caudal-deposito',
+          shellyId: 'plus-uni-1',
+          name: 'Entrada de agua al depósito',
+          room: 'Depósito',
+          group: 'water',
+          kind: 'sensor',
+          sensor: { type: 'flow', input: 2, pulsesPerLitre: 450, maxLitresPerMinute: 200 },
+          showOnHome: true,
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      writeFileSync(CONFIG_FILE, JSON.stringify(sensorConfig));
+    });
+
+    it('getDevices exposes kind and sanitized sensor config', async () => {
+      const { getDevices } = await import('../../services/shelly.js');
+      const sensor = getDevices().find(d => d.id === 'caudal-deposito');
+
+      expect(sensor).toEqual({
+        id: 'caudal-deposito',
+        name: 'Entrada de agua al depósito',
+        room: 'Depósito',
+        channel: 0,
+        group: 'water',
+        showOnHome: true,
+        controlMode: 'toggle',
+        kind: 'sensor',
+        sensor: { type: 'flow', input: 2, pulsesPerLitre: 450, maxLitresPerMinute: 200 },
+      });
+    });
+
+    it('getDeviceById exposes kind and sensor config', async () => {
+      const { getDeviceById } = await import('../../services/shelly.js');
+      const sensor = getDeviceById('caudal-deposito');
+
+      expect(sensor.kind).toBe('sensor');
+      expect(sensor.sensor.pulsesPerLitre).toBe(450);
+    });
+
+    it('getSensorDevice resolves by shellyId and input', async () => {
+      const { getSensorDevice } = await import('../../services/shelly.js');
+
+      expect(getSensorDevice('plus-uni-1', 2).id).toBe('caudal-deposito');
+      expect(getSensorDevice('plus-uni-1', 1)).toBeNull();
+      expect(getSensorDevice('unknown', 2)).toBeNull();
+    });
+
+    it('getSensorDevices returns only sensors', async () => {
+      const { getSensorDevices } = await import('../../services/shelly.js');
+      const sensors = getSensorDevices();
+
+      expect(sensors).toHaveLength(1);
+      expect(sensors[0].id).toBe('caudal-deposito');
+    });
+
+    it('fetchAllStatuses does not query relays for sensors', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          isok: true,
+          data: { online: true, device_status: { relays: [{ ison: true }, { ison: false }] } },
+        }),
+      });
+
+      const { fetchAllStatuses } = await import('../../services/shelly.js');
+      const results = await fetchAllStatuses();
+
+      const urls = mockFetch.mock.calls.map(c => c[0]);
+      expect(urls.some(u => u.includes('plus-uni-1'))).toBe(false);
+
+      const sensor = results.find(d => d.id === 'caudal-deposito');
+      expect(sensor.on).toBeNull();
+      expect(sensor.online).toBe(false);
+      expect(sensor.source).toBe('unknown');
+      expect(sensor.sensorStatus).toEqual({ rateLpm: null, todayLitres: null, lastReadingAt: null });
+    });
+
+    it('fetchAllStatuses reports the cached flow status for sensors', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ isok: true, data: { online: true, device_status: { relays: [{ ison: true }] } } }),
+      });
+
+      const { updateFlowStatus } = await import('../../services/flowStatus.js');
+      updateFlowStatus('caudal-deposito', {
+        online: true,
+        pulsesTotal: 1000,
+        lastReadingAt: '2026-09-10T10:00:00.000Z',
+        rateLpm: 12.5,
+        todayLitres: 340.2,
+      });
+
+      const { fetchAllStatuses } = await import('../../services/shelly.js');
+      const results = await fetchAllStatuses();
+      const sensor = results.find(d => d.id === 'caudal-deposito');
+
+      expect(sensor.online).toBe(true);
+      expect(sensor.source).toBe('local');
+      expect(sensor.sensorStatus).toEqual({
+        rateLpm: 12.5,
+        todayLitres: 340.2,
+        lastReadingAt: '2026-09-10T10:00:00.000Z',
+      });
+    });
+
+    it('rejects control actions on sensors', async () => {
+      const { toggleDevice, pulseDevice, turnDeviceOn, turnDeviceOff } = await import('../../services/shelly.js');
+
+      await expect(toggleDevice('caudal-deposito')).rejects.toThrow('is a sensor and cannot be toggled');
+      await expect(pulseDevice('caudal-deposito')).rejects.toThrow('is a sensor and cannot be pulsed');
+      await expect(turnDeviceOn('caudal-deposito')).rejects.toThrow('is a sensor and cannot be turned on');
+      await expect(turnDeviceOff('caudal-deposito')).rejects.toThrow('is a sensor and cannot be turned off');
+      expect(mockFetch).not.toHaveBeenCalled();
     });
   });
 });

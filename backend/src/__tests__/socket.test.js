@@ -1,6 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
-import { setIO, getIO, emitTaskUpdate } from '../socket.js';
+import { setIO, getIO, emitTaskUpdate, emitFlowData } from '../socket.js';
 
 describe('Socket Module', () => {
   beforeEach(() => {
@@ -99,6 +99,21 @@ describe('Socket Module', () => {
       expect(() => {
         emitTaskUpdate('task:created', { id: '1' });
       }).toThrow('Emit failed');
+    });
+  });
+  describe('emitFlowData', () => {
+    it('should do nothing when io is null', () => {
+      expect(() => emitFlowData([{ sensorId: 's1' }])).not.toThrow();
+    });
+
+    it('should emit flow:data with the summaries', () => {
+      const mockIO = { emit: jest.fn() };
+      setIO(mockIO);
+
+      const summaries = [{ sensorId: 'caudal-deposito', rateLpm: 10, todayLitres: 340 }];
+      emitFlowData(summaries);
+
+      expect(mockIO.emit).toHaveBeenCalledWith('flow:data', summaries);
     });
   });
 });

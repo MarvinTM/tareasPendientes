@@ -2,9 +2,10 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { apiKeyAuth } from '../middleware/apiKeyAuth.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { emitInverterData, emitDeviceUpdate } from '../socket.js';
+import { emitInverterData, emitDeviceUpdate, emitFlowData } from '../socket.js';
 import { updateShellyStatus } from '../services/shellyLocalStatus.js';
-import { loadConfig } from '../services/shelly.js';
+import { loadConfig, getSensorDevice } from '../services/shelly.js';
+import { ingestFlowReading } from '../services/flowIngestion.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -97,6 +98,55 @@ router.post('/device', apiKeyAuth, async (req, res) => {
   } catch (err) {
     console.error('Device ingestion error:', err.message);
     res.status(500).json({ error: 'Failed to process device status' });
+  }
+});
+
+// POST /api/ingestion/flow — receive pulse-counter readings from local component (API key auth)
+router.post('/flow', apiKeyAuth, async (req, res) => {
+  try {
+    const { timestamp, sensors } = req.body;
+
+    if (!Array.isArray(sensors) || sensors.length === 0) {
+      return res.status(400).json({ error: 'sensors must be a non-empty array' });
+    }
+
+    try {
+      loadConfig();
+    } catch (configErr) {
+      console.error('Flow ingestion: cannot load shelly config:', configErr.message);
+      return res.status(200).json({ stored: 0, warned: 'shelly config unavailable' });
+    }
+
+    const at = timestamp ? new Date(timestamp) : new Date();
+    const readingTime = Number.isNaN(at.getTime()) ? new Date() : at;
+
+    const summaries = [];
+    for (const entry of sensors) {
+      const input = entry.input ?? 2;
+      const device = getSensorDevice(entry.shellyId, input);
+      if (!device) {
+        console.warn(`Flow ingestion: no sensor declared for ${entry.shellyId} input ${input}`);
+        continue;
+      }
+
+      try {
+        const summary = await ingestFlowReading(device, entry, readingTime);
+        if (summary) {
+          summaries.push({ ...summary, name: device.name, room: device.room || '' });
+        }
+      } catch (err) {
+        console.error(`Flow ingestion failed for ${device.id}:`, err.message);
+      }
+    }
+
+    if (summaries.length > 0) {
+      emitFlowData(summaries);
+    }
+
+    res.status(201).json({ stored: summaries.length });
+  } catch (err) {
+    console.error('Flow ingestion error:', err.message);
+    res.status(500).json({ error: 'Failed to store flow readings' });
   }
 });
 

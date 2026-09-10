@@ -79,6 +79,36 @@ The backend device definitions live in `backend/config/shelly.json`. Devices nor
 
 Pulse devices receive a one-shot `turn=on` command and are not treated as persistent on/off devices. They cannot be assigned activation plans.
 
+A device can also be a **read-only sensor** instead of a relay. `kind` is orthogonal to `controlMode` and defaults to `"relay"`, so existing entries need no change:
+
+```json
+{
+  "id": "caudal-deposito",
+  "shellyId": "<Shelly Plus Uni id>",
+  "name": "Entrada de agua al depósito",
+  "room": "Depósito",
+  "group": "water",
+  "kind": "sensor",
+  "sensor": {
+    "type": "flow",
+    "input": 2,
+    "pulsesPerLitre": 450,
+    "maxLitresPerMinute": 200
+  },
+  "showOnHome": true
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `kind` | `"relay"` (default) or `"sensor"`. Sensors cannot be toggled, pulsed or scheduled — those endpoints answer `400`. |
+| `sensor.type` | Sensor family. Only `"flow"` (pulse water meter) is implemented. |
+| `sensor.input` | Shelly input id in `count` mode. On a Plus Uni the counter input is `2`. |
+| `sensor.pulsesPerLitre` | Calibration factor. Litres are always derived (`pulses / pulsesPerLitre`), never stored, so recalibrating recomputes the whole history. |
+| `sensor.maxLitresPerMinute` | Physical plausibility limit. A reading implying more than this is stored with `pulsesDelta = 0` and logged, so a corrupted counter cannot poison the aggregates. |
+
+The Shelly itself must have the input configured as a hardware counter (`Input.SetConfig` with `{ "id": 2, "config": { "type": "count", "enable": true, "freq_window": 10 } }`). Readings reach the backend from the Raspberry Pi over the LAN — see `localComponent/README.md` — and are shown in the **Agua** module.
+
 ### 4. Set up the database
 
 ```bash

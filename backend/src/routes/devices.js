@@ -45,6 +45,9 @@ router.post('/:deviceId/toggle', authenticateToken, async (req, res) => {
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
     }
+    if (device.kind === 'sensor') {
+      return res.status(400).json({ error: 'Sensor devices cannot be controlled' });
+    }
     if (device.controlMode === 'pulse') {
       return res.status(400).json({ error: 'Pulse devices must use the pulse action' });
     }
@@ -75,6 +78,9 @@ router.post('/:deviceId/pulse', authenticateToken, async (req, res) => {
     const device = getDeviceById(deviceId);
     if (!device) {
       return res.status(404).json({ error: 'Device not found' });
+    }
+    if (device.kind === 'sensor') {
+      return res.status(400).json({ error: 'Sensor devices cannot be controlled' });
     }
     if (device.controlMode !== 'pulse') {
       return res.status(400).json({ error: 'Device is not configured for pulse control' });

@@ -44,6 +44,10 @@ export default defineConfig({
       },
       includeAssets: ['favicon.svg', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-512x512-maskable.png'],
       workbox: {
+        // The service worker must activate immediately so autoUpdate can
+        // reload clients onto the new application shell.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{html,svg,png,ico,woff,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],

@@ -6,6 +6,7 @@ import YardIcon from '@mui/icons-material/Yard';
 import WaterIcon from '@mui/icons-material/WaterDrop';
 import WavesIcon from '@mui/icons-material/Waves';
 import GarageIcon from '@mui/icons-material/Garage';
+import WaterFlowIcon from '@mui/icons-material/Water';
 
 const ICONS = {
   Lightbulb: LightbulbIcon,
@@ -16,6 +17,7 @@ const ICONS = {
   WaterDrop: WaterIcon,
   Waves: WavesIcon,
   Garage: GarageIcon,
+  Water: WaterFlowIcon,
 };
 
 export function getGroupIcon(iconName) {

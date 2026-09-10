@@ -17,6 +17,7 @@ flowchart LR
             dongle --- slave
         end
         shellyDevices["Shelly relays / switches\nlights · pool · garage · irrigation\n(configuration-driven)"]
+        flowSensor["Shelly Plus Uni\ninput:2 as pulse counter\nwater meter feeding the tank"]
     end
 
     subgraph pi["Home LAN — Raspberry Pi: localComponent (PM2)"]
@@ -32,7 +33,7 @@ flowchart LR
         nginx["Nginx + HTTPS\nstatic PWA + reverse proxy"]
         frontend["React frontend\nAuthContext + Socket.IO client"]
         backend["Express + Socket.IO\nREST API and business services"]
-        db[("PostgreSQL\napplication data + inverter history")]
+        db[("PostgreSQL\napplication data + inverter history\n+ flow readings")]
         nginx --> frontend
         frontend <-->|"REST + Socket.IO\nJWT cookie"| backend
         backend <--> db
@@ -44,6 +45,8 @@ flowchart LR
     inverterForwarder -->|"POST /api/ingestion/inverter\nx-api-key"| backend
     shellyDevices -->|"LAN HTTP/RPC status"| shellyForwarder
     shellyForwarder -->|"POST /api/ingestion/device\nx-api-key"| backend
+    flowSensor -->|"LAN RPC Input.GetStatus"| shellyForwarder
+    shellyForwarder -->|"POST /api/ingestion/flow\nx-api-key"| backend
     nginx <-->|"HTTPS"| user
 ```
 
@@ -69,6 +72,7 @@ flowchart LR
 - **Telemetry travels Pi → backend** with `x-api-key`. Browsers read it only through authenticated `/api/ingestion/*` endpoints and Socket.IO events.
 - **Shelly status normally travels Pi → backend**, where it is cached briefly. If that local status is stale, the backend falls back to the Shelly cloud API.
 - **Shelly control travels backend → Shelly cloud → relay**, including manual toggles, irrigation, and scheduled device activation. The Pi currently observes Shelly relay state; it does not execute relay-control commands.
+- **Flow sensor readings travel Pi → backend only.** The pulse counter is read-only: there is no control path, no cloud fallback, and the calibration (`pulsesPerLitre`) lives in `backend/config/shelly.json`, never in the device firmware.
 - Exact relay names and phases are configuration, not source code: `backend/config/shelly.json` defines the backend’s device/control mapping and `localComponent/shelly.json` defines the Pi’s LAN polling mapping.
 
 ## Flow 1: solar telemetry and live display
@@ -143,6 +147,38 @@ sequenceDiagram
     Note over B,Cloud: A device GET uses fresh Pi status first; otherwise the backend queries Shelly cloud as fallback.
 ```
 
+## Flow 2b: water flow sensor
+
+```mermaid
+sequenceDiagram
+    participant Uni as Shelly Plus Uni on LAN
+    participant Pi as Shelly forwarder on Pi
+    participant B as Backend
+    participant DB as PostgreSQL
+    participant UI as Logged-in Agua page
+
+    loop flow poll interval (every N relay ticks)
+        Pi->>Uni: GET /rpc/Input.GetStatus?id=2
+        Uni-->>Pi: counts.total, counts.by_minute, freq
+        Pi->>B: POST /api/ingestion/flow (x-api-key)
+        B->>B: Resolve sensor by shellyId + input; compute pulsesDelta
+        B->>B: Drop the delta if it implies more than maxLitresPerMinute
+        B->>DB: Insert FlowReading (raw total + delta + freq)
+        B->>B: Refresh flow status cache (rate, today's litres)
+        B-->>UI: Socket.IO flow:data
+    end
+    UI->>B: GET /api/flow/sensors, /:id/history, /:id/daily (JWT)
+    B->>DB: SUM(pulsesDelta) per interval / natural day (Europe/Madrid)
+    DB-->>B: pulses per bucket
+    B-->>UI: Litres derived as pulses / pulsesPerLitre
+```
+
+An unreachable sensor is posted with `online: false` and stored as such, so the
+UI can say "sin conexión" instead of silently showing the last known rate. The
+counter total is stored raw: if the device reboots and restarts from 0, the
+reading is flagged `counterReset` and the whole new total is attributed to that
+interval rather than producing a negative delta.
+
 ## Flow 3: normal application actions
 
 ```mermaid
@@ -171,3 +207,5 @@ Task creation/updates, riego state, device status and solar telemetry therefore 
 | Solar data validation and backend delivery | Node inverter forwarder on Pi | It sends `null` for stale or implausible values. |
 | Latest relay status | Pi status post while fresh; Shelly cloud fallback | Backend cache controls the freshness boundary. |
 | Relay commands | Backend services through Shelly cloud API | Includes manual, scheduled and riego commands. |
+| Water flow history | PostgreSQL `FlowReading` via backend | Raw pulse counters; litres are derived at read time from `pulsesPerLitre`. |
+| Flow sensor calibration | `backend/config/shelly.json` | Changing it recomputes the whole history — the device firmware never converts pulses to litres. |

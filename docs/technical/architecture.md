@@ -342,3 +342,29 @@ VITE_GOOGLE_CLIENT_ID=...
 ### Shelly device metadata
 
 `backend/config/shelly.json` is the source of truth for application-level device behavior. Devices default to persistent toggle control. Momentary relays use `controlMode: "pulse"`; the backend sends a one-shot `turn=on` command and does not interpret the relay's brief `on` state as a persistent device state. Set `showOnHome: true` to include a device on the Portada overview. Pulse devices cannot be assigned activation plans.
+
+A device entry can also declare `kind: "sensor"` (default `"relay"`), which makes it read-only: toggle, pulse and activation-plan endpoints answer `400`, and `fetchAllStatuses()` skips the relay poll for it entirely. The only sensor family implemented is `sensor.type: "flow"` — a pulse water meter on the counter input of a Shelly Plus Uni — with `sensor.pulsesPerLitre` as the calibration factor and `sensor.maxLitresPerMinute` as the plausibility limit. See the README for the full field reference.
+
+### Flow sensor data path
+
+```
+Shelly Plus Uni (input:2, type "count")
+        │  GET /rpc/Input.GetStatus?id=2   (LAN, Raspberry Pi)
+        ▼
+localComponent/src/shellyForwarder.js
+        │  POST /api/ingestion/flow        (API key, retries)
+        ▼
+backend/src/services/flowIngestion.js ──► PostgreSQL (FlowReading)
+        │                              └─► flowStatus.js (in-memory cache)
+        │  emitFlowData() → socket "flow:data"
+        ▼
+frontend: AguaPage, DevicesPage, PortadaPage
+```
+
+Design decisions worth keeping in mind:
+
+- **Polling from the Pi, not webhooks from the Shelly.** No API key on the device, no dependency on the Shelly reaching the public backend, and it reuses the forwarder infrastructure `deploy-local.sh` already ships.
+- **Raw counter in, litres out.** `FlowReading` stores `pulsesTotal` exactly as reported plus the `pulsesDelta` since the previous reading, so aggregations are a plain `SUM` and recalibration recomputes history instead of leaving a step in it.
+- **Deltas are computed at ingest**, from the in-memory cache (or the database on a cold start). A counter that goes backwards is a device reset: `counterReset` is set and the whole total is attributed to that interval.
+- **Implausible deltas are dropped** (`pulsesDelta = 0`, warning logged) rather than stored, the same defensive stance `forwarder.js` takes with inverter readings.
+- **Offline is recorded, not implied.** An unreachable sensor stores a row with `online: false`, so "sin conexión" is distinguishable from "the forwarder was down".

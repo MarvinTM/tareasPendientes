@@ -12,10 +12,14 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Tooltip from '@mui/material/Tooltip';
+import Button from '@mui/material/Button';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import WaterIcon from '@mui/icons-material/Water';
+import { Link as RouterLink } from 'react-router-dom';
 import api from '../services/api';
 import { useSocket } from '../contexts/SocketContext';
 import { getGroupIcon } from '../utils/iconMap';
+import { formatLitres, formatRate } from '../utils/flow';
 import PulseDeviceButton from '../components/PulseDeviceButton';
 
 function formatPlanLabel(plan) {
@@ -216,7 +220,16 @@ export default function DevicesPage() {
                           </Box>
                         </Box>
 
-                        {device.controlMode === 'pulse' ? (
+                        {device.kind === 'sensor' ? (
+                          <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                            <Typography variant="subtitle1" fontWeight="bold">
+                              {formatRate(device.online === false ? null : device.sensorStatus?.rateLpm)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {formatLitres(device.sensorStatus?.todayLitres)} hoy
+                            </Typography>
+                          </Box>
+                        ) : device.controlMode === 'pulse' ? (
                           <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'right', maxWidth: 120 }}>
                             Accionamiento momentáneo
                           </Typography>
@@ -235,7 +248,19 @@ export default function DevicesPage() {
                         )}
                       </Box>
 
-                      {device.controlMode === 'pulse' ? (
+                      {device.kind === 'sensor' ? (
+                        <Box sx={{ mt: 1 }}>
+                          <Button
+                            component={RouterLink}
+                            to="/agua"
+                            size="small"
+                            startIcon={<WaterIcon />}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Ver histórico de agua
+                          </Button>
+                        </Box>
+                      ) : device.controlMode === 'pulse' ? (
                         <Box sx={{ mt: 1.5 }}>
                           <PulseDeviceButton device={device} />
                         </Box>

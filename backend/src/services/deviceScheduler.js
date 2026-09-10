@@ -84,6 +84,10 @@ async function tick() {
         console.warn(`[Scheduler]   SKIP: device "${act.deviceId}" not found in shelly.json`);
         continue;
       }
+      if (device.kind === 'sensor') {
+        console.warn(`[Scheduler]   SKIP: sensor "${act.deviceId}" cannot use activation plans`);
+        continue;
+      }
       if (device.controlMode === 'pulse') {
         console.warn(`[Scheduler]   SKIP: pulse device "${act.deviceId}" cannot use activation plans`);
         continue;

@@ -564,6 +564,117 @@ Get all task history (paginated).
 
 ---
 
+## Water Flow Endpoints (Agua)
+
+Readings come from a pulse water meter wired to the counter input of a Shelly
+Plus Uni. The Raspberry Pi polls the device over the LAN and pushes readings to
+the ingestion endpoint; the frontend reads the derived series.
+
+Litres are never stored — they are derived as `pulsesDelta / pulsesPerLitre`
+from `backend/config/shelly.json`, so recalibrating the sensor recomputes the
+whole history. Intervals with no readings are returned as `null`, never `0`.
+
+### POST /ingestion/flow
+Receives pulse-counter readings from the local component.
+
+**Auth**: API key (`x-api-key` header), not JWT.
+
+**Body**:
+```json
+{
+  "timestamp": "2026-09-10T10:00:00.000Z",
+  "sensors": [
+    {
+      "shellyId": "<Shelly Plus Uni id>",
+      "input": 2,
+      "online": true,
+      "counts": { "total": 123456, "by_minute": [12, 15, 14], "minute_ts": 1757498400 },
+      "freq": 3.2
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| sensors | array | Required, non-empty. Entries whose `shellyId` + `input` pair is not declared as a sensor are ignored with a warning. |
+| online | boolean | `false` for an unreachable device: a row is still stored (with `pulsesDelta: 0`) so "sin conexión" is recorded rather than becoming an unexplained gap. |
+| counts.total | int | Monotonic pulse counter as reported by the device. A lower value than the previous reading is treated as a device reset: `counterReset` is set and the whole total is attributed to the interval. |
+| freq | float | Instantaneous frequency in Hz, used for the current rate (`freq × 60 / pulsesPerLitre`). |
+
+**Response**: `201 { "stored": 1 }`
+
+Also emits the `flow:data` WebSocket event with one summary per stored reading.
+
+---
+
+### GET /flow/sensors
+Declared flow sensors with their current status.
+
+**Response**:
+```json
+[
+  {
+    "id": "caudal-deposito",
+    "name": "Entrada de agua al depósito",
+    "room": "Depósito",
+    "group": "water",
+    "showOnHome": true,
+    "pulsesPerLitre": 450,
+    "online": true,
+    "rateLpm": 12.5,
+    "todayLitres": 340.2,
+    "lastReadingAt": "2026-09-10T10:00:00.000Z"
+  }
+]
+```
+
+`online` is `false` when the last reading is older than the freshness window
+(`FLOW_FRESHNESS_MS`, 90 s by default), so a sensor that stopped reporting never
+shows a frozen rate. `todayLitres` is the current natural day in `Europe/Madrid`.
+
+---
+
+### GET /flow/:sensorId/history
+Litres per interval for a chart.
+
+**Query Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| range | string | `24h` (5-minute intervals, default), `7d` (hourly) or `30d` (daily). Anything else → `400`. |
+
+**Response**:
+```json
+[
+  { "time": "2026-09-10T09:55:00.000Z", "litres": 3.2, "avgRateLpm": 10.4 },
+  { "time": "2026-09-10T10:00:00.000Z", "litres": null, "avgRateLpm": null }
+]
+```
+
+**Errors**: `400` unsupported range, `404` unknown sensor.
+
+---
+
+### GET /flow/:sensorId/daily
+Litres per natural day in `Europe/Madrid`.
+
+**Query Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| days | int | Number of days ending today. Default 30, clamped to 1–365. |
+
+**Response**:
+```json
+[
+  { "date": "2026-09-09", "time": "2026-09-08T22:00:00.000Z", "litres": 412.5 },
+  { "date": "2026-09-10", "time": "2026-09-09T22:00:00.000Z", "litres": null }
+]
+```
+
+**Errors**: `404` unknown sensor.
+
+---
+
 ## WebSocket Events
 
 ### Connection
@@ -578,6 +689,11 @@ const socket = io(API_URL, { withCredentials: true });
 | `task:created` | Task object | New task created |
 | `task:updated` | Task object | Task modified |
 | `task:deleted` | `{ id: "uuid" }` | Task deleted |
+| `device:updated` | `{ id, on, online, source }` | Shelly relay state changed |
+| `device:pulsed` | `{ id, triggeredAt }` | Pulse device triggered |
+| `riego:updated` | Riego queue state | Irrigation queue changed |
+| `inverter:data` | Array of inverter readings | New solar reading ingested |
+| `flow:data` | Array of `{ sensorId, name, room, online, rateLpm, todayLitres, lastReadingAt, pulsesDelta, counterReset }` | New flow-sensor reading ingested |
 
 ---
 

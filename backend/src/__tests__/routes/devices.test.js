@@ -185,6 +185,15 @@ describe('Devices Routes', () => {
       expect(res.status).toBe(400);
       expect(mockToggleDevice).not.toHaveBeenCalled();
     });
+
+    it('rejects toggle control for sensor devices', async () => {
+      mockGetDeviceById.mockReturnValueOnce({ id: 'caudal-deposito', name: 'Caudal', kind: 'sensor' });
+
+      const res = await request(app).post('/api/devices/caudal-deposito/toggle');
+
+      expect(res.status).toBe(400);
+      expect(mockToggleDevice).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/devices/:deviceId/pulse', () => {
@@ -205,6 +214,15 @@ describe('Devices Routes', () => {
       mockGetDeviceById.mockReturnValueOnce({ id: 'dev-1', name: 'Light', controlMode: 'toggle' });
 
       const res = await request(app).post('/api/devices/dev-1/pulse');
+
+      expect(res.status).toBe(400);
+      expect(mockPulseDevice).not.toHaveBeenCalled();
+    });
+
+    it('rejects pulse control for sensor devices', async () => {
+      mockGetDeviceById.mockReturnValueOnce({ id: 'caudal-deposito', name: 'Caudal', kind: 'sensor' });
+
+      const res = await request(app).post('/api/devices/caudal-deposito/pulse');
 
       expect(res.status).toBe(400);
       expect(mockPulseDevice).not.toHaveBeenCalled();

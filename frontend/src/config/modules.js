@@ -2,10 +2,13 @@ import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import SolarPowerIcon from '@mui/icons-material/SolarPower';
+import WaterIcon from '@mui/icons-material/Water';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import HomeIcon from '@mui/icons-material/Home';
 
+// `shortLabel` is used only by the mobile bottom navigation, where six modules
+// share the screen width; everything else (drawer, page header) uses `label`.
 export const modules = [
   {
     id: 'portada',
@@ -28,6 +31,7 @@ export const modules = [
   {
     id: 'dispositivos',
     label: 'Dispositivos',
+    shortLabel: 'Aparatos',
     icon: LightbulbIcon,
     path: '/dispositivos',
     subNav: [
@@ -47,8 +51,18 @@ export const modules = [
     ],
   },
   {
+    id: 'agua',
+    label: 'Agua',
+    icon: WaterIcon,
+    path: '/agua',
+    subNav: [
+      { label: 'Depósito', path: '/agua' },
+    ],
+  },
+  {
     id: 'solar',
     label: 'Paneles Solares',
+    shortLabel: 'Solar',
     icon: SolarPowerIcon,
     path: '/solar',
     subNav: [

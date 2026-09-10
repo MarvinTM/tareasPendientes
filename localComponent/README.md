@@ -141,6 +141,12 @@ All knobs live in `localComponent/.env` (see `.env.example`).
 | `POLLER_DOWN_CYCLES` | `6` | forwarder: poller-watchdog trip #2. If `/snapshot` itself is unreachable for this many consecutive fetches (poller HTTP server dead = process wedge), run `POLLER_RESTART_CMD`. |
 | `POLLER_RESTART_COOLDOWN_MS` | `300000` | forwarder: minimum interval between poller restarts. One restart per cooldown regardless of which trip fired, so a stuck poller doesn't get hammered. |
 | `POLLER_RESTART_CMD` | `pm2 restart local-poller --update-env` | forwarder: command the watchdog runs when it decides to restart the poller. Override if `pm2` is not on the default PATH (the forwarder runs it via `bash -lc` so the user's profile is sourced). |
+| `SHELLY_CONFIG` | `./shelly.json` | Shelly forwarder: LAN device/sensor mapping |
+| `SHELLY_POLL_INTERVAL_MS` | `10000` | Shelly forwarder: relay status poll cadence |
+| `SHELLY_REQUEST_TIMEOUT_MS` | `3000` | Shelly forwarder: per-request LAN timeout (also `requestTimeoutMs` in `shelly.json`) |
+| `SHELLY_BACKEND_PATH` | `/api/ingestion/device` | Shelly forwarder: relay status endpoint |
+| `SHELLY_FLOW_BACKEND_PATH` | `/api/ingestion/flow` | Shelly forwarder: pulse-sensor endpoint — see "Pulse sensors" below |
+| `SHELLY_FLOW_POLL_EVERY_N_TICKS` | `3` | Shelly forwarder: poll pulse counters once every N relay ticks (3 × 10 s = every 30 s) |
 
 Poller-only knobs (`LINK_KEEPALIVE_MS`, `LINK_READ_TIMEOUT_MS`, etc.) can also
 be set in the pm2 ecosystem env block.
@@ -176,6 +182,69 @@ working: validate the frontend `/today` math, then set
 physically-correct Huawei-native convention) and re-check the chart. The poller
 itself always stores Huawei-native values in `/snapshot` — only the forwarder
 shapes for the backend.
+
+## Pulse sensors (caudalímetro)
+
+The Shelly forwarder (`src/shellyForwarder.js`, PM2 app `local-shelly-forwarder`)
+polls Shelly relay state over the LAN and, on the same tick loop, reads pulse
+counters from devices that declare an `inputs` array in `shelly.json`:
+
+```json
+{
+  "pollIntervalMs": 10000,
+  "requestTimeoutMs": 3000,
+  "devices": [
+    {
+      "shellyId": "30c6f78a406c",
+      "ip": "192.168.1.102",
+      "channels": [0, 1],
+      "name": "Luces Entrada + Focos Explanada"
+    },
+    {
+      "shellyId": "<Shelly Plus Uni id>",
+      "ip": "192.168.1.120",
+      "name": "Caudal depósito",
+      "inputs": [{ "id": 2, "type": "count" }]
+    }
+  ]
+}
+```
+
+- `channels` and `inputs` are independent. A relay-only device keeps its current
+  shape; a sensor-only device needs no `channels`; a device with both is polled
+  for both.
+- Each input is read with `GET /rpc/Input.GetStatus?id=<n>` and posted to
+  `SHELLY_FLOW_BACKEND_PATH` as
+  `{ timestamp, sensors: [{ shellyId, input, online, counts, freq }] }`,
+  through the same retrying `postToBackend` and the same `API_KEY` as relay
+  status. No new PM2 process.
+- An unreachable device is posted with `online: false` and no `counts`, so the
+  backend records "sin conexión" instead of an unexplained gap.
+- Counter totals are forwarded **raw**. Calibration (`pulsesPerLitre`) lives in
+  `backend/config/shelly.json` under the matching `kind: "sensor"` device, so
+  the stored history never depends on device firmware settings and a
+  recalibration recomputes the whole history.
+
+### Device-side setup
+
+The Shelly Plus Uni counts pulses in hardware once `input:2` is in `count` mode:
+
+```bash
+# Configure the counter input (once, or from the device web UI)
+curl -X POST http://<ip>/rpc/Input.SetConfig \
+  -H 'Content-Type: application/json' \
+  -d '{"id":2,"config":{"type":"count","enable":true,"freq_window":10}}'
+
+# Verify: counts.total must increase while water flows
+curl http://<ip>/rpc/Input.GetStatus?id=2
+```
+
+Update the device firmware first — `counts.by_minute` and `freq` need a recent
+version. Then calibrate `pulsesPerLitre` by noting `counts.total` before and
+after filling a known volume (a 20 L bucket is enough). Hall-effect meters
+typically report ~450 p/L (YF-S201) to ~660 p/L (YF-B series); industrial meters
+are often 1–10 p/L. Check the sensor datasheet against the Uni's input
+specification before wiring — many 5 V open-collector sensors need a pull-up.
 
 ## HTTP API (poller)
 
@@ -238,6 +307,7 @@ and become visible as numbers.
 localComponent/
   src/
     forwarder.js            Node forwarder (polls /snapshot, POSTs backend)
+    shellyForwarder.js      Node Shelly forwarder (LAN relay status + pulse sensors)
   poller/                   Go poller (cross-compiled to a static binary)
     cmd/huawei-poller/main.go          entry point (+ `-scan` subcommand)
     internal/config/config.go          env/flags
@@ -248,6 +318,7 @@ localComponent/
     internal/server/http.go             /snapshot /metrics /debug /dump /scan endpoints
     bin/                                build output (gitignored)
   docs/register-map.md     Huawei SUN2000 register reference
+  shelly.example.json      Shelly LAN mapping (relay channels + sensor inputs)
   .env.example
 ```
 

@@ -128,4 +128,66 @@ describe('PortadaPage', () => {
     expect(screen.getByText('Tienes 2 tareas pendientes.')).toBeInTheDocument();
     expect(screen.queryByText('Tarea de otra persona')).not.toBeInTheDocument();
   });
+  it('shows a featured flow sensor with its current values', async () => {
+    mockApiGet.mockImplementation((url) => {
+      if (url === '/devices') {
+        return Promise.resolve({ data: [
+          {
+            id: 'caudal-deposito',
+            name: 'Entrada de agua al depósito',
+            group: 'water',
+            kind: 'sensor',
+            showOnHome: true,
+            on: null,
+            online: true,
+            source: 'local',
+            sensorStatus: { rateLpm: 12.5, todayLitres: 340, lastReadingAt: '2026-09-10T10:00:00.000Z' },
+          },
+        ] });
+      }
+      if (url === '/ingestion/latest') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error(`Unknown URL: ${url}`));
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('12.5 L/min')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('340 L hoy')).toBeInTheDocument();
+    // Read-only: it opens the Agua module instead of switching anything.
+    expect(screen.getByRole('button', { name: /ver histórico de agua/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /encender|apagar/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a featured flow sensor as offline without a rate', async () => {
+    mockApiGet.mockImplementation((url) => {
+      if (url === '/devices') {
+        return Promise.resolve({ data: [
+          {
+            id: 'caudal-deposito',
+            name: 'Entrada de agua al depósito',
+            group: 'water',
+            kind: 'sensor',
+            showOnHome: true,
+            on: null,
+            online: false,
+            source: 'unknown',
+            sensorStatus: { rateLpm: null, todayLitres: null, lastReadingAt: null },
+          },
+        ] });
+      }
+      if (url === '/ingestion/latest') return Promise.resolve({ data: [] });
+      return Promise.reject(new Error(`Unknown URL: ${url}`));
+    });
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Sin conexión')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('— hoy')).toBeInTheDocument();
+  });
 });
