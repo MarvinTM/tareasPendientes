@@ -9,6 +9,9 @@ const BACKEND_PATH = process.env.SHELLY_BACKEND_PATH || '/api/ingestion/device';
 const FLOW_BACKEND_PATH = process.env.SHELLY_FLOW_BACKEND_PATH || '/api/ingestion/flow';
 // Flow counters change slowly compared to relay state, so they can be polled
 // on a multiple of the relay tick (1 = every tick).
+const COMMAND_PATH = process.env.SHELLY_COMMAND_PATH || '/api/ingestion/commands';
+// How long the backend may hold each command long-poll open.
+const COMMAND_WAIT_MS = parseInt(process.env.SHELLY_COMMAND_WAIT_MS || '25000', 10);
 const FLOW_EVERY_N_TICKS = Math.max(1, parseInt(process.env.SHELLY_FLOW_POLL_EVERY_N_TICKS || '3', 10));
 
 let config = null;
@@ -154,6 +157,97 @@ async function postToBackend(payload, path = BACKEND_PATH, label = 'device') {
   console.error(`Shelly forwarder POST ${path} failed after 4 attempts`);
 }
 
+// --- Relay commands over the LAN ---------------------------------------------
+// The backend cannot reach the Pi, so we long-poll it for commands and run
+// them against the devices directly. This keeps lights and the gate working
+// when the Shelly cloud is down.
+
+// Gen2+ RPC first; only on 404 (Gen1 has no /rpc) fall back to the Gen1 API.
+// No fallback on timeouts: the first request may already have switched it.
+async function switchSet(ip, channel, on, timeoutMs) {
+  const res = await fetch(`http://${ip}/rpc/Switch.Set?id=${channel}&on=${on}`, {
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (res.status === 404) {
+    const gen1 = await fetch(`http://${ip}/relay/${channel}?turn=${on ? 'on' : 'off'}`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!gen1.ok) throw new Error(`HTTP ${gen1.status}`);
+    return;
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+async function runCommand(cmd) {
+  const cfg = loadConfig();
+  const timeoutMs = cfg.requestTimeoutMs || 3000;
+  const device = cfg.devices.find(d => d.shellyId === cmd.shellyId && d.ip);
+  if (!device) {
+    return { ok: false, error: `unknown shellyId ${cmd.shellyId}` };
+  }
+
+  try {
+    if (cmd.action === 'pulse') {
+      // The relay's own auto_off releases it, exactly as with the cloud "turn=on".
+      await switchSet(device.ip, cmd.channel, true, timeoutMs);
+      return { ok: true };
+    }
+    if (cmd.action === 'on' || cmd.action === 'off') {
+      const on = cmd.action === 'on';
+      await switchSet(device.ip, cmd.channel, on, timeoutMs);
+      const status = await fetchShellyStatus(device.ip, cmd.channel, timeoutMs);
+      if (status === null) return { ok: false, error: 'state read-back failed' };
+      return { ok: status.on === on, on: status.on };
+    }
+    return { ok: false, error: `unknown action ${cmd.action}` };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+
+async function handleCommand(cmd) {
+  const result = await runCommand(cmd);
+  const tag = `${cmd.action} ${cmd.shellyId}:${cmd.channel}`;
+  if (result.ok) {
+    console.log(`Shelly command ${tag} ok`);
+  } else {
+    console.error(`Shelly command ${tag} failed: ${result.error ?? `state=${result.on}`}`);
+  }
+
+  try {
+    const res = await fetch(`${BACKEND}${COMMAND_PATH}/${encodeURIComponent(cmd.id)}/result`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+      body: JSON.stringify(result),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) console.error(`Shelly command ${tag} result POST HTTP ${res.status}`);
+  } catch (err) {
+    console.error(`Shelly command ${tag} result POST failed:`, err.message);
+  }
+}
+
+async function commandLoop() {
+  console.log(`Shelly command channel: long-polling ${COMMAND_PATH}`);
+  while (!shutdown) {
+    try {
+      const res = await fetch(`${BACKEND}${COMMAND_PATH}?wait=${COMMAND_WAIT_MS}`, {
+        headers: { 'x-api-key': API_KEY },
+        signal: AbortSignal.timeout(COMMAND_WAIT_MS + 15000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { commands = [] } = await res.json();
+      // Not awaited: re-poll straight away so later commands are not queued
+      // behind a slow device.
+      for (const cmd of commands) handleCommand(cmd);
+    } catch (err) {
+      if (shutdown) break;
+      console.error('Shelly command poll failed:', err.message);
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
+}
+
 let tickCount = 0;
 
 async function tick() {
@@ -211,6 +305,7 @@ async function main() {
   tick();
 
   interval = setInterval(tick, POLL_INTERVAL);
+  commandLoop();
 
   process.on('SIGINT', gracefullyStop);
   process.on('SIGTERM', gracefullyStop);

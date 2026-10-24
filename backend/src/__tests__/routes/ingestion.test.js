@@ -302,4 +302,47 @@ describe('Ingestion Routes', () => {
       expect(mockEmitFlowData).not.toHaveBeenCalled();
     });
   });
+
+  describe('local command channel', () => {
+    it('returns 401 without API key', async () => {
+      const res = await request(app).get('/api/ingestion/commands?wait=10');
+      expect(res.status).toBe(401);
+    });
+
+    it('hands a queued command to the poll and accepts its result', async () => {
+      const { sendLocalCommand } = await import('../../services/localCommands.js');
+      const pending = sendLocalCommand({ shellyId: '30c6f78a406c', channel: 0, action: 'on' });
+
+      const poll = await request(app)
+        .get('/api/ingestion/commands?wait=1000')
+        .set('x-api-key', 'test-key');
+      expect(poll.status).toBe(200);
+      expect(poll.body.commands).toHaveLength(1);
+      const [cmd] = poll.body.commands;
+      expect(cmd).toMatchObject({ shellyId: '30c6f78a406c', channel: 0, action: 'on' });
+
+      const result = await request(app)
+        .post(`/api/ingestion/commands/${cmd.id}/result`)
+        .set('x-api-key', 'test-key')
+        .send({ ok: true, on: true });
+      expect(result.status).toBe(200);
+      await expect(pending).resolves.toMatchObject({ delivered: true, ok: true, on: true });
+    });
+
+    it('returns an empty list when nothing is queued', async () => {
+      const res = await request(app)
+        .get('/api/ingestion/commands?wait=10')
+        .set('x-api-key', 'test-key');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ commands: [] });
+    });
+
+    it('returns 404 for an unknown command result', async () => {
+      const res = await request(app)
+        .post('/api/ingestion/commands/unknown/result')
+        .set('x-api-key', 'test-key')
+        .send({ ok: true });
+      expect(res.status).toBe(404);
+    });
+  });
 });

@@ -1,7 +1,8 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { getShellyStatus, markStale } from './shellyLocalStatus.js';
+import { getShellyStatus, markStale, setRelayState } from './shellyLocalStatus.js';
+import { isLocalControlAvailable, sendLocalCommand } from './localCommands.js';
 import { getFlowStatus } from './flowStatus.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -332,6 +333,24 @@ function extractRelays(deviceStatus) {
   return switches;
 }
 
+// Run an explicit on/off over the LAN via the local component. Returns the
+// confirmed state, or null when the caller should use the cloud API instead.
+// on/off are idempotent, so falling back after any local failure is safe.
+async function setRelayLocally(deviceId, shellyId, channel, on) {
+  if (!isLocalControlAvailable()) return null;
+
+  const action = on ? 'on' : 'off';
+  const result = await sendLocalCommand({ shellyId, channel, action });
+  if (result.ok && result.on === on) {
+    setRelayState(shellyId, channel, on);
+    console.log(`Shelly ${action} for ${deviceId} done locally`);
+    return { on };
+  }
+
+  console.warn(`Shelly local ${action} failed for ${deviceId} (${result.error ?? `state=${result.on}`}), using cloud API`);
+  return null;
+}
+
 export async function toggleDevice(deviceId) {
   invalidateStatusCache();
   const config = loadConfig();
@@ -347,8 +366,18 @@ export async function toggleDevice(deviceId) {
   }
 
   const shellyId = device.shellyId || device.id;
-  markStale(shellyId);
   const channel = device.channel ?? 0;
+
+  // Locally, a toggle is resolved to an explicit on/off from the state the
+  // forwarder last reported, so a retry through the cloud cannot flip it back.
+  const local = getShellyStatus(shellyId);
+  const current = local?.online ? local.relays?.[channel]?.on : null;
+  if (typeof current === 'boolean') {
+    const localResult = await setRelayLocally(deviceId, shellyId, channel, !current);
+    if (localResult) return localResult;
+  }
+
+  markStale(shellyId);
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
     id: shellyId,
@@ -395,6 +424,22 @@ export async function pulseDevice(deviceId) {
   const shellyId = device.shellyId || device.id;
   markStale(shellyId);
   const channel = device.channel ?? 0;
+
+  // A pulse is not idempotent (a second one stops or reverses a gate), so the
+  // cloud is only used when the command certainly never reached the device.
+  if (isLocalControlAvailable()) {
+    const result = await sendLocalCommand({ shellyId, channel, action: 'pulse' });
+    if (result.ok) {
+      console.log(`Shelly pulse for ${deviceId} done locally`);
+      return { triggered: true };
+    }
+    if (result.delivered) {
+      console.error(`Shelly pulse error for ${deviceId} (local): ${result.error}`);
+      throw new Error(`Shelly API error: local pulse failed (${result.error})`);
+    }
+    console.warn(`Shelly local pulse not delivered for ${deviceId} (${result.error}), using cloud API`);
+  }
+
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
     id: shellyId,
@@ -438,8 +483,12 @@ export async function turnDeviceOn(deviceId) {
   }
 
   const shellyId = device.shellyId || device.id;
-  markStale(shellyId);
   const channel = device.channel ?? 0;
+
+  const localResult = await setRelayLocally(deviceId, shellyId, channel, true);
+  if (localResult) return localResult;
+
+  markStale(shellyId);
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
     id: shellyId,
@@ -507,8 +556,12 @@ export async function turnDeviceOff(deviceId) {
   }
 
   const shellyId = device.shellyId || device.id;
-  markStale(shellyId);
   const channel = device.channel ?? 0;
+
+  const localResult = await setRelayLocally(deviceId, shellyId, channel, false);
+  if (localResult) return localResult;
+
+  markStale(shellyId);
   const url = `${config.server}/device/relay/control`;
   const body = new URLSearchParams({
     id: shellyId,

@@ -147,6 +147,8 @@ All knobs live in `localComponent/.env` (see `.env.example`).
 | `SHELLY_BACKEND_PATH` | `/api/ingestion/device` | Shelly forwarder: relay status endpoint |
 | `SHELLY_FLOW_BACKEND_PATH` | `/api/ingestion/flow` | Shelly forwarder: pulse-sensor endpoint — see "Pulse sensors" below |
 | `SHELLY_FLOW_POLL_EVERY_N_TICKS` | `3` | Shelly forwarder: poll pulse counters once every N relay ticks (3 × 10 s = every 30 s) |
+| `SHELLY_COMMAND_PATH` | `/api/ingestion/commands` | Shelly forwarder: backend path long-polled for relay commands to run over the LAN |
+| `SHELLY_COMMAND_WAIT_MS` | `25000` | Shelly forwarder: how long the backend may hold each command poll open (keep below nginx's 60 s `proxy_read_timeout`) |
 
 Poller-only knobs (`LINK_KEEPALIVE_MS`, `LINK_READ_TIMEOUT_MS`, etc.) can also
 be set in the pm2 ecosystem env block.
@@ -182,6 +184,34 @@ working: validate the frontend `/today` math, then set
 physically-correct Huawei-native convention) and re-check the chart. The poller
 itself always stores Huawei-native values in `/snapshot` — only the forwarder
 shapes for the backend.
+
+## Local relay control
+
+Commands from the app (lights, pool pump, garage gate, scheduler, riego) are
+sent to the Shellys **over the LAN first** and only go through the Shelly cloud
+when the Pi is not connected. This keeps everything working through Shelly
+cloud outages (e.g. 2026-10-24, ~40 min of HTTP 502/504 from
+`shelly-263-eu.shelly.cloud`).
+
+The backend cannot open connections to the Pi, so `shellyForwarder.js` keeps a
+long-poll open on `GET /api/ingestion/commands`. The backend answers it the
+moment a command is queued; the forwarder calls `Switch.Set` on the device
+(Gen1 `/relay/N?turn=` on 404) and posts the outcome to
+`POST /api/ingestion/commands/:id/result`.
+
+Backend rules (`backend/src/services/localCommands.js`, `shelly.js`):
+
+- The Pi counts as connected while a poll is held open or one ended < 5 s ago.
+- On/off are sent as explicit states and read back; any local failure falls
+  back to the cloud, which is safe because they are idempotent. A toggle is
+  resolved to on/off from the last forwarder-reported state.
+- A **pulse** (gate) only falls back to the cloud if the Pi never received the
+  command. If it was delivered but no result arrived, the request fails rather
+  than risk a second pulse that would stop or reverse the gate.
+
+Backend log lines: `Shelly <action> for <device> done locally` /
+`Shelly local <action> failed ... using cloud API`. Pi log lines:
+`Shelly command <action> <shellyId>:<ch> ok|failed`.
 
 ## Pulse sensors (caudalímetro)
 

@@ -6,6 +6,7 @@ import { emitInverterData, emitDeviceUpdate, emitFlowData } from '../socket.js';
 import { updateShellyStatus } from '../services/shellyLocalStatus.js';
 import { loadConfig, getSensorDevice } from '../services/shelly.js';
 import { ingestFlowReading } from '../services/flowIngestion.js';
+import { waitForCommands, completeCommand } from '../services/localCommands.js';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -99,6 +100,22 @@ router.post('/device', apiKeyAuth, async (req, res) => {
     console.error('Device ingestion error:', err.message);
     res.status(500).json({ error: 'Failed to process device status' });
   }
+});
+
+// GET /api/ingestion/commands — long-poll for relay commands to run over the LAN (API key auth)
+// Held open up to ?wait ms (capped below nginx's 60s proxy_read_timeout).
+router.get('/commands', apiKeyAuth, (req, res) => {
+  const waitMs = Math.min(Math.max(Number(req.query.wait) || 25000, 0), 50000);
+  waitForCommands(req, res, waitMs);
+});
+
+// POST /api/ingestion/commands/:id/result — local component reports a command outcome (API key auth)
+router.post('/commands/:id/result', apiKeyAuth, (req, res) => {
+  const known = completeCommand(req.params.id, req.body);
+  if (!known) {
+    return res.status(404).json({ error: 'Unknown or expired command' });
+  }
+  res.status(200).json({ ok: true });
 });
 
 // POST /api/ingestion/flow — receive pulse-counter readings from local component (API key auth)
