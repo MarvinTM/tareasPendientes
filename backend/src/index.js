@@ -23,6 +23,7 @@ import ingestionRoutes from './routes/ingestion.js';
 import flowRoutes from './routes/flow.js';
 import { init as initRiego } from './services/riegoQueue.js';
 import { init as initScheduler } from './services/deviceScheduler.js';
+import { isAllowedOrigin } from './config/allowedOrigins.js';
 
 process.on('uncaughtException', (err) => {
   console.error('[FATAL] Uncaught exception:', err.message, err.stack);
@@ -46,22 +47,8 @@ const corsOptions = {
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
 
-    // Allow localhost, local network IPs, and nip.io domains
-    const allowedPatterns = [
-      /^http:\/\/localhost(:\d+)?$/,
-      /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-      /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-      /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-      /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-      /^http:\/\/[\d.]+\.nip\.io(:\d+)?$/  // nip.io wildcard DNS
-    ];
-
-    if (allowedPatterns.some(pattern => pattern.test(origin))) {
-      return callback(null, true);
-    }
-
-    // Also allow if FRONTEND_URL is set and matches
-    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+    // Allow localhost, local network IPs, nip.io domains and FRONTEND_URL
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 

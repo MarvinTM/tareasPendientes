@@ -50,7 +50,8 @@ export default defineConfig({
         clientsClaim: true,
         globPatterns: ['**/*.{html,svg,png,ico,woff,woff2}'],
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//],
+        // /roadmap is a separate app served on the same origin (see nginx config).
+        navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io\//, /^\/roadmap(\/|$)/],
         runtimeCaching: [
           {
             urlPattern: /^\/api\//,

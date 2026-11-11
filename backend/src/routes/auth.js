@@ -3,6 +3,7 @@ import passport from 'passport';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/passport.js';
 import { authenticateToken, generateToken } from '../middleware/auth.js';
+import { safeRedirectTarget } from '../config/allowedOrigins.js';
 
 const router = express.Router();
 
@@ -46,13 +47,18 @@ router.get('/google/callback', (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    // Get redirect URL from OAuth state parameter
+    // Get redirect URL from OAuth state parameter. Only same-host or allowed
+    // origins are honoured, so a crafted login link cannot bounce the user
+    // to an arbitrary site.
     let frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     try {
       if (req.query.state) {
         const state = JSON.parse(Buffer.from(req.query.state, 'base64').toString());
-        if (state.redirectOrigin) {
-          frontendUrl = state.redirectOrigin;
+        const target = safeRedirectTarget(state.redirectOrigin, req.get('host'));
+        if (target) {
+          frontendUrl = target;
+        } else if (state.redirectOrigin) {
+          console.warn('Ignoring disallowed login redirect:', state.redirectOrigin);
         }
       }
     } catch (e) {
